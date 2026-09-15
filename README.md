@@ -39,17 +39,35 @@ MultiFunPlayer.
 Windows, with a current Node.js LTS.
 
 ```bash
-npm install        # install dependencies and rebuild native modules
-npm run dev        # start the app in development mode
-npm run dev:watch  # the same, restarting on changes
-npm run sandbox    # start a first-run copy on an empty user data folder
-npm run typecheck  # type-check main and renderer
-npm run build      # build into out/
-npm run dist       # package the Windows installer and portable build into release/
+npm install           # install dependencies and rebuild native modules
+npm run dev           # start the app in development mode
+npm run dev:watch     # the same, restarting on changes
+npm run sandbox       # start a first-run copy on an empty user data folder
+npm run typecheck     # type-check main and renderer
+npm run build         # build into out/
+npm run check:*       # protocol and data-compatibility checks (see scripts/)
+npm run release       # build and pack an installable release into release/velopack
 ```
 
 Optional binaries (`mpv.exe`, `ffmpeg.exe`, `yt-dlp.exe`) can be placed in
 `resources/bin/`; they are bundled with the packaged app.
+
+## Releasing
+
+A tag is the whole process. `.github/workflows/release.yml` builds it, packs
+an installer, a portable zip and a delta package with
+[Velopack](https://velopack.io), and publishes them as a GitHub release; the
+app finds them from there.
+
+1. Write `release-notes/<version>.md` — the app shows this text when it offers
+   the update, and the workflow refuses a release without it.
+2. Commit, then push a tag: `v1.2.0` releases on the stable channel,
+   `v1.2.0-beta.1` on the beta channel (beta users also receive stable
+   releases when those are newer).
+
+Anything a release changes about stored data has to keep an older build safe,
+since the app offers going back to one: run `npm run check:data-compat` after
+changing a persisted shape.
 
 ## Layout
 
