@@ -9,8 +9,11 @@
 // output directory, so the workflow downloads the previous release into it
 // first. Without them the release still works; users just download more.
 import { spawnSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+// The app's own ordering, so a release and the app never disagree about which
+// version is newer. Run through `npm run release`, which strips the types.
+import { compareVersions } from '../src/shared/semver.ts'
 
 const root = resolve(import.meta.dirname, '..')
 const args = process.argv.slice(2)
@@ -50,6 +53,24 @@ if (!args.includes('--skip-build')) {
 if (!existsSync(join(packDir, 'Funscript Manager.exe'))) {
   console.error(`no build to pack in ${packDir}`)
   process.exit(1)
+}
+
+dropPackagesNotOlderThan(version)
+
+/**
+ * Packages in the output directory are there to build deltas against, and the
+ * tool refuses to pack a version that is not the newest among them. Releasing a
+ * fix on an older line downloads a newer release as "previous", so anything not
+ * older than what is being packed is put out of the way first.
+ */
+function dropPackagesNotOlderThan(target) {
+  if (!existsSync(outputDir)) return
+  for (const name of readdirSync(outputDir)) {
+    const found = /-(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)-(?:full|delta)\.nupkg$/.exec(name)
+    if (!found || compareVersions(found[1], target) < 0) continue
+    console.log(`ignoring ${name}: not older than ${target}`)
+    rmSync(join(outputDir, name))
+  }
 }
 
 const packArgs = [

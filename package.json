@@ -15,7 +15,7 @@
     "check:players": "node scripts/check-players.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.node.json --composite false && tsc --noEmit -p tsconfig.web.json --composite false",
     "postinstall": "electron-builder install-app-deps",
-    "release": "node scripts/release.mjs"
+    "release": "node --experimental-strip-types scripts/release.mjs"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

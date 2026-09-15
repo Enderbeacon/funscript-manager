@@ -67,7 +67,7 @@ jobs:
           ${{ steps.meta.outputs.pre == 'true' && '--pre' || '' }}
 
       - name: Build and pack
-        run: node scripts/release.mjs --channel ${{ steps.meta.outputs.channel }}
+        run: npm run release -- --channel ${{ steps.meta.outputs.channel }}
 
       - name: Publish the release
         run: >
