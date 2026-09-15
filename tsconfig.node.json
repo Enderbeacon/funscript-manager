@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2023"],
+    "types": ["node"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "outDir": "out/types-node",
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "@shared/*": ["./src/shared/*"],
+      "@script-player/*": ["./src/script-player/*"]
+    }
+  },
+  "include": [
+    "electron.vite.config.ts",
+    "src/main/**/*.ts",
+    "src/preload/**/*.ts",
+    "src/shared/**/*.ts",
+    "src/script-player/domain/**/*.ts",
+    "src/script-player/application/**/*.ts",
+    "src/script-player/shared/**/*.ts",
+    "src/script-player/infrastructure/**/*.ts",
+    "src/script-player/interface/ipc/**/*.ts",
+    "src/script-player/composition/**/*.ts",
+    "scripts/script-player-protocol-check.ts"
+  ]
+}

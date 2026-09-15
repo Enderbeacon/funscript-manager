@@ -1,0 +1,12 @@
+node_modules/
+out/
+release/
+dist/
+*.log
+*.local
+.DS_Store
+Thumbs.db
+
+# External binaries are dropped in by hand; see resources/bin/README.txt
+resources/bin/*
+!resources/bin/README.txt
