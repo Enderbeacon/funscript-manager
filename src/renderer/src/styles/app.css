@@ -7065,3 +7065,17 @@ button.sp-connect-button.connected:hover:not(:disabled) {
   background: color-mix(in srgb, var(--accent) 15%, transparent);
   color: var(--accent);
 }
+
+/* The action in a release row: quiet next to the version, but plainly a button
+   to press — the app's usual secondary style read as disabled here. */
+.release-row button {
+  padding: 0.25rem 0.75rem;
+  background: transparent;
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.release-row button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+}

@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 import { app, session } from 'electron'
-import { UpdateManager, VelopackApp, type UpdateInfo, type VelopackAsset } from 'velopack'
+import { HttpSource, UpdateManager, VelopackApp, type UpdateInfo, type VelopackAsset } from 'velopack'
 import { AppError } from '@shared/errors'
 import { compareVersions } from '@shared/semver'
 import type { Settings } from '@shared/schemas/app-config'
@@ -81,7 +81,7 @@ export function runUpdaterStartup(): void {
 /** Called once the app is ready: learn what this copy is and what it has pending. */
 export async function initUpdates(settings: Settings | null): Promise<void> {
   try {
-    const probe = new UpdateManager(releaseBaseUrlPlaceholder())
+    const probe = new UpdateManager(new HttpSource(releaseBaseUrlPlaceholder()))
     setState({ supported: true, currentVersion: probe.getCurrentVersion() })
     const pending = probe.getUpdatePendingRestart()
     if (pending) {
@@ -183,7 +183,10 @@ export function checkForUpdates(origin: 'auto' | 'manual'): Promise<void> {
  * Null when the release's feed offers nothing to move to.
  */
 async function prepare(release: ReleaseSummary, allowDowngrade: boolean): Promise<UpdateInfo | null> {
-  const next = new UpdateManager(releaseBaseUrl(release), {
+  // An `HttpSource`, explicitly: handed a plain string, the updater sees
+  // github.com and talks to the GitHub API instead — and a release's download
+  // folder is not an API path, so every check came back 404.
+  const next = new UpdateManager(new HttpSource(releaseBaseUrl(release)), {
     AllowVersionDowngrade: allowDowngrade,
     // Always explicit: left out, the updater looks for the channel this copy
     // was installed from, which is the wrong feed after switching channels.

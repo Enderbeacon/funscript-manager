@@ -52,7 +52,7 @@ jobs:
         run: npm version --no-git-tag-version --allow-same-version ${{ steps.meta.outputs.version }}
 
       - name: Install the Velopack tool
-        run: dotnet tool install -g vpk --version 1.2.0
+        run: dotnet tool install -g vpk --version 1.2.110-ge826545
 
       # Deltas are built against the previous release of the same channel. The
       # first release of a channel has none, which is not a failure.

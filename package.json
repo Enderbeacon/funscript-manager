@@ -47,7 +47,7 @@
     "serialport": "^13.0.0",
     "simple-icons": "^16.27.1",
     "undici": "^7.28.0",
-    "velopack": "1.2.0",
+    "velopack": "1.2.110-ge826545",
     "zod": "^4.4.3",
     "zustand": "^5.0.14"
   }
