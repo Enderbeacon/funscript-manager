@@ -2,6 +2,7 @@ import { join } from 'node:path'
 import { LIBRARY_CACHE_DIR, LIBRARY_JSON } from '@shared/constants'
 import { LibraryJsonSchema, emptyLibraryJson, type LibraryJson } from '@shared/schemas/library'
 import { atomicWriteJson, readJsonOr } from '../../util/atomic-json'
+import { setAsideUnreadable } from '../../util/persisted'
 
 /** `<library root>/.fsmgr-cache/library.json` load/save. */
 
@@ -11,8 +12,9 @@ export function libraryJsonPath(libraryRoot: string): string {
 
 /**
  * Load library.json, creating an empty one when absent — the first step of a
- * library's startup sync. An unparseable file is left untouched on disk (it is source of
- * truth, never clobbered automatically) and an empty structure is returned.
+ * library's startup sync. It is source of truth, so a file that does not
+ * validate is moved aside rather than written over, and the library starts
+ * from an empty structure.
  */
 export async function loadOrCreateLibraryJson(libraryRoot: string): Promise<LibraryJson> {
   const path = libraryJsonPath(libraryRoot)
@@ -23,7 +25,10 @@ export async function loadOrCreateLibraryJson(libraryRoot: string): Promise<Libr
     return fresh
   }
   const parsed = LibraryJsonSchema.safeParse(raw)
-  return parsed.success ? parsed.data : emptyLibraryJson()
+  if (parsed.success) return parsed.data
+  console.warn(`[library] ${path} did not validate:`, parsed.error.issues)
+  await setAsideUnreadable(path)
+  return emptyLibraryJson()
 }
 
 export async function saveLibraryJson(libraryRoot: string, data: LibraryJson): Promise<void> {

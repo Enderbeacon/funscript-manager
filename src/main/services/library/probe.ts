@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import type { MediaInfo } from '@shared/schemas/media-meta'
 import { resolveFfmpeg } from '../deps/binaries'
 
 /**
@@ -10,14 +11,6 @@ import { resolveFfmpeg } from '../deps/binaries'
  * `ffmpeg -i` with no output file prints the banner and exits non-zero, which
  * is exactly the information wanted and costs one header read.
  */
-
-export interface MediaInfo {
-  durationMs?: number
-  width?: number
-  height?: number
-  videoCodec?: string
-  audioCodec?: string
-}
 
 /** `Duration: 00:32:18.24, start: …` */
 const DURATION = /Duration:\s*(\d+):(\d\d):(\d\d)\.(\d+)/

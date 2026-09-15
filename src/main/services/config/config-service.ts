@@ -12,6 +12,7 @@ import {
   type Settings
 } from '@shared/schemas/app-config'
 import { atomicWriteJson, readJsonOr } from '../../util/atomic-json'
+import { setAsideUnreadable, withUnknownKeys } from '../../util/persisted'
 
 /**
  * App-level config persistence: settings.json + libraries.json.
@@ -30,11 +31,23 @@ function librariesPath(): string {
 
 let settingsCache: Settings | null = null
 let librariesCache: LibrariesFile | null = null
+/**
+ * The settings file as it was read, before validation dropped anything.
+ * Settings written by a newer build ride along in it and are put back on
+ * every save, so going back a version and changing one setting does not
+ * quietly reset what that newer build had stored.
+ */
+let settingsRaw: unknown = {}
 
 export async function getSettings(): Promise<Settings> {
   if (settingsCache) return settingsCache
   const raw = await readJsonOr(settingsPath(), {})
   const parsed = SettingsSchema.safeParse(raw)
+  if (!parsed.success) {
+    console.warn('[config] settings.json did not validate:', parsed.error.issues)
+    await setAsideUnreadable(settingsPath())
+  }
+  settingsRaw = parsed.success ? raw : {}
   settingsCache = parsed.success ? parsed.data : defaultSettings()
   settingsCache = carryOverMpvPath(settingsCache, raw)
   return settingsCache
@@ -76,7 +89,8 @@ export async function updateSettings(patch: Record<string, unknown>): Promise<Se
         : value
   }
   settingsCache = SettingsSchema.parse(merged)
-  await atomicWriteJson(settingsPath(), settingsCache)
+  settingsRaw = withUnknownKeys(settingsCache, settingsRaw)
+  await atomicWriteJson(settingsPath(), settingsRaw)
   return settingsCache
 }
 
@@ -84,6 +98,10 @@ export async function listLibraries(): Promise<RegisteredLibrary[]> {
   if (!librariesCache) {
     const raw = await readJsonOr(librariesPath(), { libraries: [] })
     const parsed = LibrariesFileSchema.safeParse(raw)
+    if (!parsed.success) {
+      console.warn('[config] libraries.json did not validate:', parsed.error.issues)
+      await setAsideUnreadable(librariesPath())
+    }
     librariesCache = parsed.success ? parsed.data : { libraries: [] }
   }
   return librariesCache.libraries

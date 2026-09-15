@@ -1,0 +1,89 @@
+name: Release
+
+# A tag is the whole trigger: v1.2.0 publishes a stable release, v1.2.0-beta.1
+# a prerelease on the beta channel. The app finds releases by their Velopack
+# feed file, so nothing else marks the channel.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Work out the version and channel
+        id: meta
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [[ "$version" == *-* ]]; then
+            echo "channel=beta" >> "$GITHUB_OUTPUT"
+            echo "pre=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "channel=win" >> "$GITHUB_OUTPUT"
+            echo "pre=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Require release notes
+        shell: bash
+        run: |
+          file="release-notes/${{ steps.meta.outputs.version }}.md"
+          if [ ! -s "$file" ]; then
+            echo "Missing $file — every release ships the notes the app shows."
+            exit 1
+          fi
+
+      - run: npm ci
+
+      # The packaged app reports this as its version, so it has to match the tag.
+      - name: Set the package version
+        run: npm version --no-git-tag-version --allow-same-version ${{ steps.meta.outputs.version }}
+
+      - name: Install the Velopack tool
+        run: dotnet tool install -g vpk --version 1.2.0
+
+      # Deltas are built against the previous release of the same channel. The
+      # first release of a channel has none, which is not a failure.
+      - name: Fetch the previous release
+        continue-on-error: true
+        run: >
+          vpk download github
+          --repoUrl https://github.com/${{ github.repository }}
+          --channel ${{ steps.meta.outputs.channel }}
+          --outputDir release/velopack
+          --token ${{ github.token }}
+          ${{ steps.meta.outputs.pre == 'true' && '--pre' || '' }}
+
+      - name: Build and pack
+        run: node scripts/release.mjs --channel ${{ steps.meta.outputs.channel }}
+
+      - name: Publish the release
+        run: >
+          vpk upload github
+          --repoUrl https://github.com/${{ github.repository }}
+          --channel ${{ steps.meta.outputs.channel }}
+          --outputDir release/velopack
+          --token ${{ github.token }}
+          --tag ${{ github.ref_name }}
+          --releaseName ${{ github.ref_name }}
+          --publish
+          ${{ steps.meta.outputs.pre == 'true' && '--pre' || '' }}
+
+      # The app shows this text when it offers the update, so the release page
+      # and the package have to say the same thing.
+      - name: Put the notes on the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit ${{ github.ref_name }} --notes-file release-notes/${{ steps.meta.outputs.version }}.md

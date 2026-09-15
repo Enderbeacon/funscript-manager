@@ -10,7 +10,8 @@
     "posts": "Beitrag herunterladen",
     "tagLibraries": "Tags & Bibliotheken",
     "organise": "Ordnen",
-    "match": "Beitragssuche"
+    "match": "Beitragssuche",
+    "about": "Über"
   },
   "detail": {
     "back": "Zurück",
@@ -758,7 +759,12 @@
     "invalid_file_name": "Dieser Name ist als Dateiname nicht möglich.",
     "file_exists": "Eine Datei mit diesem Namen gibt es dort schon.",
     "player_unreachable": "Dieser Player antwortet nicht. Läuft er, und stimmt die Adresse?",
-    "no_player_connected": "Zuerst einen Videoplayer hinzufügen."
+    "no_player_connected": "Zuerst einen Videoplayer hinzufügen.",
+    "update_check_failed": "GitHub ist nicht erreichbar, nach Updates kann nicht gesucht werden.",
+    "update_rate_limited": "GitHub begrenzt Anfragen aus diesem Netzwerk. Versuche es in einer Stunde erneut.",
+    "update_download_failed": "Das Update konnte nicht heruntergeladen werden. Versuche es erneut.",
+    "update_not_supported": "Diese Kopie kann sich nicht selbst aktualisieren.",
+    "update_release_not_found": "Diese Version lässt sich nicht installieren."
   },
   "downloads": {
     "empty": "Noch keine Downloads.",
@@ -1244,5 +1250,48 @@
     "remember": "Auswahl merken",
     "keep": "Geöffnet lassen",
     "closeAll": "Alles schließen"
+  },
+  "updates": {
+    "title": "Updates",
+    "current": "Version {{version}}",
+    "channel": "Kanal",
+    "channelStable": "Stabil",
+    "channelBeta": "Beta",
+    "autoCheck": "Automatisch nach Updates suchen",
+    "checking": "Suche…",
+    "upToDate": "Die App ist aktuell",
+    "available": "Version {{version}} ist verfügbar",
+    "ready": "Version {{version}} ist bereit zur Installation",
+    "readyHint": "Neu starten, um sie jetzt zu installieren – sonst wird sie beim Beenden installiert.",
+    "check": "Nach Updates suchen",
+    "download": "Update herunterladen",
+    "restart": "Jetzt neu starten",
+    "openRelease": "Release-Seite öffnen",
+    "notSupported": "Um hier zu aktualisieren, installiere die App aus einem GitHub-Release.",
+    "notes": "Neuigkeiten",
+    "otherVersions": "Andere Version installieren",
+    "noReleases": "Noch keine Releases",
+    "installed": "Installiert",
+    "install": "Installieren",
+    "confirmOlder": "Zurück zu Version {{version}}? Was neuere Versionen gespeichert haben, lässt sich dort eventuell nicht öffnen.",
+    "confirmInstall": "Version {{version}} installieren?",
+    "availableTitle": "Version {{version}} ist verfügbar",
+    "noNotes": "Keine Versionshinweise.",
+    "skip": "Diese Version überspringen",
+    "later": "Später",
+    "hide": "Ausblenden",
+    "downloading": "Wird heruntergeladen… {{percent}} %",
+    "whatsNewTitle": "Neu in {{version}}",
+    "gotIt": "Verstanden",
+    "topbarAvailable": "Update verfügbar",
+    "topbarReady": "Neu starten zum Aktualisieren"
+  },
+  "about": {
+    "title": "Dieser Build",
+    "version": "Version",
+    "dataFolder": "Datenordner",
+    "repository": "Repository",
+    "releases": "Alle Releases",
+    "issues": "Problem melden"
   }
 }

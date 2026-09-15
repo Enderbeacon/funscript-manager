@@ -10,7 +10,8 @@
     "posts": "Télécharger une publication",
     "tagLibraries": "Tags et bibliothèques",
     "organise": "Organiser",
-    "match": "Sujets"
+    "match": "Sujets",
+    "about": "À propos"
   },
   "detail": {
     "back": "Retour",
@@ -758,7 +759,12 @@
     "invalid_file_name": "Ce nom ne peut pas servir de nom de fichier.",
     "file_exists": "Un fichier porte déjà ce nom à cet endroit.",
     "player_unreachable": "Ce lecteur ne répond pas. Vérifiez qu’il tourne et que l’adresse est bonne.",
-    "no_player_connected": "Ajoutez d’abord un lecteur vidéo."
+    "no_player_connected": "Ajoutez d’abord un lecteur vidéo.",
+    "update_check_failed": "Impossible de joindre GitHub pour chercher des mises à jour.",
+    "update_rate_limited": "GitHub limite les requêtes depuis ce réseau. Réessayez dans une heure.",
+    "update_download_failed": "La mise à jour n’a pas pu être téléchargée. Réessayez.",
+    "update_not_supported": "Cette copie ne peut pas se mettre à jour.",
+    "update_release_not_found": "Cette version ne peut pas être installée."
   },
   "downloads": {
     "empty": "Aucun téléchargement pour l’instant.",
@@ -1244,5 +1250,48 @@
     "remember": "Retenir mon choix",
     "keep": "Les laisser ouverts",
     "closeAll": "Tout fermer"
+  },
+  "updates": {
+    "title": "Mises à jour",
+    "current": "Version {{version}}",
+    "channel": "Canal",
+    "channelStable": "Stable",
+    "channelBeta": "Bêta",
+    "autoCheck": "Chercher les mises à jour automatiquement",
+    "checking": "Recherche…",
+    "upToDate": "L’application est à jour",
+    "available": "La version {{version}} est disponible",
+    "ready": "La version {{version}} est prête à être installée",
+    "readyHint": "Redémarrez pour l’installer maintenant, sinon elle s’installe à la fermeture.",
+    "check": "Chercher des mises à jour",
+    "download": "Télécharger la mise à jour",
+    "restart": "Redémarrer maintenant",
+    "openRelease": "Ouvrir la page de la version",
+    "notSupported": "Pour mettre à jour d’ici, installez l’application depuis une version GitHub.",
+    "notes": "Nouveautés",
+    "otherVersions": "Installer une autre version",
+    "noReleases": "Aucune version publiée",
+    "installed": "Installée",
+    "install": "Installer",
+    "confirmOlder": "Revenir à la version {{version}} ? Ce qu’ont enregistré les versions plus récentes risque de ne pas s’y ouvrir.",
+    "confirmInstall": "Installer la version {{version}} ?",
+    "availableTitle": "La version {{version}} est disponible",
+    "noNotes": "Pas de notes de version.",
+    "skip": "Ignorer cette version",
+    "later": "Plus tard",
+    "hide": "Masquer",
+    "downloading": "Téléchargement… {{percent}} %",
+    "whatsNewTitle": "Nouveautés de la {{version}}",
+    "gotIt": "Compris",
+    "topbarAvailable": "Mise à jour disponible",
+    "topbarReady": "Redémarrer pour mettre à jour"
+  },
+  "about": {
+    "title": "Cette version",
+    "version": "Version",
+    "dataFolder": "Dossier de données",
+    "repository": "Dépôt",
+    "releases": "Toutes les versions",
+    "issues": "Signaler un problème"
   }
 }

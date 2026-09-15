@@ -10,7 +10,8 @@
     "posts": "投稿をダウンロード",
     "tagLibraries": "タグ＆ライブラリ",
     "organise": "整理",
-    "match": "投稿照合"
+    "match": "投稿照合",
+    "about": "情報"
   },
   "detail": {
     "back": "戻る",
@@ -758,7 +759,12 @@
     "invalid_file_name": "この名前はファイル名に使えません。",
     "file_exists": "同じ名前のファイルがすでにあります。",
     "player_unreachable": "そのプレーヤーから応答がありません。起動中か、アドレスが正しいか確認してください。",
-    "no_player_connected": "先に動画プレーヤーを追加してください。"
+    "no_player_connected": "先に動画プレーヤーを追加してください。",
+    "update_check_failed": "GitHub に接続できず、更新を確認できませんでした。",
+    "update_rate_limited": "このネットワークからのリクエストが GitHub に制限されています。1 時間後にもう一度お試しください。",
+    "update_download_failed": "アップデートをダウンロードできませんでした。もう一度お試しください。",
+    "update_not_supported": "このコピーは自動で更新できません。",
+    "update_release_not_found": "このバージョンはインストールできません。"
   },
   "downloads": {
     "empty": "ダウンロードはまだありません。",
@@ -1244,5 +1250,48 @@
     "remember": "この選択を記憶する",
     "keep": "プレーヤーは残す",
     "closeAll": "すべて閉じる"
+  },
+  "updates": {
+    "title": "アップデート",
+    "current": "バージョン {{version}}",
+    "channel": "チャンネル",
+    "channelStable": "安定版",
+    "channelBeta": "ベータ版",
+    "autoCheck": "アップデートを自動で確認",
+    "checking": "確認中…",
+    "upToDate": "最新の状態です",
+    "available": "バージョン {{version}} があります",
+    "ready": "バージョン {{version}} をインストールできます",
+    "readyHint": "再起動するとすぐにインストールされます。終了時にもインストールされます。",
+    "check": "アップデートを確認",
+    "download": "アップデートをダウンロード",
+    "restart": "今すぐ再起動",
+    "openRelease": "リリースページを開く",
+    "notSupported": "ここから更新するには、GitHub のリリースからアプリをインストールしてください。",
+    "notes": "更新内容",
+    "otherVersions": "別のバージョンをインストール",
+    "noReleases": "リリースはまだありません",
+    "installed": "インストール済み",
+    "install": "インストール",
+    "confirmOlder": "バージョン {{version}} に戻しますか？新しいバージョンで保存した内容は開けない場合があります。",
+    "confirmInstall": "バージョン {{version}} をインストールしますか？",
+    "availableTitle": "バージョン {{version}} があります",
+    "noNotes": "リリースノートはありません。",
+    "skip": "このバージョンをスキップ",
+    "later": "後で",
+    "hide": "隠す",
+    "downloading": "ダウンロード中… {{percent}}%",
+    "whatsNewTitle": "{{version}} の更新内容",
+    "gotIt": "OK",
+    "topbarAvailable": "アップデートあり",
+    "topbarReady": "再起動して更新"
+  },
+  "about": {
+    "title": "このビルド",
+    "version": "バージョン",
+    "dataFolder": "データフォルダー",
+    "repository": "リポジトリ",
+    "releases": "すべてのリリース",
+    "issues": "問題を報告"
   }
 }

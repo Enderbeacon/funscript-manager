@@ -1,0 +1,184 @@
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { Settings } from '@shared/schemas/app-config'
+import type { ReleaseSummary, UpdateChannel, UpdateState } from '@shared/schemas/updates'
+import { compareVersions } from '@shared/semver'
+import { askConfirm } from '../dialogs'
+import { ipcInvoke, ipcOn } from '../ipc'
+import { useErrorMessage } from '../useErrorMessage'
+import Markdown from './Markdown'
+import Select from './Select'
+import { DownloadBar } from './UpdateNotices'
+
+/**
+ * Updates: what is running, which releases to follow, and every published
+ * release for going to a specific one — back to an older version included,
+ * after saying what that can cost.
+ */
+export default function UpdatesCard(): React.JSX.Element {
+  const { t } = useTranslation()
+  const toMessage = useErrorMessage()
+  const [settings, setSettings] = useState<Settings | null>(null)
+  const [state, setState] = useState<UpdateState | null>(null)
+  const [failed, setFailed] = useState<string | null>(null)
+  const [releases, setReleases] = useState<ReleaseSummary[] | null>(null)
+  const [releasesError, setReleasesError] = useState<string | null>(null)
+
+  useEffect(() => {
+    ipcInvoke('settings:get').then(setSettings).catch(() => {})
+    ipcInvoke('updates:state').then(setState).catch(() => {})
+    return ipcOn('event:update-state', setState)
+  }, [])
+
+  const onPatch = async (patch: Record<string, unknown>): Promise<void> => {
+    setSettings(await ipcInvoke('settings:update', patch))
+  }
+
+  const run = (action: () => Promise<unknown>): void => {
+    setFailed(null)
+    action().catch((e) => setFailed(toMessage(e)))
+  }
+
+  const loadReleases = (): void => {
+    if (releases) return
+    setReleasesError(null)
+    ipcInvoke('updates:releases')
+      .then(setReleases)
+      .catch((e) => setReleasesError(toMessage(e)))
+  }
+
+  const install = async (release: ReleaseSummary): Promise<void> => {
+    if (!state) return
+    const older = compareVersions(release.version, state.currentVersion) < 0
+    const ok = await askConfirm({
+      message: older
+        ? t('updates.confirmOlder', { version: release.version })
+        : t('updates.confirmInstall', { version: release.version }),
+      confirmLabel: t('updates.install'),
+      danger: older
+    })
+    if (ok) run(() => ipcInvoke('updates:install', { version: release.version }))
+  }
+
+  if (!state || !settings) {
+    return (
+      <div className="card">
+        <h2 className="settings-section-title">{t('updates.title')}</h2>
+      </div>
+    )
+  }
+
+  const busy = state.phase === 'checking' || state.phase === 'downloading'
+  const release = state.release
+
+  return (
+    <div className="card updates-card">
+      <h2 className="settings-section-title">{t('updates.title')}</h2>
+
+      <div className="update-current">
+        <span>{t('updates.current', { version: state.currentVersion })}</span>
+        {state.currentVersion.includes('-') && <span className="badge accent">{t('updates.channelBeta')}</span>}
+      </div>
+
+      <div className="settings-field">
+        <span className="settings-label">{t('updates.channel')}</span>
+        <Select<UpdateChannel>
+          className="block"
+          value={settings.updates.channel}
+          onChange={(channel) => void onPatch({ updates: { channel } })}
+          options={[
+            { value: 'stable', label: t('updates.channelStable') },
+            { value: 'beta', label: t('updates.channelBeta') }
+          ]}
+        />
+      </div>
+
+      <label className="close-remember">
+        <input
+          type="checkbox"
+          checked={settings.updates.autoCheck}
+          onChange={(e) => void onPatch({ updates: { autoCheck: e.target.checked } })}
+        />
+        {t('updates.autoCheck')}
+      </label>
+
+      <div className="update-status">
+        <span className="grow">
+          {state.phase === 'checking' && t('updates.checking')}
+          {state.phase === 'upToDate' && t('updates.upToDate')}
+          {state.phase === 'available' && release && t('updates.available', { version: release.version })}
+          {state.phase === 'ready' && release && t('updates.ready', { version: release.version })}
+          {state.phase === 'error' && state.error && (
+            <span className="settings-error">{t(`errors.${state.error}`)}</span>
+          )}
+        </span>
+        {(state.phase === 'idle' || state.phase === 'upToDate' || state.phase === 'error' || state.phase === 'checking') && (
+          <button className="ghost" disabled={busy} onClick={() => run(() => ipcInvoke('updates:check'))}>
+            {t('updates.check')}
+          </button>
+        )}
+        {state.phase === 'available' && release &&
+          (state.supported ? (
+            <button className="primary" onClick={() => run(() => ipcInvoke('updates:download'))}>
+              {t('updates.download')}
+            </button>
+          ) : (
+            <button className="primary" onClick={() => window.open(release.url, '_blank')}>
+              {t('updates.openRelease')}
+            </button>
+          ))}
+        {state.phase === 'ready' && (
+          <button className="primary" onClick={() => run(() => ipcInvoke('updates:restart'))}>
+            {t('updates.restart')}
+          </button>
+        )}
+      </div>
+      {state.phase === 'downloading' && <DownloadBar progress={state.progress} />}
+      {state.phase === 'ready' && <p className="settings-hint">{t('updates.readyHint')}</p>}
+      {!state.supported && <p className="settings-hint">{t('updates.notSupported')}</p>}
+      {failed && <p className="mfp-install-error">{failed}</p>}
+
+      {(state.phase === 'available' || state.phase === 'downloading' || state.phase === 'ready') &&
+        release?.notes.trim() && (
+          <details className="mfp-alt">
+            <summary>{t('updates.notes')}</summary>
+            <Markdown source={release.notes} />
+          </details>
+        )}
+
+      <details className="mfp-alt" onToggle={(e) => e.currentTarget.open && loadReleases()}>
+        <summary>{t('updates.otherVersions')}</summary>
+        {releasesError && <p className="mfp-install-error">{releasesError}</p>}
+        {releases && releases.length === 0 && <p className="settings-hint">{t('updates.noReleases')}</p>}
+        {releases && releases.length > 0 && (
+          <ul className="release-list">
+            {releases.map((r) => {
+              const current = r.version === state.currentVersion
+              return (
+                <li key={r.tag} className="release-row">
+                  <span className="release-version">{r.version}</span>
+                  {r.channel === 'beta' && <span className="badge accent">{t('updates.channelBeta')}</span>}
+                  {r.publishedAt && (
+                    <span className="release-date">{new Date(r.publishedAt).toLocaleDateString()}</span>
+                  )}
+                  <span className="grow" />
+                  {current ? (
+                    <span className="badge">{t('updates.installed')}</span>
+                  ) : (
+                    <button
+                      className="ghost"
+                      disabled={!state.supported || busy || state.phase === 'ready'}
+                      onClick={() => void install(r)}
+                    >
+                      {t('updates.install')}
+                    </button>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </details>
+    </div>
+  )
+}

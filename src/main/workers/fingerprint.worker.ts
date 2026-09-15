@@ -1,5 +1,6 @@
 import { open } from 'node:fs/promises'
 import { blake3 } from 'hash-wasm'
+import type { FileFingerprint } from '@shared/schemas/media-meta'
 import { servePool } from '../util/worker-pool'
 
 /**
@@ -14,10 +15,7 @@ export interface FingerprintTask {
   filePath: string
 }
 
-export interface FingerprintResult {
-  size: number
-  blake3Head: string
-}
+export type FingerprintResult = FileFingerprint
 
 async function compute(filePath: string): Promise<FingerprintResult> {
   const handle = await open(filePath, 'r')

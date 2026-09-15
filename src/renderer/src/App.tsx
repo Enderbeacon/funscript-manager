@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Film, Link2, Newspaper, Settings, Tags } from 'lucide-react'
+import { Film, Info, Link2, Newspaper, Settings, Tags } from 'lucide-react'
 import type { NameField } from '@shared/schemas/media-meta'
 import { ipcInvoke, ipcOn } from './ipc'
 import { applyLanguageSetting } from './i18n'
@@ -28,18 +28,21 @@ import MediaSourceFloating from './components/MediaSourceFloating'
 import { type StageForm, useVideoIntent } from './components/VideoPlayerStage'
 import CloseConfirmDialog from './components/CloseConfirmDialog'
 import { DialogHost } from './dialogs'
+import UpdateNotices from './components/UpdateNotices'
+import AboutPage from './pages/AboutPage'
 import VideoPlayerSurface from './components/VideoPlayerSurface'
 import TourOverlay from './tour/TourOverlay'
 import { loadTour, registerTourDriver, visitPage } from './tour/tour'
 
-export type Page = 'media' | 'tagLibraries' | 'posts' | 'match' | 'settings'
+export type Page = 'media' | 'tagLibraries' | 'posts' | 'match' | 'settings' | 'about'
 
 const NAV: { key: Page; Icon: typeof Film }[] = [
   { key: 'media', Icon: Film },
   { key: 'tagLibraries', Icon: Tags },
   { key: 'posts', Icon: Newspaper },
   { key: 'match', Icon: Link2 },
-  { key: 'settings', Icon: Settings }
+  { key: 'settings', Icon: Settings },
+  { key: 'about', Icon: Info }
 ]
 
 /** Which media the detail view is showing (null = the grid). */
@@ -313,6 +316,7 @@ export default function App(): React.JSX.Element {
         onOpenScriptPlayer={openScriptPlayer}
         scriptPlayerActive={scriptPlayerOpen || scriptPlayerDetached}
         scriptPlayerDetached={scriptPlayerDetached}
+        onOpenUpdates={() => setPage('about')}
       />
       {libraryError && (
         <div className="error-banner">
@@ -376,6 +380,7 @@ export default function App(): React.JSX.Element {
             navigationRequest={settingsRequest}
           />
         )}
+        {page === 'about' && <AboutPage />}
       </main>
       {drawer !== null && (
         <PlaybackDrawer
@@ -407,6 +412,7 @@ export default function App(): React.JSX.Element {
       )}
 
       <DialogHost />
+      <UpdateNotices />
 
       {closing && (
         <CloseConfirmDialog

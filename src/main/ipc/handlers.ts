@@ -17,6 +17,10 @@ import { unfetchableLinks } from '../services/downloaders/post-ingest'
 import { downloadEvents } from '../services/downloaders/queue'
 import * as deps from '../services/deps/binaries'
 import { depsEvents } from '../services/deps/binaries'
+import * as updater from '../services/updates/updater'
+import { updateEvents } from '../services/updates/updater'
+import { listReleases } from '../services/updates/releases'
+import * as notices from '../services/updates/notices'
 import * as scraper from '../services/scraper/discourse'
 import { findPostForMedia } from '../services/matcher/match-service'
 import { videoAuthorFromTitle } from '../services/matcher/author'
@@ -138,9 +142,9 @@ async function taxonomyProjection(): Promise<{
     // A name a media carries is part of the vocabulary whether or not
     // taxonomy.json has heard of it. Tags written straight into a sidecar —
     // by the post ingest, or by the user editing the file in an editor, which
-    // is a supported way to change metadata — were invisible in the sidebar until something
-    // else happened to register them, so the library and the filter list
-    // disagreed about what tags exist.
+    // is a supported way to change metadata — were invisible in the sidebar
+    // until something else happened to register them, so the library and the
+    // filter list disagreed about what tags exist.
     const list = withNamesInUse(file.entities[kind], Object.keys(perName))
     const countOf = (entity: Entity): number =>
       taxonomy
@@ -762,6 +766,37 @@ export function registerIpcHandlers(): void {
 
   handle('deps:install', async (input) => ({ binary: await deps.install(input.id) }))
 
+  handle('updates:state', () => updater.updateState())
+
+  handle('updates:check', async () => {
+    await updater.checkForUpdates('manual')
+    return updater.updateState()
+  })
+
+  handle('updates:download', async () => {
+    await updater.downloadUpdate()
+    return updater.updateState()
+  })
+
+  handle('updates:releases', () => listReleases())
+
+  handle('updates:install', async ({ version }) => {
+    await updater.installRelease(version)
+    return updater.updateState()
+  })
+
+  handle('updates:restart', () => updater.restartToUpdate())
+
+  handle('updates:skip', async ({ version }) => {
+    await config.updateSettings({ updates: { skippedVersion: version } })
+  })
+
+  handle('updates:startupNotices', () => notices.startupNotices())
+
+  handle('updates:dismissWhatsNew', () => notices.dismissWhatsNew())
+
+  handle('updates:dismissAnnouncement', ({ id }) => notices.dismissAnnouncement(id))
+
   handle('scrape:isPostUrl', (input) => ({
     isPost: scraper.isPostUrl(normalizePastedUrl(input.url))
   }))
@@ -910,6 +945,7 @@ export function registerIpcHandlers(): void {
     // The proxy is the one setting that has to reach live network stacks
     // rather than being read when the next transfer starts.
     await applyProxySettings()
+    updater.configureAutoCheck(settings)
     return settings
   })
 
@@ -935,5 +971,6 @@ export function registerIpcHandlers(): void {
   downloadEvents.on('jobs-changed', () => broadcast('event:downloads-changed', {}))
   downloadEvents.on('progress', (jobs) => broadcast('event:download-progress', { jobs }))
   depsEvents.on('progress', (p) => broadcast('event:dep-progress', p))
+  updateEvents.on('state', (s) => broadcast('event:update-state', s))
   scanEvents.on('progress', (p) => broadcast('event:match-progress', p))
 }

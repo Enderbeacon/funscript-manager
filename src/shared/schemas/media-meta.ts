@@ -7,13 +7,13 @@ import { FUNSCRIPT_EXTENSION } from '../constants'
  * sidecar first; index.db is only a derived cache.
  */
 
-export const FileFingerprintSchema = z.object({
+export const FileFingerprintSchema = z.looseObject({
   size: z.number().int().nonnegative(),
   /** BLAKE3 hash (hex) of the first 1MB of the file. */
   blake3Head: z.string()
 })
 
-export const SourceSchema = z.object({
+export const SourceSchema = z.looseObject({
   type: z.enum(['eroscripts', 'original', 'other']),
   url: z.url(),
   fetchedAt: z.iso.datetime().optional()
@@ -32,7 +32,7 @@ export const ScriptFilesSchema = z
     message: 'script version must have a main axis file'
   })
 
-export const ScriptVersionSchema = z.object({
+export const ScriptVersionSchema = z.looseObject({
   id: z.uuid(),
   name: z.string().min(1),
   author: z.string().optional(),
@@ -41,14 +41,14 @@ export const ScriptVersionSchema = z.object({
   notes: z.string().optional(),
   /**
    * Single-axis versions only: also drive the axes this version has no script
-   * for, borrowing them from the media's default multi-axis version. Absent = borrow, which is what most people expect
-   * from a main-axis-only alternative script.
+   * for, borrowing them from the media's default multi-axis version. Absent =
+   * borrow, which is what most people expect from a main-axis-only script.
    */
   inheritAxes: z.boolean().optional(),
   files: ScriptFilesSchema
 })
 
-export const SubtitleSchema = z.object({
+export const SubtitleSchema = z.looseObject({
   /** BCP 47 language code; unrecognized markers are kept verbatim; undefined = no marker. */
   language: z.string().optional(),
   path: z.string()
@@ -62,7 +62,7 @@ export const SubtitleSchema = z.object({
  * Every field is optional: an audio file has no frame size, and a file ffmpeg
  * cannot read has none of it. Absent means "not known", never zero.
  */
-export const MediaInfoSchema = z.object({
+export const MediaInfoSchema = z.looseObject({
   durationMs: z.number().int().nonnegative().optional(),
   width: z.number().int().positive().optional(),
   height: z.number().int().positive().optional(),
@@ -70,7 +70,7 @@ export const MediaInfoSchema = z.object({
   audioCodec: z.string().optional()
 })
 
-export const UserMetaSchema = z.object({
+export const UserMetaSchema = z.looseObject({
   rating: z.number().int().min(0).max(5).optional(),
   favorite: z.boolean().optional(),
   notes: z.string().optional(),
@@ -87,10 +87,10 @@ export const UserMetaSchema = z.object({
  * used to be here and is gone" — the index marks both as missing, but only one
  * of them is something the user can act on.
  */
-export const WantedSchema = z.object({
+export const WantedSchema = z.looseObject({
   /** Where the file has to be got from; shown as links out, never as downloads. */
   sources: z
-    .array(z.object({ url: z.string(), hoster: z.string(), label: z.string() }))
+    .array(z.looseObject({ url: z.string(), hoster: z.string(), label: z.string() }))
     .default([]),
   /**
    * Media the user has told us are NOT this entry, when the app offered them as
@@ -108,7 +108,7 @@ export const WantedSchema = z.object({
  * — but "I looked" and "that one is not it" are judgements, the user's or the
  * app's, and nothing can reconstruct them.
  */
-export const PostMatchSchema = z.object({
+export const PostMatchSchema = z.looseObject({
   /** Last time the forum was searched for this entry. */
   checkedAt: z.iso.datetime(),
   /** Topic ids the user has said are not this entry; never offered again. */
@@ -145,7 +145,7 @@ export const PostMatchSchema = z.object({
  */
 export const MEDIA_META_VERSION = 3
 
-export const MediaMetaSchema = z.object({
+export const MediaMetaSchema = z.looseObject({
   schemaVersion: z.literal(MEDIA_META_VERSION),
   /** Stable app-assigned UUID; survives file renames and moves. */
   id: z.uuid(),
@@ -193,7 +193,7 @@ export const MediaMetaSchema = z.object({
    * while the sidecar is still here.
    */
   postLinks: z
-    .array(z.object({ url: z.string(), hoster: z.string().default(''), label: z.string().default('') }))
+    .array(z.looseObject({ url: z.string(), hoster: z.string().default(''), label: z.string().default('') }))
     .default([]),
   scriptVersions: z.array(ScriptVersionSchema).default([]),
   subtitles: z.array(SubtitleSchema).default([]),

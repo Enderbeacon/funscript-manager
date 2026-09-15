@@ -6933,3 +6933,135 @@ button.sp-connect-button.connected:hover:not(:disabled) {
   border-radius: 0 0 6px 6px;
   color: var(--text-tertiary);
 }
+
+/* ------------------------------------------------------------------ *
+ * App updates: the settings card, and the dialogs that say what changed
+ * ------------------------------------------------------------------ */
+
+.notice-modal { width: min(560px, 92vw); }
+
+.update-current {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+  font-size: 13px;
+}
+
+.update-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+  min-height: 2rem;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.update-status .grow { flex: 1; min-width: 0; }
+.update-status .settings-error { margin-top: 0; }
+
+.update-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.release-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 16rem;
+  overflow-y: auto;
+}
+
+.release-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0;
+  border-bottom: 0.5px solid var(--border-tertiary);
+  font-size: 13px;
+}
+.release-row:last-child { border-bottom: none; }
+.release-row .grow { flex: 1; }
+.release-version { font-variant-numeric: tabular-nums; }
+.release-date { font-size: 12px; color: var(--text-tertiary); }
+
+/* Release notes and notices: Markdown kept to the app's own text sizes. */
+.markdown { font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; }
+.markdown > :first-child { margin-top: 0; }
+.markdown > :last-child { margin-bottom: 0; }
+.markdown h1, .markdown h2, .markdown h3, .markdown h4 {
+  margin: 0.9rem 0 0.4rem;
+  font-size: 14px;
+  font-weight: 600;
+}
+.markdown p, .markdown ul, .markdown ol { margin: 0.4rem 0; }
+.markdown ul, .markdown ol { padding-left: 1.3rem; }
+.markdown li + li { margin-top: 0.15rem; }
+.markdown code {
+  font-size: 12px;
+  padding: 0.05rem 0.3rem;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+}
+.markdown pre {
+  padding: 0.5rem 0.6rem;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+  overflow-x: auto;
+}
+.markdown pre code { padding: 0; background: none; }
+.markdown a { color: var(--accent); }
+.markdown blockquote {
+  margin: 0.4rem 0;
+  padding-left: 0.7rem;
+  border-left: 2px solid var(--border-secondary);
+  color: var(--text-secondary);
+}
+
+/* The About page: updates on the left, what this build is on the right.
+   Both cards take the height of the taller one — side by side and unequal,
+   the shorter one read as unfinished. */
+.about-cols {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 1fr;
+  align-items: stretch;
+}
+
+.about-cols > .card { height: 100%; }
+
+@container settings (min-width: 760px) {
+  .about-cols { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+}
+
+.about-name { margin: 0 0 0.6rem; font-weight: 600; }
+
+.about-facts {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.3rem 0.8rem;
+  margin: 0;
+  font-size: 13px;
+}
+.about-facts dt { color: var(--text-tertiary); }
+.about-facts dd { margin: 0; }
+.about-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.about-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.9rem;
+}
+
+/* The top bar says an update is waiting; the button opens the About page. */
+.topbar-btn.update-ready {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+}

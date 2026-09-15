@@ -5,12 +5,12 @@ import { z } from 'zod'
  * Source of truth alongside sidecars; index.db is a derived cache.
  */
 
-export const TagNodeSchema = z.object({
+export const TagNodeSchema = z.looseObject({
   parent: z.string().nullable().default(null),
   aliases: z.array(z.string()).default([])
 })
 
-export const PerformerSchema = z.object({
+export const PerformerSchema = z.looseObject({
   id: z.uuid(),
   name: z.string().min(1),
   aliases: z.array(z.string()).default([]),
@@ -19,21 +19,21 @@ export const PerformerSchema = z.object({
   notes: z.string().optional()
 })
 
-export const StudioSchema = z.object({
+export const StudioSchema = z.looseObject({
   id: z.uuid(),
   name: z.string().min(1),
   url: z.url().optional(),
   parent: z.string().nullable().default(null)
 })
 
-export const CollectionSchema = z.object({
+export const CollectionSchema = z.looseObject({
   id: z.uuid(),
   name: z.string().min(1),
   mediaIds: z.array(z.uuid()).default([]),
   createdAt: z.iso.datetime()
 })
 
-export const LibraryJsonSchema = z.object({
+export const LibraryJsonSchema = z.looseObject({
   schemaVersion: z.literal(1),
   tagHierarchy: z.record(z.string(), TagNodeSchema).default({}),
   performers: z.array(PerformerSchema).default([]),

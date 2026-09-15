@@ -54,6 +54,8 @@ export interface SyncSummary {
   missing: number
   removed: number
   invalidSidecars: number
+  /** Sidecars written by a newer build: skipped, and never written to. */
+  newerSidecars: number
   /** Media files that threw on the way in; skipped, retried next scan. */
   failedFiles: number
   /** Media whose sidecar gained a script or subtitle that arrived later. */
@@ -165,6 +167,7 @@ export async function syncLibrary(
     missing: 0,
     removed: 0,
     invalidSidecars: 0,
+    newerSidecars: 0,
     failedFiles: 0,
     companionsAttached: 0,
     scriptOnlyEntries: 0,
@@ -206,7 +209,8 @@ export async function syncLibrary(
 
     const read = await readSidecar(sidecarAbs)
     if (!read.ok) {
-      summary.invalidSidecars += 1
+      if (read.error === 'newer') summary.newerSidecars += 1
+      else summary.invalidSidecars += 1
       continue
     }
 
@@ -448,6 +452,14 @@ export async function syncLibrary(
     }
   }
 
+  if (summary.newerSidecars > 0) {
+    // Their media is missing from the library until a build that understands
+    // them runs again — which is better than reading half of one and writing
+    // that half back.
+    console.warn(
+      `[scan] ${summary.newerSidecars} file(s) were written by a newer version of the app and were skipped`
+    )
+  }
   onProgress?.({ phase: 'done', processed: summary.mediaTotal, total: summary.mediaTotal })
   return summary
 }

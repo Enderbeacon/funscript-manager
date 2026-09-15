@@ -35,7 +35,8 @@ export function mediaPathForSidecar(sidecarPath: string): string {
 
 export type SidecarReadResult =
   | { ok: true; meta: MediaMeta }
-  | { ok: false; error: 'unreadable' | 'invalid' }
+  /** `newer`: written by a later build of the app, and left strictly alone. */
+  | { ok: false; error: 'unreadable' | 'invalid' | 'newer' }
 
 /** Read + validate a sidecar. Invalid files are reported, never thrown. */
 export async function readSidecar(sidecarPath: string): Promise<SidecarReadResult> {
@@ -44,6 +45,12 @@ export async function readSidecar(sidecarPath: string): Promise<SidecarReadResul
     raw = JSON.parse(await readFile(sidecarPath, 'utf-8'))
   } catch {
     return { ok: false, error: 'unreadable' }
+  }
+  const version = (raw as { schemaVersion?: unknown } | null)?.schemaVersion
+  if (typeof version === 'number' && version > MEDIA_META_VERSION) {
+    // Someone ran a newer build on this library. Its file says more than this
+    // build can read, and rewriting it here would throw the difference away.
+    return { ok: false, error: 'newer' }
   }
   const parsed = AnyMediaMetaSchema.safeParse(raw)
   return parsed.success ? { ok: true, meta: parsed.data } : { ok: false, error: 'invalid' }

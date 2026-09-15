@@ -10,7 +10,8 @@
     "posts": "Download Post",
     "tagLibraries": "Tag & Libraries",
     "organise": "Organise",
-    "match": "Post match"
+    "match": "Post match",
+    "about": "About"
   },
   "media": {
     "title": "Media",
@@ -758,7 +759,12 @@
     "invalid_file_name": "That name cannot be used for a file.",
     "file_exists": "A file with that name is already there.",
     "player_unreachable": "That player didn't answer. Check it is running and the address is right.",
-    "no_player_connected": "Add a video player first."
+    "no_player_connected": "Add a video player first.",
+    "update_check_failed": "Couldn't reach GitHub to check for updates.",
+    "update_rate_limited": "GitHub is limiting requests from this network. Try again in an hour.",
+    "update_download_failed": "The update couldn't be downloaded. Try again.",
+    "update_not_supported": "This copy can't update itself.",
+    "update_release_not_found": "That version isn't available to install."
   },
   "downloads": {
     "empty": "No downloads yet.",
@@ -1244,5 +1250,48 @@
     "remember": "Remember my choice",
     "keep": "Leave them open",
     "closeAll": "Close everything"
+  },
+  "updates": {
+    "title": "Updates",
+    "current": "Version {{version}}",
+    "channel": "Channel",
+    "channelStable": "Stable",
+    "channelBeta": "Beta",
+    "autoCheck": "Check for updates automatically",
+    "checking": "Checking…",
+    "upToDate": "You're up to date",
+    "available": "Version {{version}} is available",
+    "ready": "Version {{version}} is ready to install",
+    "readyHint": "Restart to install it now, or it installs when you quit.",
+    "check": "Check for updates",
+    "download": "Download update",
+    "restart": "Restart now",
+    "openRelease": "Open release page",
+    "notSupported": "To update from here, install the app from a GitHub release.",
+    "notes": "What's new",
+    "otherVersions": "Install another version",
+    "noReleases": "No releases yet",
+    "installed": "Installed",
+    "install": "Install",
+    "confirmOlder": "Go back to version {{version}}? Anything saved by newer versions may not open in it.",
+    "confirmInstall": "Install version {{version}}?",
+    "availableTitle": "Version {{version}} is available",
+    "noNotes": "No release notes.",
+    "skip": "Skip this version",
+    "later": "Later",
+    "hide": "Hide",
+    "downloading": "Downloading… {{percent}}%",
+    "whatsNewTitle": "What's new in {{version}}",
+    "gotIt": "Got it",
+    "topbarAvailable": "Update available",
+    "topbarReady": "Restart to update"
+  },
+  "about": {
+    "title": "This build",
+    "version": "Version",
+    "dataFolder": "Data folder",
+    "repository": "Repository",
+    "releases": "All releases",
+    "issues": "Report a problem"
   }
 }

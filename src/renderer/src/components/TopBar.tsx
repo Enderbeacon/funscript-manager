@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Languages, LogIn, MonitorPlay, Moon, RadioTower, Sun, User } from 'lucide-react'
+import { ArrowUpCircle, Languages, LogIn, MonitorPlay, Moon, RadioTower, Sun, User } from 'lucide-react'
 import type { IpcOutput } from '@shared/ipc/contract'
 import type { Settings } from '@shared/schemas/app-config'
+import type { UpdateState } from '@shared/schemas/updates'
 import { applyLanguageSetting, type LanguageSetting } from '../i18n'
 import { applyThemeSetting, currentTheme, onThemeChange, type ResolvedTheme } from '../theme'
 import { ipcInvoke, ipcOn } from '../ipc'
@@ -51,12 +52,14 @@ function overlayColors(theme: ResolvedTheme): { color: string; symbolColor: stri
 export default function TopBar({
   onOpenScriptPlayer,
   onOpenSources,
+  onOpenUpdates,
   scriptPlayerActive,
   scriptPlayerDetached,
   sourcesActive
 }: {
   onOpenScriptPlayer: () => void
   onOpenSources: () => void
+  onOpenUpdates: () => void
   scriptPlayerActive: boolean
   scriptPlayerDetached: boolean
   sourcesActive: boolean
@@ -67,6 +70,7 @@ export default function TopBar({
   const [signedIn, setSignedIn] = useState<boolean | null>(null)
   const [langOpen, setLangOpen] = useState(false)
   const [sources, setSources] = useState<SourceStatus[]>([])
+  const [update, setUpdate] = useState<UpdateState | null>(null)
 
   useEffect(() => {
     ipcInvoke('settings:get').then(setSettings).catch(() => {})
@@ -74,10 +78,13 @@ export default function TopBar({
       .then(({ loggedIn }) => setSignedIn(loggedIn))
       .catch(() => setSignedIn(null))
     ipcInvoke('playback:sources').then(setSources).catch(() => {})
+    ipcInvoke('updates:state').then(setUpdate).catch(() => {})
     const offSources = ipcOn('event:playback-sources', setSources)
+    const offUpdate = ipcOn('event:update-state', setUpdate)
     const offTheme = onThemeChange(setTheme)
     return () => {
       offSources()
+      offUpdate()
       offTheme()
     }
   }, [])
@@ -114,6 +121,15 @@ export default function TopBar({
       <span className="topbar-brand">{t('app.title')}</span>
 
       <div className="topbar-actions">
+        {/* Only while there is something to do about it; the About page has
+            the rest of the story. */}
+        {(update?.phase === 'available' || update?.phase === 'ready') && (
+          <button className="topbar-btn update-ready" type="button" onClick={onOpenUpdates}>
+            <ArrowUpCircle size={14} />
+            {update.phase === 'ready' ? t('updates.topbarReady') : t('updates.topbarAvailable')}
+          </button>
+        )}
+
         <button
           data-tour="topbar-sources"
           className={`topbar-btn script-player-entry${sourcesActive ? ' active' : ''}`}

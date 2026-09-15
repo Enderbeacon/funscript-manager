@@ -24,6 +24,7 @@ import { QueueItemSchema, QueueSourceSchema, QueueStateSchema } from '../schemas
 import { DownloadJobSchema, DownloadProgressSchema } from '../schemas/download'
 import { BinaryIdSchema, BinaryStatusSchema, InstallProgressSchema } from '../schemas/dependencies'
 import { ScrapedPostSchema } from '../schemas/scraped-post'
+import { ReleaseSummarySchema, StartupNoticesSchema, UpdateStateSchema } from '../schemas/updates'
 import {
   MatchQueueItemSchema,
   MatchScanStatusSchema,
@@ -1261,6 +1262,53 @@ export const ipcContract = {
     output: z.void()
   },
 
+  'updates:state': {
+    input: z.void(),
+    output: UpdateStateSchema
+  },
+  'updates:check': {
+    /** Look for a newer release on the configured channel; the result arrives as state. */
+    input: z.void(),
+    output: UpdateStateSchema
+  },
+  'updates:download': {
+    /** Download the release the last check found; progress arrives as state. */
+    input: z.void(),
+    output: UpdateStateSchema
+  },
+  'updates:releases': {
+    /** Every installable release, newest first. */
+    input: z.void(),
+    output: z.array(ReleaseSummarySchema)
+  },
+  'updates:install': {
+    /** Download a specific release, older ones included, to replace this one. */
+    input: z.object({ version: z.string().min(1) }),
+    output: UpdateStateSchema
+  },
+  'updates:restart': {
+    /** Quit and start again as the downloaded release. */
+    input: z.void(),
+    output: z.void()
+  },
+  'updates:skip': {
+    /** Stop offering this version; a newer one is offered as usual. */
+    input: z.object({ version: z.string().min(1) }),
+    output: z.void()
+  },
+  'updates:startupNotices': {
+    input: z.void(),
+    output: StartupNoticesSchema
+  },
+  'updates:dismissWhatsNew': {
+    input: z.void(),
+    output: z.void()
+  },
+  'updates:dismissAnnouncement': {
+    input: z.object({ id: z.string().min(1) }),
+    output: z.void()
+  },
+
   'settings:get': {
     input: z.void(),
     output: SettingsSchema
@@ -1322,6 +1370,8 @@ export const ipcEvents = {
   'event:download-progress': z.object({ jobs: z.array(DownloadProgressSchema) }),
   /** Install/update progress for yt-dlp or ffmpeg (the ffmpeg zip is large). */
   'event:dep-progress': InstallProgressSchema,
+  /** The updater moved: checking, found a release, download progress, ready. */
+  'event:update-state': UpdateStateSchema,
 
   /** How the library-wide post match is getting on. */
   'event:match-progress': MatchScanStatusSchema,

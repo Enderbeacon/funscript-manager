@@ -10,7 +10,8 @@
     "posts": "帖子下载",
     "tagLibraries": "标签与媒体库",
     "organise": "整理",
-    "match": "找帖子"
+    "match": "找帖子",
+    "about": "关于"
   },
   "media": {
     "title": "媒体",
@@ -758,7 +759,12 @@
     "invalid_file_name": "这个名字不能用作文件名。",
     "file_exists": "这个名字已经被同目录下的文件占用了。",
     "player_unreachable": "这个播放器没有响应。确认它在运行，地址填对了。",
-    "no_player_connected": "先添加一个视频播放器。"
+    "no_player_connected": "先添加一个视频播放器。",
+    "update_check_failed": "连不上 GitHub，无法检查更新。",
+    "update_rate_limited": "GitHub 暂时限制了当前网络的请求，请一小时后再试。",
+    "update_download_failed": "更新下载失败，请重试。",
+    "update_not_supported": "当前这份软件无法自动更新。",
+    "update_release_not_found": "这个版本无法安装。"
   },
   "downloads": {
     "empty": "还没有下载任务。",
@@ -1244,5 +1250,48 @@
     "remember": "记住我的选择",
     "keep": "保留播放器窗口",
     "closeAll": "全部关闭"
+  },
+  "updates": {
+    "title": "更新",
+    "current": "当前版本 {{version}}",
+    "channel": "更新通道",
+    "channelStable": "稳定版",
+    "channelBeta": "测试版",
+    "autoCheck": "自动检查更新",
+    "checking": "正在检查…",
+    "upToDate": "已是最新版本",
+    "available": "有新版本 {{version}}",
+    "ready": "版本 {{version}} 已可安装",
+    "readyHint": "重启即可安装，或在退出软件时自动安装。",
+    "check": "检查更新",
+    "download": "下载更新",
+    "restart": "立即重启",
+    "openRelease": "打开发布页面",
+    "notSupported": "要在这里更新，请从 GitHub Release 安装软件。",
+    "notes": "更新内容",
+    "otherVersions": "安装其他版本",
+    "noReleases": "还没有发布的版本",
+    "installed": "已安装",
+    "install": "安装",
+    "confirmOlder": "退回到版本 {{version}}？新版本保存的内容可能无法在旧版本中打开。",
+    "confirmInstall": "安装版本 {{version}}？",
+    "availableTitle": "有新版本 {{version}}",
+    "noNotes": "没有更新说明。",
+    "skip": "跳过此版本",
+    "later": "稍后",
+    "hide": "隐藏",
+    "downloading": "正在下载… {{percent}}%",
+    "whatsNewTitle": "{{version}} 更新内容",
+    "gotIt": "知道了",
+    "topbarAvailable": "有新版本",
+    "topbarReady": "重启以更新"
+  },
+  "about": {
+    "title": "当前版本",
+    "version": "版本",
+    "dataFolder": "数据目录",
+    "repository": "项目仓库",
+    "releases": "全部版本",
+    "issues": "反馈问题"
   }
 }

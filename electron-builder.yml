@@ -20,12 +20,9 @@ extraResources:
     to: mfp-plugin
     filter:
       - "**/*"
+# Only the unpacked folder: the installer, the portable zip and the update
+# packages are built from it by scripts/release.mjs.
 win:
   target:
-    - nsis
-    - portable
-nsis:
-  oneClick: false
-  allowToChangeInstallationDirectory: true
-  deleteAppDataOnUninstall: false
+    - dir
 npmRebuild: true

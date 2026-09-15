@@ -11,10 +11,11 @@
     "build": "electron-vite build",
     "sandbox": "node scripts/sandbox.mjs",
     "check:script-player": "node scripts/check-script-player.mjs",
+    "check:data-compat": "node scripts/check-data-compat.mjs",
     "check:players": "node scripts/check-players.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.node.json --composite false && tsc --noEmit -p tsconfig.web.json --composite false",
     "postinstall": "electron-builder install-app-deps",
-    "dist": "electron-vite build && electron-builder --win"
+    "release": "node scripts/release.mjs"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
@@ -41,10 +42,12 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-i18next": "^17.0.10",
+    "react-markdown": "^10.1.0",
     "react-virtuoso": "^4.18.11",
     "serialport": "^13.0.0",
     "simple-icons": "^16.27.1",
     "undici": "^7.28.0",
+    "velopack": "1.2.0",
     "zod": "^4.4.3",
     "zustand": "^5.0.14"
   }

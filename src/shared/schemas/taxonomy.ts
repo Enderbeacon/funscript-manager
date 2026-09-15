@@ -22,7 +22,7 @@ import { NAME_FIELDS } from './media-meta'
 export const ENTITY_KINDS = NAME_FIELDS
 export type EntityKind = (typeof ENTITY_KINDS)[number]
 
-export const EntitySchema = z.object({
+export const EntitySchema = z.looseObject({
   name: z.string().min(1),
   /**
    * Parent name within the same kind, for the kinds that nest (tags and
@@ -41,10 +41,10 @@ export const EntitySchema = z.object({
   order: z.number().int().optional()
 })
 
-const TaxonomyBodySchema = z.object({
+const TaxonomyBodySchema = z.looseObject({
   schemaVersion: z.literal(1).default(1),
   entities: z
-    .object({
+    .looseObject({
       tags: z.array(EntitySchema).default([]),
       videoAuthors: z.array(EntitySchema).default([]),
       scriptAuthors: z.array(EntitySchema).default([]),
@@ -55,7 +55,7 @@ const TaxonomyBodySchema = z.object({
   /** Filters the user chose to keep; the sidebar lists them as playlists do. */
   savedFilters: z
     .array(
-      z.object({
+      z.looseObject({
         id: z.uuid(),
         name: z.string().min(1),
         /** A FilterNode, stored as given; validated when it is applied. */
@@ -127,7 +127,7 @@ export const FILTER_OPERATORS = [
   'isNotEmpty'
 ] as const
 
-export const FilterRuleSchema = z.object({
+export const FilterRuleSchema = z.looseObject({
   kind: z.literal('rule'),
   field: z.enum(FILTER_FIELDS),
   op: z.enum(FILTER_OPERATORS),
@@ -152,7 +152,7 @@ export interface FilterGroup {
 export type FilterNode = FilterRule | FilterGroup
 
 export const FilterGroupSchema: z.ZodType<FilterGroup> = z.lazy(() =>
-  z.object({
+  z.looseObject({
     kind: z.literal('group'),
     match: z.enum(['all', 'any']),
     children: z.array(FilterNodeSchema)

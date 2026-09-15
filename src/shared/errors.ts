@@ -42,6 +42,14 @@ export const APP_ERROR_CODES = [
   'disk_full',
   /** Not a failure to act on: a damaged index was rebuilt and is refilling. */
   'index_rebuilt',
+  /** GitHub could not be reached, or answered with something unusable. */
+  'update_check_failed',
+  /** GitHub's hourly limit for unauthenticated requests from this address. */
+  'update_rate_limited',
+  'update_download_failed',
+  /** This copy was not installed by the updater, so it cannot replace itself. */
+  'update_not_supported',
+  'update_release_not_found',
   'internal_error'
 ] as const
 

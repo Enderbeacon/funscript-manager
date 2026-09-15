@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { COMPANION_MATCH_LEVELS, DEFAULT_COMPANION_MATCH } from '../constants'
 import { QUALITY_CHOICES } from '../quality'
+import { UpdateChannelSchema } from './updates'
 import { ScriptPlayerSettingsSchema } from '../../script-player/shared/config'
 
 /**
@@ -279,8 +280,8 @@ export const SettingsSchema = z.object({
     .object({
       /**
        * How far a scan will go to decide that a funscript belongs to a video
-       * sitting next to it. Levels are tried in
-       * order and stop at the first that finds anything, so a looser setting
+       * sitting next to it. Levels are tried in order and stop at the first
+       * that finds anything, so a looser setting
        * only ever gets a say over scripts the tighter rules gave up on — and a
        * script two videos claim equally well is left to neither.
        *
@@ -290,6 +291,19 @@ export const SettingsSchema = z.object({
        * named further apart, and it does sometimes pick the wrong one.
        */
       companionMatch: z.enum(COMPANION_MATCH_LEVELS).default(DEFAULT_COMPANION_MATCH)
+    })
+    .prefault({}),
+  updates: z
+    .object({
+      /**
+       * `beta` also receives stable releases — whichever is newer — so leaving
+       * beta never strands anyone on an old prerelease.
+       */
+      channel: UpdateChannelSchema.default('stable'),
+      /** Look for updates and notices on startup and every few hours. */
+      autoCheck: z.boolean().default(true),
+      /** "Skip this version": not offered again until a newer one appears. */
+      skippedVersion: z.string().default('')
     })
     .prefault({}),
   ui: z

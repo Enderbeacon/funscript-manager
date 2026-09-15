@@ -25,6 +25,8 @@ export const IPC_CHANNEL_PREFIXES = [
   'settings:',
   'sites:',
   'taxonomy:',
+  /** Finding, downloading and installing app releases, and the notices shown about them. */
+  'updates:',
   /** The built-in picture: the surface holding it, and what it reports back. */
   'video:'
 ] as const

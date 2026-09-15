@@ -15,9 +15,16 @@ import { createMainWindow, rememberCloseChoice, showMainWindow } from './service
 import { registerMediaProtocol, registerMediaScheme } from './services/media-protocol'
 import { applyProxySettings } from './services/net/proxy'
 import { disposeScriptPlayer } from '@script-player/composition/session'
+import {
+  applyPendingOnQuit,
+  initUpdates,
+  runUpdaterStartup
+} from './services/updates/updater'
 
 /**
  * Main process entry. Startup order:
+ * 0. The updater's own hook — when it starts the app to finish an install or
+ *    uninstall, that is all this run does
  * 1. IPC handlers and the media protocol
  * 2. App settings and the proxy, before anything touches the network
  * 3. The main window — it opens without waiting for the libraries
@@ -25,6 +32,8 @@ import { disposeScriptPlayer } from '@script-player/composition/session'
  *    list, and the download queue (after the libraries, so a resumed job's
  *    target library can be resolved)
  */
+
+runUpdaterStartup()
 
 // Test/dev hook: e2e smokes point this at a scratch directory so they never
 // touch the real profile (also isolates the single-instance lock below).
@@ -65,6 +74,8 @@ app.whenReady().then(async () => {
 
   startConnStatusPolling()
 
+  void initUpdates(settings)
+
   // The player list, and the auto-connect scan for the ones marked for it.
   void initPlayback().catch((e) => console.error('[playback] startup failed:', e))
 
@@ -93,6 +104,8 @@ app.on('window-all-closed', () => {
 app.on('will-quit', (event) => {
   // Flush watchers/workers/db handles once, then continue quitting.
   event.preventDefault()
+  // Hands a downloaded update to the updater, which waits for this exit.
+  applyPendingOnQuit()
   stopConnStatusPolling()
   disposePlayback()
   disposeDownloads()

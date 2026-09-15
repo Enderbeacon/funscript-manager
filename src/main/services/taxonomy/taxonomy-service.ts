@@ -14,6 +14,7 @@ import {
   type TaxonomyFile
 } from '@shared/schemas/taxonomy'
 import { atomicWriteJson, readJsonOr } from '../../util/atomic-json'
+import { setAsideUnreadable } from '../../util/persisted'
 
 /**
  * The tag tree, the author and studio lists, the playlists, and the filters
@@ -40,6 +41,12 @@ export async function getTaxonomy(): Promise<TaxonomyFile> {
   if (cache) return cache
   const raw = await readJsonOr(filePath(), {})
   const parsed = TaxonomyFileSchema.safeParse(raw)
+  if (!parsed.success) {
+    // Starting empty is survivable; overwriting the user's whole vocabulary
+    // with empty is not, and the next edit would do exactly that.
+    console.warn('[taxonomy] taxonomy.json did not validate:', parsed.error.issues)
+    await setAsideUnreadable(filePath())
+  }
   cache = parsed.success ? parsed.data : TaxonomyFileSchema.parse({})
   return cache
 }
