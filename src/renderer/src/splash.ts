@@ -1,3 +1,4 @@
+import { COPYRIGHT_NOTICE } from '@shared/constants'
 import type { StartupStatus } from '@shared/schemas/startup'
 import { ipcInvoke, ipcOn } from './ipc'
 import { splashLanguage, splashText } from './i18n/splash'
@@ -41,6 +42,8 @@ root.innerHTML = `
       </div>
       <div class="splash-count" id="count"></div>
     </div>
+    <div class="splash-legal">${COPYRIGHT_NOTICE}</div>
+    <div class="splash-credit" id="credit"></div>
   </section>
   <div class="splash-artwork" aria-hidden="true">
     <img class="splash-photo" src="${defaultArtwork}" alt="">
@@ -63,12 +66,24 @@ window.addEventListener('pagehide', () => {
   stopArtwork()
 }, { once: true })
 // The bundled artwork paints immediately; optional images never delay startup.
+// A library frame is credited to its video in the corner, and the credit only
+// changes once the next frame is actually showing.
+const creditEl = document.getElementById('credit')!
 void ipcInvoke('app:startupArtwork', { purpose: 'startup' }).then(({ images, rotate, intervalSeconds, presentation }) => {
-  if (!disposed) {
-    stopArtwork = startArtworkSlideshow(
-      document.getElementById('photos')!, images, rotate, intervalSeconds * 1000, presentation
-    )
-  }
+  if (disposed) return
+  const captions = new Map(images.map(({ src, caption }) => [src, caption]))
+  stopArtwork = startArtworkSlideshow(
+    document.getElementById('photos')!,
+    images.map(({ src }) => src),
+    rotate,
+    intervalSeconds * 1000,
+    presentation,
+    (source) => {
+      const caption = captions.get(source)
+      creditEl.textContent = caption ? splashText(lang, 'artwork', { name: caption }) : ''
+      creditEl.title = caption ?? ''
+    }
+  )
 }).catch(() => {})
 
 const quit = document.getElementById('quit') as HTMLButtonElement

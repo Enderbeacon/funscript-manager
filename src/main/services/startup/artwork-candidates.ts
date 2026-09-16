@@ -1,4 +1,4 @@
-import { extname, join } from 'node:path'
+import { basename, extname, join } from 'node:path'
 import Database from 'better-sqlite3'
 import { INDEX_DB, LIBRARY_CACHE_DIR, VIDEO_EXTENSIONS } from '@shared/constants'
 import type { RegisteredLibrary, Settings } from '@shared/schemas/app-config'
@@ -13,6 +13,41 @@ export interface ArtworkCandidate {
   mediaPath: string
   thumbnailPath: string
   highResPath: string
+  /** What the startup card credits the frame to. */
+  name: string
+}
+
+/** A video's title, or its file name without the extension when it has none. */
+function displayName(title: string | null, filePath: string): string {
+  return title?.trim() || basename(filePath, extname(filePath))
+}
+
+function openIndex(library: RegisteredLibrary): Database.Database {
+  return new Database(join(library.rootPath, LIBRARY_CACHE_DIR, INDEX_DB), {
+    readonly: true, fileMustExist: true, timeout: 0
+  })
+}
+
+/**
+ * Names for artwork already prepared, which is remembered by id alone. Missing
+ * ids are left out; the card then shows the frame without a credit.
+ */
+export function artworkNames(library: RegisteredLibrary, mediaIds: string[]): Map<string, string> {
+  const names = new Map<string, string>()
+  if (mediaIds.length === 0) return names
+  let db: Database.Database | undefined
+  try {
+    db = openIndex(library)
+    const rows = db.prepare(`
+      SELECT id, file_path, title FROM media WHERE id IN (${mediaIds.map(() => '?').join(', ')})
+    `).all(...mediaIds) as { id: string; file_path: string; title: string | null }[]
+    for (const row of rows) names.set(row.id, displayName(row.title, row.file_path))
+  } catch {
+    // Same as the candidates: an unreadable index only costs the credit.
+  } finally {
+    db?.close()
+  }
+  return names
 }
 
 /** Read the existing index without initializing, migrating or rebuilding it. */
@@ -35,14 +70,12 @@ export function artworkCandidates(
   const { sql, params } = compileFilter(filter, library.id)
   let db: Database.Database | undefined
   try {
-    db = new Database(join(library.rootPath, LIBRARY_CACHE_DIR, INDEX_DB), {
-      readonly: true, fileMustExist: true, timeout: 0
-    })
+    db = openIndex(library)
     const rows = db.prepare(`
-      SELECT m.id, m.file_path FROM media m
+      SELECT m.id, m.file_path, m.title FROM media m
       WHERE m.missing = 0 AND m.wanted = 0 AND (${sql})
       ORDER BY m.file_path COLLATE NOCASE, m.id
-    `).iterate(params) as Iterable<{ id: string; file_path: string }>
+    `).iterate(params) as Iterable<{ id: string; file_path: string; title: string | null }>
     const candidates: ArtworkCandidate[] = []
     for (const row of rows) {
       const name = `${row.id}.jpg`
@@ -53,7 +86,8 @@ export function artworkCandidates(
         mediaId: row.id,
         mediaPath: join(library.rootPath, row.file_path),
         thumbnailPath: join(library.rootPath, LIBRARY_CACHE_DIR, 'cache', 'thumbs', name),
-        highResPath: join(library.rootPath, LIBRARY_CACHE_DIR, 'cache', 'startup-artwork', name)
+        highResPath: join(library.rootPath, LIBRARY_CACHE_DIR, 'cache', 'startup-artwork', name),
+        name: displayName(row.title, row.file_path)
       })
     }
     return candidates

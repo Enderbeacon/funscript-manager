@@ -94,6 +94,26 @@ body {
   color: var(--text-tertiary);
 }
 
+/* Quiet single lines that give way to an ellipsis: the copyright line right
+   under the progress, and at the foot of the column, apart from it, the video
+   the library frame on the right came from (empty for other artwork). */
+.splash-credit,
+.splash-legal {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.splash-legal { margin-top: 4px; }
+
+.splash-credit {
+  margin-top: auto;
+  padding-top: 12px;
+}
+
 .splash-bar {
   margin-top: 12px;
   height: 2px;

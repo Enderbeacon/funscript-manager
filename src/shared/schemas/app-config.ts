@@ -333,7 +333,7 @@ export const SettingsSchema = z.object({
       /** Artwork shown while the application starts. */
       startupArtwork: z
         .object({
-          mode: z.enum(['default', 'library', 'custom']).default('default'),
+          mode: z.enum(['default', 'library', 'custom']).default('library'),
           customPath: z.string().default(''),
           /** Seconds between library preview changes on the startup card. */
           intervalSeconds: z.number().int().min(1).max(60).default(6),

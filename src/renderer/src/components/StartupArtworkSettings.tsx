@@ -55,7 +55,7 @@ export default function StartupArtworkSettings({
         return
       }
       void ipcInvoke('app:startupArtwork', { purpose: 'settings' }).then(({ images }) => {
-        if (!cancelled) setPreview(images[0] ?? defaultArtwork)
+        if (!cancelled) setPreview(images[0]?.src ?? defaultArtwork)
       }).catch(() => {})
     }
     setPreview(defaultArtwork)

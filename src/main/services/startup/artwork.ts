@@ -2,7 +2,7 @@ import { open, readdir } from 'node:fs/promises'
 import { extname, join } from 'node:path'
 import { LIBRARY_CACHE_DIR } from '@shared/constants'
 import type { RegisteredLibrary, Settings } from '@shared/schemas/app-config'
-import { artworkCandidates } from './artwork-candidates'
+import { artworkCandidates, artworkNames } from './artwork-candidates'
 import {
   activeStartupArtwork,
   scheduleStartupArtworkPreparation
@@ -12,6 +12,15 @@ const MIME: Record<string, string> = {
   '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
   '.webp': 'image/webp', '.gif': 'image/gif', '.bmp': 'image/bmp',
   '.avif': 'image/avif', '.svg': 'image/svg+xml'
+}
+
+/**
+ * One picture for the startup card. `caption` names the video a library frame
+ * was taken from; a chosen image or the built-in art has none.
+ */
+export interface StartupImage {
+  src: string
+  caption: string | null
 }
 
 /** Read a bounded image without exposing local paths to the splash document. */
@@ -45,7 +54,7 @@ export async function loadStartupArtwork(
   libraries: RegisteredLibrary[],
   purpose: 'startup' | 'settings'
 ): Promise<{
-  images: string[]
+  images: StartupImage[]
   rotate: boolean
   intervalSeconds: number
   presentation: 'cover' | 'framed'
@@ -57,7 +66,7 @@ export async function loadStartupArtwork(
   if (mode === 'custom') {
     const image = await imageData(customPath, 16 * 1024 * 1024)
     return {
-      images: image ? [image] : [],
+      images: image ? [{ src: image, caption: null }] : [],
       rotate: false,
       intervalSeconds,
       presentation: ui.startupArtwork.customPresentation
@@ -71,8 +80,16 @@ export async function loadStartupArtwork(
     if (purpose === 'settings') {
       scheduleStartupArtworkPreparation(ui, libraries, highRes[0]!.item.ref)
     }
+    const names = new Map<string, string>()
+    for (const library of libraries) {
+      const ids = highRes.filter(({ item }) => item.ref.libraryId === library.id).map(({ item }) => item.ref.mediaId)
+      for (const [id, name] of artworkNames(library, ids)) names.set(`${library.id}:${id}`, name)
+    }
     return {
-      images: highRes.map(({ image }) => image),
+      images: highRes.map(({ image, item }) => ({
+        src: image,
+        caption: names.get(`${item.ref.libraryId}:${item.ref.mediaId}`) ?? null
+      })),
       rotate: highRes.length > 1,
       intervalSeconds,
       presentation: ui.startupArtwork.libraryPresentation
@@ -91,7 +108,7 @@ export async function loadStartupArtwork(
   if (purpose === 'settings') {
     scheduleStartupArtworkPreparation(ui, libraries, regular[0]?.item)
   }
-  const images = regular.map(({ image }) => image)
+  const images = regular.map(({ image, item }) => ({ src: image, caption: item.name }))
   return {
     images,
     rotate: images.length > 1,

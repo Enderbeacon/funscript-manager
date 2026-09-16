@@ -15,6 +15,7 @@ export type SplashKey =
   | 'window'
   | 'installing'
   | 'quit'
+  | 'artwork'
 
 const COPY: Record<string, Record<SplashKey, string>> = {
   en: {
@@ -24,7 +25,8 @@ const COPY: Record<string, Record<SplashKey, string>> = {
     library: 'Scanning {{name}}…',
     window: 'Preparing the window…',
     installing: 'Installing the update…',
-    quit: 'Quit'
+    quit: 'Quit',
+    artwork: 'From {{name}}'
   },
   'zh-CN': {
     starting: '正在启动…',
@@ -33,7 +35,8 @@ const COPY: Record<string, Record<SplashKey, string>> = {
     library: '正在扫描 {{name}}…',
     window: '正在准备界面…',
     installing: '正在安装更新…',
-    quit: '退出'
+    quit: '退出',
+    artwork: '来自 {{name}}'
   },
   ja: {
     starting: '起動しています…',
@@ -42,7 +45,8 @@ const COPY: Record<string, Record<SplashKey, string>> = {
     library: '{{name}} をスキャンしています…',
     window: '画面を準備しています…',
     installing: '更新をインストールしています…',
-    quit: '終了'
+    quit: '終了',
+    artwork: '{{name}} より'
   },
   fr: {
     starting: 'Démarrage…',
@@ -51,7 +55,8 @@ const COPY: Record<string, Record<SplashKey, string>> = {
     library: 'Analyse de {{name}}…',
     window: 'Préparation de la fenêtre…',
     installing: 'Installation de la mise à jour…',
-    quit: 'Quitter'
+    quit: 'Quitter',
+    artwork: 'Tiré de {{name}}'
   },
   de: {
     starting: 'Wird gestartet…',
@@ -60,7 +65,8 @@ const COPY: Record<string, Record<SplashKey, string>> = {
     library: '{{name}} wird durchsucht…',
     window: 'Fenster wird vorbereitet…',
     installing: 'Update wird installiert…',
-    quit: 'Beenden'
+    quit: 'Beenden',
+    artwork: 'Aus {{name}}'
   }
 }
 

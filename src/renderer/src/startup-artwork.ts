@@ -4,7 +4,9 @@ export function startArtworkSlideshow(
   sources: string[],
   rotate: boolean,
   intervalMs = 6000,
-  presentation: 'cover' | 'framed' = 'cover'
+  presentation: 'cover' | 'framed' = 'cover',
+  /** The image now on screen, called once it has actually replaced the last. */
+  onShow: (source: string) => void = () => {}
 ): () => void {
   const remaining = [...new Set(sources)]
   let index = 0
@@ -23,6 +25,7 @@ export function startArtworkSlideshow(
       if (stopped) return
       pending = null
       container.replaceChildren(presentation === 'framed' ? framedPreview(image) : image)
+      onShow(source)
       if (remaining.length < 2) window.clearInterval(timer)
       index = (index + 1) % remaining.length
     }

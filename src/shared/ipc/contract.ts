@@ -98,7 +98,8 @@ export const ipcContract = {
     /** Existing images only; fetching artwork never holds up the startup sequence. */
     input: z.object({ purpose: z.enum(['startup', 'settings']) }),
     output: z.object({
-      images: z.array(z.string()),
+      /** `caption`: the video a library frame came from; null for other artwork. */
+      images: z.array(z.object({ src: z.string(), caption: z.string().nullable() })),
       rotate: z.boolean(),
       intervalSeconds: z.number().int().min(1).max(60),
       presentation: z.enum(['cover', 'framed'])
