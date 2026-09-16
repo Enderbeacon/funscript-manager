@@ -50,6 +50,7 @@
     "addVersion": "Ajouter une version",
     "pickScripts": "Choisir des fichiers .funscript…",
     "addVersionsCount": "Ajouter {{count}} versions",
+    "addVersionsCount_one": "Ajouter {{count}} version",
     "dropScripts": "ou déposez-les ici",
     "newVersion": "Nouvelle version",
     "fileAxis": "Axe",
@@ -84,6 +85,7 @@
     "fingerprint": "Empreinte",
     "companions": "Fichiers associés",
     "scriptFiles": "{{count}} fichiers",
+    "scriptFiles_one": "{{count}} fichier",
     "versionsLabel": "Versions",
     "codec": "Format",
     "sourcesExtra": "Également disponible sur",
@@ -149,6 +151,7 @@
     "settingsDescription": "Pilote les appareils directement avec le script choisi pour la vidéo en cours. Aucun logiciel supplémentaire.",
     "open": "Ouvrir le lecteur de scripts",
     "outputCount": "{{count}} sorties configurées",
+    "outputCount_one": "{{count}} sortie configurée",
     "supported": "Sorties prises en charge",
     "rangeHint": "Les connexions et les plages par axe sont dans la fenêtre du lecteur.",
     "disabledTitle": "MultiFunPlayer a le script",
@@ -414,6 +417,7 @@
       "cachePreparing": "Préparation du cache haute résolution…",
       "cacheProgress": "Cache haute résolution : {{processed}}/{{total}} traitées, {{ready}} prêtes",
       "cacheStored": "{{count}} images haute résolution conservées",
+      "cacheStored_one": "{{count}} image haute résolution conservée",
       "cacheClear": "Effacer les autres ({{count}})",
       "sourcesHint": "Sélectionnez plusieurs tags, listes de lecture ou dossiers. Une correspondance avec un seul élément suffit ; les sous-dossiers sont inclus. Sans sélection, toutes les vidéos des bibliothèques actuelles sont admissibles.",
       "tags": "Tags",
@@ -503,6 +507,7 @@
     "empty": "Aucun fichier multimédia reconnu pour l'instant.",
     "searchPlaceholder": "Rechercher un nom de fichier ou un titre…",
     "count": "{{count}} éléments",
+    "count_one": "{{count}} élément",
     "sync": "Réanalyser",
     "play": "Lire",
     "view": {
@@ -514,6 +519,7 @@
     "badges": {
       "missing": "Fichier manquant",
       "scripts": "{{count}} scripts",
+      "scripts_one": "{{count}} script",
       "multiAxis": "Multi-axes",
       "subtitles": "Sous-titres {{langs}}",
       "wanted": "Sans fichier"
@@ -637,7 +643,8 @@
       "fromPostPlaceholder": "Collez un lien de message EroScripts",
       "fromPostApply": "Appliquer à {{count}}",
       "fromPostHint": "Ajoute les tags, l’auteur et les liens du message. Rien de déjà rempli n’est remplacé.",
-      "fromPostDone": "Depuis « {{title}} » : {{count}} entrées complétées, {{tags}} tags ajoutés."
+      "fromPostDone": "Depuis « {{title}} » : {{count}} entrées complétées, {{tags}} tags ajoutés.",
+      "fromPostDone_one": "Depuis « {{title}} » : {{count}} entrée complétée, {{tags}} tags ajoutés."
     },
     "field": {
       "tags": "Tags",
@@ -754,10 +761,12 @@
       "toggle": "Retirer un dossier",
       "root": "Racine de la bibliothèque",
       "count": "{{count}} entrées",
+      "count_one": "{{count}} entrée",
       "remove": "Retirer",
       "removing": "Retrait…",
       "empty": "Rien d’indexé pour l’instant.",
-      "confirm": "Retirer les {{count}} entrées de « {{folder}} » de la bibliothèque ? Les fichiers restent sur le disque."
+      "confirm": "Retirer les {{count}} entrées de « {{folder}} » de la bibliothèque ? Les fichiers restent sur le disque.",
+      "confirm_one": "Retirer {{count}} entrée de « {{folder}} » de la bibliothèque ? Les fichiers restent sur le disque."
     },
     "ignored": {
       "toggle": "Retirées de la bibliothèque ({{count}})",
@@ -882,8 +891,11 @@
     "openSite": "Aller au site",
     "remove": "Retirer",
     "videoGroup": "Vidéo · {{count}} sources",
+    "videoGroup_one": "Vidéo · {{count}} source",
     "scriptGroup": "Scripts · {{count}} sources",
+    "scriptGroup_one": "Scripts · {{count}} source",
     "mirrorsInReplies": "{{count}} autres miroirs dans les réponses",
+    "mirrorsInReplies_one": "{{count}} autre miroir dans les réponses",
     "linkDead": "Ce lien est mort",
     "linkAlive": "Lien valide",
     "linkUnsure": "Indéterminable",
@@ -934,6 +946,7 @@
   "organise": {
     "searchPlaceholder": "Rechercher",
     "count": "{{count}} entrées · {{unused}} inutilisées",
+    "count_one": "{{count}} entrée · {{unused}} inutilisées",
     "cleanUnused": "Supprimer les inutilisées",
     "new": "Nouveau",
     "newPrompt": "Nom",
@@ -956,12 +969,16 @@
     "mergeHint": "L'entrée conservée garde l'ancien nom comme alias.",
     "delete": "Supprimer",
     "rewrote": "{{count}} éléments mis à jour.",
+    "rewrote_one": "{{count}} élément mis à jour.",
     "pending": "Application de {{count}} modifications…",
+    "pending_one": "Application de {{count}} modification…",
     "pendingScan": "{{count}} modifications reprendront après l’analyse",
+    "pendingScan_one": "{{count}} modification reprendra après l’analyse",
     "opFailed": "Modifications de « {{name}} » non appliquées : {{message}}",
     "confirmDelete": "Supprimer « {{name}} » ? Elle sera retirée de {{count}} éléments.",
     "confirmMerge": "Fusionner « {{from}} » dans « {{into}} » ?",
     "confirmClean": "Supprimer {{count}} entrées inutilisées ?",
+    "confirmClean_one": "Supprimer {{count}} entrée inutilisée ?",
     "dropToTop": "Déposer ici pour remonter au premier niveau",
     "cover": "Couverture",
     "coverNone": "Aucune couverture",
@@ -984,6 +1001,7 @@
     "pickOne": "Choisissez une liste pour voir son contenu",
     "emptyList": "Cette liste est encore vide",
     "summary": "{{count}} éléments · {{duration}}",
+    "summary_one": "{{count}} élément · {{duration}}",
     "playAll": "Lecture",
     "shuffle": "Aléatoire",
     "repeat": "Répéter",
@@ -999,12 +1017,14 @@
     "copyOf": "Copie de {{name}}",
     "exportM3u": "Exporter en .m3u",
     "exported": "{{count}} pistes exportées",
+    "exported_one": "{{count}} piste exportée",
     "dropToRemove": "Relâcher pour retirer de cette liste",
     "tickedCount": "{{count}} sélectionnés",
     "removeTicked": "Retirer de la liste",
     "collapseLists": "Masquer la liste",
     "expandLists": "Afficher toutes les listes",
-    "listCount": "{{count}} listes"
+    "listCount": "{{count}} listes",
+    "listCount_one": "{{count}} liste"
   },
   "nowplaying": {
     "openDetail": "Voir cette vidéo",

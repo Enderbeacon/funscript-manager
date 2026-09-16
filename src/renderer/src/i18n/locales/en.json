@@ -20,6 +20,7 @@
     "empty": "No media files recognized yet.",
     "searchPlaceholder": "Search file name or title…",
     "count": "{{count}} items",
+    "count_one": "{{count}} item",
     "sync": "Rescan",
     "play": "Play",
     "view": {
@@ -31,6 +32,7 @@
     "badges": {
       "missing": "Missing file",
       "scripts": "{{count}} scripts",
+      "scripts_one": "{{count}} script",
       "multiAxis": "Multi-axis",
       "subtitles": "Subs {{langs}}",
       "wanted": "No file"
@@ -154,7 +156,8 @@
       "fromPostPlaceholder": "Paste an EroScripts post link",
       "fromPostApply": "Apply to {{count}}",
       "fromPostHint": "Adds the post’s tags, author and links. Nothing already set is replaced.",
-      "fromPostDone": "From “{{title}}”: filled {{count}} entries, {{tags}} tags added."
+      "fromPostDone": "From “{{title}}”: filled {{count}} entries, {{tags}} tags added.",
+      "fromPostDone_one": "From “{{title}}”: filled {{count}} entry, {{tags}} tags added."
     },
     "field": {
       "tags": "Tags",
@@ -297,6 +300,7 @@
     "versionNotes": "Notes",
     "addVersion": "Add version",
     "addVersionsCount": "Add {{count}} versions",
+    "addVersionsCount_one": "Add {{count}} version",
     "pickScripts": "Choose .funscript files…",
     "dropScripts": "or drop them here",
     "newVersion": "New version",
@@ -332,6 +336,7 @@
     "fingerprint": "Fingerprint",
     "companions": "Companion files",
     "scriptFiles": "{{count}} files",
+    "scriptFiles_one": "{{count}} file",
     "versionsLabel": "Versions",
     "codec": "Format",
     "sourcesExtra": "Also from",
@@ -397,6 +402,7 @@
     "settingsDescription": "Drive devices straight from the script chosen for the current video. No extra software needed.",
     "open": "Open script player",
     "outputCount": "{{count}} outputs configured",
+    "outputCount_one": "{{count}} output configured",
     "supported": "Supported outputs",
     "rangeHint": "Connections and per-axis ranges are in the player window.",
     "disabledTitle": "MultiFunPlayer has the script",
@@ -662,6 +668,7 @@
       "cachePreparing": "Preparing high-resolution artwork…",
       "cacheProgress": "High-resolution cache: {{processed}}/{{total}} processed, {{ready}} ready",
       "cacheStored": "{{count}} high-resolution images stored",
+      "cacheStored_one": "{{count}} high-resolution image stored",
       "cacheClear": "Clear other ({{count}})",
       "sourcesHint": "Choose any tags, playlists or folders. Videos matching any selected item are included; folders include subfolders. With nothing selected, all videos in the current library scope are eligible.",
       "tags": "Tags",
@@ -754,10 +761,12 @@
       "toggle": "Remove a folder",
       "root": "Library root",
       "count": "{{count}} entries",
+      "count_one": "{{count}} entry",
       "remove": "Remove",
       "removing": "Removing…",
       "empty": "Nothing indexed yet.",
-      "confirm": "Remove {{count}} entries in “{{folder}}” from the library? The files stay on disk."
+      "confirm": "Remove {{count}} entries in “{{folder}}” from the library? The files stay on disk.",
+      "confirm_one": "Remove {{count}} entry in “{{folder}}” from the library? The files stay on disk."
     },
     "ignored": {
       "toggle": "Removed from library ({{count}})",
@@ -882,8 +891,11 @@
     "openSite": "Go to site",
     "remove": "Remove",
     "videoGroup": "Video · {{count}} sources",
+    "videoGroup_one": "Video · {{count}} source",
     "scriptGroup": "Scripts · {{count}} sources",
+    "scriptGroup_one": "Scripts · {{count}} source",
     "mirrorsInReplies": "{{count}} more mirrors in replies",
+    "mirrorsInReplies_one": "{{count}} more mirror in replies",
     "linkDead": "This link is dead",
     "linkAlive": "Link works",
     "linkUnsure": "Could not tell",
@@ -934,6 +946,7 @@
   "organise": {
     "searchPlaceholder": "Search",
     "count": "{{count}} entries · {{unused}} unused",
+    "count_one": "{{count}} entry · {{unused}} unused",
     "cleanUnused": "Remove unused",
     "new": "New",
     "newPrompt": "Name",
@@ -957,11 +970,14 @@
     "delete": "Delete",
     "rewrote": "Updated {{count}} media.",
     "pending": "Applying {{count}} changes…",
+    "pending_one": "Applying {{count}} change…",
     "pendingScan": "{{count}} changes resume after the library scan",
+    "pendingScan_one": "{{count}} change resumes after the library scan",
     "opFailed": "Could not apply the changes to “{{name}}”: {{message}}",
     "confirmDelete": "Delete “{{name}}”? It will be removed from {{count}} media.",
     "confirmMerge": "Merge “{{from}}” into “{{into}}”?",
     "confirmClean": "Remove {{count}} unused entries?",
+    "confirmClean_one": "Remove {{count}} unused entry?",
     "dropToTop": "Drop here to move to the top level",
     "cover": "Cover",
     "coverNone": "No cover",
@@ -984,6 +1000,7 @@
     "pickOne": "Pick a playlist to see what is in it",
     "emptyList": "Nothing in this playlist yet",
     "summary": "{{count}} items · {{duration}}",
+    "summary_one": "{{count}} item · {{duration}}",
     "playAll": "Play",
     "shuffle": "Shuffle",
     "repeat": "Repeat",
@@ -999,12 +1016,14 @@
     "copyOf": "{{name}} copy",
     "exportM3u": "Export as .m3u",
     "exported": "Exported {{count}} tracks",
+    "exported_one": "Exported {{count}} track",
     "dropToRemove": "Drop to remove from this list",
     "tickedCount": "{{count}} ticked",
     "removeTicked": "Remove from list",
     "collapseLists": "Hide the list",
     "expandLists": "Show all playlists",
-    "listCount": "{{count}} playlists"
+    "listCount": "{{count}} playlists",
+    "listCount_one": "{{count}} playlist"
   },
   "nowplaying": {
     "openDetail": "Show this video",

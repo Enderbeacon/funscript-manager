@@ -50,6 +50,7 @@
     "addVersion": "Version hinzufügen",
     "pickScripts": ".funscript-Dateien wählen…",
     "addVersionsCount": "{{count}} Versionen hinzufügen",
+    "addVersionsCount_one": "{{count}} Version hinzufügen",
     "dropScripts": "oder hier ablegen",
     "newVersion": "Neue Version",
     "fileAxis": "Achse",
@@ -84,6 +85,7 @@
     "fingerprint": "Fingerabdruck",
     "companions": "Begleitdateien",
     "scriptFiles": "{{count}} Dateien",
+    "scriptFiles_one": "{{count}} Datei",
     "versionsLabel": "Versionen",
     "codec": "Format",
     "sourcesExtra": "Auch erhältlich bei",
@@ -149,6 +151,7 @@
     "settingsDescription": "Treibt Geräte direkt mit dem Skript an, das für das aktuelle Video gewählt ist. Keine zusätzliche Software nötig.",
     "open": "Skriptplayer öffnen",
     "outputCount": "{{count}} Ausgänge konfiguriert",
+    "outputCount_one": "{{count}} Ausgang konfiguriert",
     "supported": "Unterstützte Ausgänge",
     "rangeHint": "Verbindungen und Achsbereiche stehen im Player-Fenster.",
     "disabledTitle": "MultiFunPlayer hat das Skript",
@@ -414,6 +417,7 @@
       "cachePreparing": "Hochauflösenden Cache vorbereiten…",
       "cacheProgress": "Hochauflösender Cache: {{processed}}/{{total}} verarbeitet, {{ready}} bereit",
       "cacheStored": "{{count}} hochauflösende Bilder gespeichert",
+      "cacheStored_one": "{{count}} hochauflösendes Bild gespeichert",
       "cacheClear": "Andere löschen ({{count}})",
       "sourcesHint": "Mehrere Tags, Wiedergabelisten oder Ordner wählen. Ein Treffer in einer Auswahl genügt; Unterordner zählen mit. Ohne Auswahl sind alle Videos der aktuellen Bibliotheksauswahl zugelassen.",
       "tags": "Tags",
@@ -503,6 +507,7 @@
     "empty": "Noch keine Mediendateien erkannt.",
     "searchPlaceholder": "Dateiname oder Titel suchen…",
     "count": "{{count}} Einträge",
+    "count_one": "{{count}} Eintrag",
     "sync": "Neu scannen",
     "play": "Abspielen",
     "view": {
@@ -514,6 +519,7 @@
     "badges": {
       "missing": "Datei fehlt",
       "scripts": "{{count}} Skripte",
+      "scripts_one": "{{count}} Skript",
       "multiAxis": "Mehrachsig",
       "subtitles": "Untertitel {{langs}}",
       "wanted": "Ohne Datei"
@@ -637,7 +643,8 @@
       "fromPostPlaceholder": "EroScripts-Beitragslink einfügen",
       "fromPostApply": "Auf {{count}} anwenden",
       "fromPostHint": "Ergänzt Tags, Autor und Links des Beitrags. Vorhandenes wird nicht ersetzt.",
-      "fromPostDone": "Aus „{{title}}“: {{count}} Einträge ergänzt, {{tags}} Tags hinzugefügt."
+      "fromPostDone": "Aus „{{title}}“: {{count}} Einträge ergänzt, {{tags}} Tags hinzugefügt.",
+      "fromPostDone_one": "Aus „{{title}}“: {{count}} Eintrag ergänzt, {{tags}} Tags hinzugefügt."
     },
     "field": {
       "tags": "Tags",
@@ -754,10 +761,12 @@
       "toggle": "Ordner entfernen",
       "root": "Bibliotheks-Wurzel",
       "count": "{{count}} Einträge",
+      "count_one": "{{count}} Eintrag",
       "remove": "Entfernen",
       "removing": "Wird entfernt …",
       "empty": "Noch nichts indiziert.",
-      "confirm": "{{count}} Einträge in „{{folder}}“ aus der Bibliothek entfernen? Die Dateien bleiben auf der Festplatte."
+      "confirm": "{{count}} Einträge in „{{folder}}“ aus der Bibliothek entfernen? Die Dateien bleiben auf der Festplatte.",
+      "confirm_one": "{{count}} Eintrag in „{{folder}}“ aus der Bibliothek entfernen? Die Dateien bleiben auf der Festplatte."
     },
     "ignored": {
       "toggle": "Aus Bibliothek entfernt ({{count}})",
@@ -860,6 +869,7 @@
     "resumeNow": "Jetzt erneut",
     "readingReplies": "Antworten werden gelesen… {{read}}/{{total}}",
     "summary": "{{count}} laufen",
+    "summary_one": "{{count}} läuft",
     "quotaCooling": "{{hoster}}-Kontingent erschöpft, neuer Versuch um {{time}}",
     "removeRecord": "Eintrag entfernen",
     "filter": {
@@ -882,8 +892,11 @@
     "openSite": "Zur Seite",
     "remove": "Entfernen",
     "videoGroup": "Video · {{count}} Quellen",
+    "videoGroup_one": "Video · {{count}} Quelle",
     "scriptGroup": "Skripte · {{count}} Quellen",
+    "scriptGroup_one": "Skripte · {{count}} Quelle",
     "mirrorsInReplies": "{{count}} weitere Spiegel in den Antworten",
+    "mirrorsInReplies_one": "{{count}} weiterer Spiegel in den Antworten",
     "linkDead": "Dieser Link ist tot",
     "linkAlive": "Link funktioniert",
     "linkUnsure": "Nicht feststellbar",
@@ -897,7 +910,8 @@
     "clearSelection": "Auswahl aufheben",
     "download": "Herunterladen",
     "openDownloads": "Alle Downloads anzeigen",
-    "railSummary": "{{count}} laufen"
+    "railSummary": "{{count}} laufen",
+    "railSummary_one": "{{count}} läuft"
   },
   "wanted": {
     "title": "Videodatei fehlt",
@@ -934,6 +948,7 @@
   "organise": {
     "searchPlaceholder": "Suchen",
     "count": "{{count}} Einträge · {{unused}} ungenutzt",
+    "count_one": "{{count}} Eintrag · {{unused}} ungenutzt",
     "cleanUnused": "Ungenutzte entfernen",
     "new": "Neu",
     "newPrompt": "Name",
@@ -957,11 +972,14 @@
     "delete": "Löschen",
     "rewrote": "{{count}} Medien aktualisiert.",
     "pending": "{{count}} Änderungen werden übernommen…",
+    "pending_one": "{{count}} Änderung wird übernommen…",
     "pendingScan": "{{count}} Änderungen folgen nach dem Bibliotheks-Scan",
+    "pendingScan_one": "{{count}} Änderung folgt nach dem Bibliotheks-Scan",
     "opFailed": "Änderungen an „{{name}}“ nicht übernommen: {{message}}",
     "confirmDelete": "„{{name}}“ löschen? Wird von {{count}} Medien entfernt.",
     "confirmMerge": "„{{from}}“ mit „{{into}}“ zusammenführen?",
     "confirmClean": "{{count}} ungenutzte Einträge entfernen?",
+    "confirmClean_one": "{{count}} ungenutzten Eintrag entfernen?",
     "dropToTop": "Hierher ziehen für oberste Ebene",
     "cover": "Titelbild",
     "coverNone": "Kein Titelbild",
@@ -984,6 +1002,7 @@
     "pickOne": "Wiedergabeliste wählen, um den Inhalt zu sehen",
     "emptyList": "Diese Wiedergabeliste ist noch leer",
     "summary": "{{count}} Einträge · {{duration}}",
+    "summary_one": "{{count}} Eintrag · {{duration}}",
     "playAll": "Abspielen",
     "shuffle": "Zufällig",
     "repeat": "Wiederholen",
@@ -1004,7 +1023,8 @@
     "removeTicked": "Aus Liste entfernen",
     "collapseLists": "Liste ausblenden",
     "expandLists": "Alle Playlists zeigen",
-    "listCount": "{{count}} Playlists"
+    "listCount": "{{count}} Playlists",
+    "listCount_one": "{{count}} Playlist"
   },
   "nowplaying": {
     "openDetail": "Dieses Video zeigen",
