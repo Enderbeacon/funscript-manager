@@ -1341,7 +1341,7 @@
     "releases": "全部版本",
     "issues": "反馈问题",
     "licenses": "开源许可",
-    "licenseSummary": "本软件以 GNU AGPL v3.0 或更高版本发布，不提供任何担保。所用开源组件各自遵循其许可证。",
+    "website": "主页",
     "documentation": "使用文档",
     "licenseText": "许可证",
     "thirdPartyLicenses": "第三方许可"

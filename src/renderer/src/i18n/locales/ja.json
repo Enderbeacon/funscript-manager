@@ -1341,7 +1341,7 @@
     "releases": "すべてのリリース",
     "issues": "問題を報告",
     "licenses": "ライセンス",
-    "licenseSummary": "GNU AGPL v3.0 以降のもとで公開しており、いかなる保証もありません。使用しているオープンソースコンポーネントには、それぞれのライセンスが適用されます。",
+    "website": "ウェブサイト",
     "documentation": "ドキュメント",
     "licenseText": "ライセンス",
     "thirdPartyLicenses": "サードパーティのライセンス"

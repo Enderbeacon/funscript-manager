@@ -1360,7 +1360,7 @@
     "releases": "All releases",
     "issues": "Report a problem",
     "licenses": "Licenses",
-    "licenseSummary": "Released under the GNU AGPL v3.0 or later, without any warranty. The open-source components it uses keep their own licenses.",
+    "website": "Website",
     "documentation": "Documentation",
     "licenseText": "License",
     "thirdPartyLicenses": "Third-party licenses"

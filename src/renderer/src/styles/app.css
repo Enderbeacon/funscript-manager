@@ -7221,6 +7221,11 @@ button.sp-connect-button.connected:hover:not(:disabled) {
   display: flex;
   align-items: flex-end;
 }
+.about-links button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
 
 .topbar-sync span {
   display: block;

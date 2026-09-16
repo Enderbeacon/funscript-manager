@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { BookOpen } from 'lucide-react'
+import { BookOpen, House } from 'lucide-react'
 import { siGithub } from 'simple-icons'
 import { COPYRIGHT_NOTICE } from '@shared/constants'
 import type { IpcOutput } from '@shared/ipc/contract'
@@ -20,6 +20,7 @@ import brandWordmark from '../assets/brand/wordmark.svg?raw'
  */
 
 const REPOSITORY = 'https://github.com/Enderbeacon/funscript-manager'
+const WEBSITE = 'https://enderbeacon.github.io/funscript-manager/'
 
 export default function AboutPage(): React.JSX.Element {
   const { t } = useTranslation()
@@ -93,15 +94,19 @@ function ProjectCard(): React.JSX.Element {
         dangerouslySetInnerHTML={{ __html: brandWordmark }}
       />
       <div className="about-links">
+        <button className="ghost" onClick={() => window.open(WEBSITE, '_blank')}>
+          <House size={14} />
+          {t('about.website')}
+        </button>
+        <button className="ghost" onClick={() => window.open(`${WEBSITE}guide/`, '_blank')}>
+          <BookOpen size={14} />
+          {t('about.documentation')}
+        </button>
         <button className="ghost" onClick={() => window.open(REPOSITORY, '_blank')}>
           <svg className="about-brand-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d={siGithub.path} />
           </svg>
           GitHub
-        </button>
-        <button className="ghost" onClick={() => window.open(`${REPOSITORY}#readme`, '_blank')}>
-          <BookOpen size={14} />
-          {t('about.documentation')}
         </button>
       </div>
       <p className="about-note">
@@ -113,6 +118,14 @@ function ProjectCard(): React.JSX.Element {
 }
 
 type LicenseId = 'app' | 'thirdParty'
+
+/**
+ * What the license means, in English in every language: a translation could
+ * read as a different promise from the one the license text makes.
+ */
+const LICENSE_SUMMARY =
+  'Released under the GNU AGPL v3.0 or later, without any warranty. The open-source ' +
+  'components it uses keep their own licenses.'
 
 /** The app's own license and every third-party one it carries. */
 function LicensesCard(): React.JSX.Element {
@@ -132,7 +145,7 @@ function LicensesCard(): React.JSX.Element {
     <div className="card">
       <h2 className="settings-section-title">{t('about.licenses')}</h2>
       <p className="about-copyright">{COPYRIGHT_NOTICE}</p>
-      <p className="settings-hint">{t('about.licenseSummary')}</p>
+      <p className="settings-hint">{LICENSE_SUMMARY}</p>
       <div className="about-links">
         <button className="ghost" onClick={() => open('app')}>
           {t('about.licenseText')}

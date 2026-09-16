@@ -1361,7 +1361,7 @@
     "releases": "Toutes les versions",
     "issues": "Signaler un problème",
     "licenses": "Licences",
-    "licenseSummary": "Publié sous licence GNU AGPL v3.0 ou ultérieure, sans aucune garantie. Les composants open source utilisés restent sous leur propre licence.",
+    "website": "Site web",
     "documentation": "Documentation",
     "licenseText": "Licence",
     "thirdPartyLicenses": "Licences tierces"
