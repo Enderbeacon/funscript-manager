@@ -2,6 +2,7 @@
   "name": "funscript-manager",
   "version": "0.1.0",
   "description": "Local-first media manager for funscript-driven content",
+  "license": "AGPL-3.0-or-later",
   "private": true,
   "main": "./out/main/index.js",
   "author": "",

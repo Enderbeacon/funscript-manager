@@ -86,6 +86,14 @@ resources/
 scripts/             Protocol and behaviour checks run with Node
 ```
 
+## License
+
+Copyright (C) 2026 Enderbeacon
+
+Licensed under the [GNU Affero General Public License v3.0 or later](LICENSE).
+Contributions are accepted under the same license; see
+[CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Third-party code
 
 See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
