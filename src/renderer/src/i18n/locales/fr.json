@@ -1058,7 +1058,7 @@
     "popOut": "Ouvrir dans sa propre fenêtre",
     "fullscreen": "Plein écran",
     "exitFullscreen": "Quitter le plein écran",
-    "showPicture": "Afficher l'image",
+    "showPicture": "Afficher la vidéo",
     "unsupported": "Ce lecteur ne peut pas lire ce format.",
     "subtitles": {
       "off": "Aucun sous-titre",
@@ -1096,8 +1096,8 @@
       "heresphere": "Lancez HereSphere d’abord ; impossible de le faire d’ici.",
       "internal": "Lit dans cette fenêtre. Les formats qu'il ne décode pas demandent un autre lecteur."
     },
-    "keepPlaying": "Continuer la lecture quand l'image est fermée",
-    "keepPlayingHint": "Le son continue ; la vignette de la barre ramène l'image.",
+    "keepPlaying": "Continuer la lecture après avoir fermé la vidéo",
+    "keepPlayingHint": "Le son continue. Cliquez sur la vignette de la barre pour rouvrir la vidéo.",
     "builtInName": "Intégré"
   },
   "tour": {
@@ -1175,7 +1175,7 @@
       "playback": {
         "sources": {
           "title": "Lecteurs vidéo",
-          "body": "Qui affiche l'image. Le lecteur intégré fonctionne tel quel."
+          "body": "Ce qui lit vos vidéos. Le lecteur intégré fonctionne sans réglage."
         },
         "sourceList": {
           "title": "Choisir le lecteur courant",

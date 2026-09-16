@@ -1058,7 +1058,7 @@
     "popOut": "In eigenem Fenster öffnen",
     "fullscreen": "Vollbild",
     "exitFullscreen": "Vollbild beenden",
-    "showPicture": "Bild anzeigen",
+    "showPicture": "Video anzeigen",
     "unsupported": "Dieser Player kann dieses Format nicht abspielen.",
     "subtitles": {
       "off": "Keine Untertitel",
@@ -1096,8 +1096,8 @@
       "heresphere": "HereSphere zuerst starten; von hier aus geht das nicht.",
       "internal": "Spielt in diesem Fenster. Formate, die es nicht dekodiert, brauchen einen anderen Player."
     },
-    "keepPlaying": "Weiterspielen, wenn das Bild geschlossen wird",
-    "keepPlayingHint": "Der Ton läuft weiter; das Vorschaubild in der Leiste holt das Bild zurück.",
+    "keepPlaying": "Weiterspielen, wenn das Video geschlossen wird",
+    "keepPlayingHint": "Der Ton läuft weiter. Ein Klick auf das Vorschaubild in der Leiste holt das Video zurück.",
     "builtInName": "Integriert"
   },
   "tour": {
@@ -1175,7 +1175,7 @@
       "playback": {
         "sources": {
           "title": "Videoplayer",
-          "body": "Wer das Bild zeigt. Der eingebaute Player läuft ohne Einrichtung."
+          "body": "Womit deine Videos abgespielt werden. Der eingebaute Player läuft ohne Einrichtung."
         },
         "sourceList": {
           "title": "Aktuellen Player wählen",

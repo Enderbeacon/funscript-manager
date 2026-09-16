@@ -1057,7 +1057,7 @@
     "popOut": "Open in its own window",
     "fullscreen": "Full screen",
     "exitFullscreen": "Leave full screen",
-    "showPicture": "Show the picture",
+    "showPicture": "Show the video",
     "unsupported": "This player cannot play this format.",
     "subtitles": {
       "off": "No subtitles",
@@ -1095,8 +1095,8 @@
       "heresphere": "Start HereSphere first; it cannot be started from here.",
       "internal": "Plays in this window. Formats it cannot decode need another player."
     },
-    "keepPlaying": "Keep playing when the picture is closed",
-    "keepPlayingHint": "The sound carries on; the artwork on the bar brings the picture back.",
+    "keepPlaying": "Keep playing after closing the video",
+    "keepPlayingHint": "The sound keeps going. Click the thumbnail on the bar to bring the video back.",
     "builtInName": "Built-in"
   },
   "tour": {
@@ -1174,7 +1174,7 @@
       "playback": {
         "sources": {
           "title": "Video players",
-          "body": "Who shows the picture. The built-in player works as it is."
+          "body": "What plays your videos. The built-in player needs no setup."
         },
         "sourceList": {
           "title": "Pick the current player",
