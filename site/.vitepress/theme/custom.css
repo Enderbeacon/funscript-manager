@@ -1,0 +1,264 @@
+/*
+ * The site wears the app's own look: the same seed colours, the three
+ * background glows, gradient primary buttons and glass cards. Values mirror
+ * the app's light and dark themes so a screenshot sits naturally on the page.
+ */
+
+:root {
+  --fsm-bg-page: #eef0f7;
+  --fsm-surface: #ffffff;
+  --fsm-text: #161a24;
+  --fsm-accent: #3b5bdb;
+  --fsm-grad-a: #4c6fff;
+  --fsm-grad-b: #9333ea;
+  --fsm-blob-1: #6366f1;
+  --fsm-blob-2: #0ea5e9;
+  --fsm-blob-3: #ec4899;
+  --fsm-blob-strength: 32%;
+  --fsm-glass: color-mix(in srgb, var(--fsm-surface) 62%, transparent);
+  --fsm-glass-edge: color-mix(in srgb, var(--fsm-surface) 70%, transparent);
+  --fsm-shadow: 0 10px 30px color-mix(in srgb, var(--fsm-text) 10%, transparent);
+
+  --vp-font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+
+  --vp-c-bg: var(--fsm-bg-page);
+  --vp-c-bg-alt: color-mix(in srgb, var(--fsm-surface) 45%, var(--fsm-bg-page));
+  --vp-c-bg-elv: var(--fsm-surface);
+  --vp-c-bg-soft: color-mix(in srgb, var(--fsm-surface) 55%, transparent);
+  --vp-c-text-1: var(--fsm-text);
+
+  --vp-c-brand-1: var(--fsm-accent);
+  --vp-c-brand-2: #4c6fff;
+  --vp-c-brand-3: #3b5bdb;
+  --vp-c-brand-soft: color-mix(in srgb, var(--fsm-accent) 12%, transparent);
+
+  --vp-button-brand-border: transparent;
+  --vp-button-brand-text: #ffffff;
+  --vp-button-brand-bg: var(--fsm-grad-a);
+  --vp-button-brand-hover-border: transparent;
+  --vp-button-brand-hover-text: #ffffff;
+  --vp-button-brand-hover-bg: var(--fsm-grad-a);
+  --vp-button-brand-active-bg: var(--fsm-grad-a);
+
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(120deg, var(--fsm-grad-a), var(--fsm-grad-b));
+}
+
+.dark {
+  --fsm-bg-page: #0b0d12;
+  --fsm-text: #f2f4f8;
+  --fsm-accent: #7aa7ff;
+  --fsm-grad-a: #5b8cff;
+  --fsm-grad-b: #a06bff;
+  --fsm-blob-1: #5865f2;
+  --fsm-blob-2: #06b6d4;
+  --fsm-blob-3: #db2777;
+  --fsm-blob-strength: 46%;
+  --fsm-glass: color-mix(in srgb, var(--fsm-surface) 6%, transparent);
+  --fsm-glass-edge: color-mix(in srgb, var(--fsm-surface) 14%, transparent);
+  --fsm-shadow: 0 10px 30px color-mix(in srgb, #000000 18%, transparent);
+
+  --vp-c-bg: var(--fsm-bg-page);
+  --vp-c-bg-alt: #0e1118;
+  --vp-c-bg-elv: #151923;
+  --vp-c-bg-soft: color-mix(in srgb, var(--fsm-surface) 6%, transparent);
+  --vp-c-brand-2: #8fb5ff;
+  --vp-c-brand-3: #5b8cff;
+  --vp-c-brand-soft: color-mix(in srgb, var(--fsm-accent) 16%, transparent);
+}
+
+/* The glows everything floats on. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(58vw 52vh at 12% -6%, color-mix(in srgb, var(--fsm-blob-1) var(--fsm-blob-strength), transparent), transparent 62%),
+    radial-gradient(48vw 46vh at 92% 8%, color-mix(in srgb, var(--fsm-blob-2) var(--fsm-blob-strength), transparent), transparent 60%),
+    radial-gradient(56vw 54vh at 68% 104%, color-mix(in srgb, var(--fsm-blob-3) var(--fsm-blob-strength), transparent), transparent 62%);
+}
+
+/* Let the glows show through the page chrome. */
+.VPContent,
+.VPFooter,
+.VPHome {
+  background: transparent !important;
+}
+
+/*
+ * The default theme paints the nav bar in pieces (title column, content
+ * column), which leaves the edges uncovered on wide screens. Paint the whole
+ * bar instead: clear over the home hero, full-width glass once scrolled or on
+ * any other page.
+ */
+.VPNavBar .title,
+.VPNavBar .content-body {
+  background: transparent !important;
+}
+
+.VPNavBar {
+  transition: background-color 0.2s ease;
+}
+
+.VPNavBar:not(.home.top) {
+  background: color-mix(in srgb, var(--fsm-bg-page) 62%, transparent);
+  backdrop-filter: blur(22px) saturate(150%);
+}
+
+.VPNavBar.home.top .divider-line {
+  background: transparent;
+}
+
+.VPSidebar,
+.VPLocalNav {
+  background: color-mix(in srgb, var(--fsm-bg-page) 70%, transparent) !important;
+  backdrop-filter: blur(22px) saturate(150%);
+}
+
+/* Gradient primary buttons, as in the app. */
+.VPButton.brand {
+  background: linear-gradient(135deg, var(--fsm-grad-a), var(--fsm-grad-b));
+  box-shadow: 0 5px 16px color-mix(in srgb, var(--fsm-grad-b) 34%, transparent);
+}
+
+.VPButton.brand:hover {
+  filter: brightness(1.08);
+}
+
+.VPButton.alt {
+  background: var(--fsm-glass);
+  border-color: var(--fsm-glass-edge);
+  backdrop-filter: blur(22px);
+}
+
+/* Glass cards. */
+.VPFeature,
+.custom-block,
+.glass-card {
+  background: var(--fsm-glass) !important;
+  border: 1px solid var(--fsm-glass-edge) !important;
+  box-shadow: var(--fsm-shadow);
+  backdrop-filter: blur(22px) saturate(150%);
+}
+
+/* ---------- screenshots ---------- */
+
+.screenshot {
+  margin: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--fsm-glass-edge);
+  box-shadow: 0 24px 60px color-mix(in srgb, var(--fsm-grad-b) 18%, transparent), var(--fsm-shadow);
+  line-height: 0;
+}
+
+.screenshot img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.screenshot-dark,
+.dark .screenshot-light {
+  display: none !important;
+}
+
+.dark .screenshot-dark {
+  display: block !important;
+}
+
+.vp-doc .screenshot {
+  margin: 20px 0;
+}
+
+/* ---------- home ---------- */
+
+.home-hero-shot {
+  max-width: 1152px;
+  margin: 8px auto 0;
+  padding: 0 24px;
+}
+
+.home-sections {
+  max-width: 1152px;
+  margin: 0 auto;
+  padding: 72px 24px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 96px;
+}
+
+.feature-row {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 48px;
+  align-items: center;
+}
+
+.feature-row.flip .feature-text {
+  order: 2;
+}
+
+.feature-text h2 {
+  margin: 0 0 12px;
+  font-size: 28px;
+  line-height: 1.25;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.feature-text p {
+  margin: 0 0 12px;
+  color: var(--vp-c-text-2);
+  line-height: 1.7;
+}
+
+.feature-text ul {
+  margin: 12px 0 0;
+  padding-left: 1.1em;
+  color: var(--vp-c-text-2);
+  line-height: 1.8;
+}
+
+.home-closing {
+  text-align: center;
+  padding: 48px 24px 96px;
+}
+
+.home-closing h2 {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.home-closing p {
+  color: var(--vp-c-text-2);
+  margin-bottom: 24px;
+}
+
+/* The closing section is page content, whose link underline would otherwise reach the button. */
+.home-closing .VPButton {
+  text-decoration: none;
+}
+
+@media (max-width: 860px) {
+  .home-sections {
+    gap: 64px;
+    padding-top: 48px;
+  }
+
+  .feature-row {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .feature-row.flip .feature-text {
+    order: 0;
+  }
+
+  .feature-text h2 {
+    font-size: 24px;
+  }
+}

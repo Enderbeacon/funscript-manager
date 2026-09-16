@@ -2,6 +2,7 @@ node_modules/
 out/
 release/
 dist/
+site/.vitepress/cache/
 *.log
 *.local
 .DS_Store
