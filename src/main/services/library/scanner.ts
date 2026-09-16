@@ -13,7 +13,7 @@ import { entryFileTimes } from './file-times'
 import { computeFingerprint } from './fingerprint'
 import { IgnoreList } from './ignore-list'
 import { getSettings } from '../config/config-service'
-import { isBusyFor } from '../downloaders/queue'
+import { awaitingPairKeys, isBusyFor } from '../downloaders/queue'
 import { mergeLateCompanions, orphanScriptGroups } from './late-companions'
 import { probeMedia } from './probe'
 import { scriptAuthorsUpdate } from './script-authors'
@@ -430,6 +430,9 @@ export async function syncLibrary(
   // for scripts nothing has filed yet, which is the only case where the name is
   // all there is to go on.
   const claimed = db.referencedPathKeys()
+  // A downloaded script still waiting for the user to pick its video is owned
+  // too, by an answer that has not been given yet.
+  for (const key of awaitingPairKeys(library.id, root)) claimed.add(key)
   for (const [dirRel, names] of tree.dirListings) {
     if (isBusyFor(library.id)) break
     const dirAbs = dirRel ? join(root, ...dirRel.split('/')) : root

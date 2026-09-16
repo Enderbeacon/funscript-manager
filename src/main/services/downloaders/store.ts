@@ -19,6 +19,11 @@ import type { DownloadJob, DownloadState } from '@shared/schemas/download'
 // Bumped when SCHEMA changes. It is only a marker now: what actually drives
 // migration is which columns the file has (see healColumns), because a version
 // number can be forgotten and the table cannot.
+//
+// Not bumped for columns that are only added: an older build refuses a file
+// with a higher number outright, yet reads and writes this table correctly
+// with extra columns in it — so bumping would lock the user out of going back
+// a version for nothing.
 const SCHEMA_VERSION = 3
 
 const SCHEMA = `
@@ -44,6 +49,14 @@ CREATE TABLE download_job (
   role TEXT NOT NULL DEFAULT 'other',   -- video / script / other
   duplicate_of TEXT,                    -- library path of an identical media
   cooldown_until TEXT,                  -- parked until this time (mega over quota)
+  -- The library entry this file belongs to: an entry still waiting for its
+  -- video (filled the moment the file lands), or the one ingest filed it into.
+  media_id TEXT,
+  -- 1 = ingest has dealt with this file; a later pass leaves it alone.
+  ingested INTEGER NOT NULL DEFAULT 0,
+  -- 1 = a script from a post with several videos that could not be told
+  -- apart by name; it waits for the user to say which video it goes with.
+  awaiting_pair INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   scraped_metadata_json TEXT            -- the post, on every job of the batch
@@ -70,6 +83,9 @@ interface JobRow {
   role: string
   duplicate_of: string | null
   cooldown_until: string | null
+  media_id: string | null
+  ingested: number
+  awaiting_pair: number
   created_at: string
   updated_at: string
   scraped_metadata_json: string | null
@@ -82,6 +98,12 @@ export interface JobRecord extends DownloadJob {
   namePinned: boolean
   /** Serialized ScrapedPost for batch jobs; null for a plain link. */
   postJson: string | null
+  /** The entry this file belongs to, once one is known. */
+  mediaId: string | null
+  /** Ingest has already filed this file. */
+  ingested: boolean
+  /** A script waiting for the user to pick its video. */
+  awaitingPair: boolean
 }
 
 function toRecord(row: JobRow): JobRecord {
@@ -104,6 +126,9 @@ function toRecord(row: JobRow): JobRecord {
     duplicateOf: row.duplicate_of,
     cooldownUntil: row.cooldown_until,
     postJson: row.scraped_metadata_json,
+    mediaId: row.media_id,
+    ingested: row.ingested === 1,
+    awaitingPair: row.awaiting_pair === 1,
     // Filled in by the queue's projection, which is where the post JSON is
     // read; the store deliberately keeps that column opaque.
     postTitle: '',
@@ -129,13 +154,26 @@ function toRecord(row: JobRow): JobRecord {
  * table itself cannot be wrong. Adding a column that already exists is skipped,
  * so this list may safely include more than any one file is missing.
  */
-const ADDED_COLUMNS: { name: string; ddl: string }[] = [
+const ADDED_COLUMNS: { name: string; ddl: string; backfill?: string }[] = [
   { name: 'name_pinned', ddl: 'ALTER TABLE download_job ADD COLUMN name_pinned INTEGER NOT NULL DEFAULT 0' },
   { name: 'batch_id', ddl: 'ALTER TABLE download_job ADD COLUMN batch_id TEXT' },
   { name: 'role', ddl: `ALTER TABLE download_job ADD COLUMN role TEXT NOT NULL DEFAULT 'other'` },
   { name: 'duplicate_of', ddl: 'ALTER TABLE download_job ADD COLUMN duplicate_of TEXT' },
   { name: 'cooldown_until', ddl: 'ALTER TABLE download_job ADD COLUMN cooldown_until TEXT' },
-  { name: 'scraped_metadata_json', ddl: 'ALTER TABLE download_job ADD COLUMN scraped_metadata_json TEXT' }
+  { name: 'scraped_metadata_json', ddl: 'ALTER TABLE download_job ADD COLUMN scraped_metadata_json TEXT' },
+  { name: 'media_id', ddl: 'ALTER TABLE download_job ADD COLUMN media_id TEXT' },
+  {
+    name: 'ingested',
+    ddl: 'ALTER TABLE download_job ADD COLUMN ingested INTEGER NOT NULL DEFAULT 0',
+    // Finished jobs from before the column existed were filed when they
+    // finished; without this, retrying anything in an old batch would file
+    // the rest of that batch a second time.
+    backfill: `UPDATE download_job SET ingested = 1 WHERE state = 'done'`
+  },
+  {
+    name: 'awaiting_pair',
+    ddl: 'ALTER TABLE download_job ADD COLUMN awaiting_pair INTEGER NOT NULL DEFAULT 0'
+  }
 ]
 
 /**
@@ -152,6 +190,7 @@ function healColumns(database: Database.Database): void {
   for (const column of ADDED_COLUMNS) {
     if (present.has(column.name)) continue
     database.exec(column.ddl)
+    if (column.backfill) database.exec(column.backfill)
     added.push(column.name)
   }
   if (added.length > 0) {
@@ -210,6 +249,7 @@ export interface NewJob {
   batchId?: string
   role?: DownloadJob['role']
   postJson?: string
+  mediaId?: string
 }
 
 export function insert(job: NewJob): JobRecord {
@@ -218,8 +258,8 @@ export function insert(job: NewJob): JobRecord {
     .prepare(
       `INSERT INTO download_job
          (id, source_url, hoster, library_id, file_name, name_pinned, part_path,
-          batch_id, role, scraped_metadata_json, state, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`
+          batch_id, role, scraped_metadata_json, media_id, state, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`
     )
     .run(
       job.id,
@@ -232,6 +272,7 @@ export function insert(job: NewJob): JobRecord {
       job.batchId ?? null,
       job.role ?? 'other',
       job.postJson ?? null,
+      job.mediaId ?? null,
       now,
       now
     )
@@ -290,6 +331,9 @@ export type JobPatch = Partial<
     | 'filePath'
     | 'duplicateOf'
     | 'cooldownUntil'
+    | 'mediaId'
+    | 'ingested'
+    | 'awaitingPair'
   >
 >
 
@@ -302,7 +346,16 @@ const COLUMN: Record<keyof JobPatch, string> = {
   fileName: 'file_name',
   filePath: 'file_path',
   duplicateOf: 'duplicate_of',
-  cooldownUntil: 'cooldown_until'
+  cooldownUntil: 'cooldown_until',
+  mediaId: 'media_id',
+  ingested: 'ingested',
+  awaitingPair: 'awaiting_pair'
+}
+
+/** SQLite has no boolean; the driver refuses one outright. */
+function bindable(value: JobPatch[keyof JobPatch]): string | number | null {
+  if (typeof value === 'boolean') return value ? 1 : 0
+  return value ?? null
 }
 
 export function update(id: string, patch: JobPatch): void {
@@ -311,19 +364,34 @@ export function update(id: string, patch: JobPatch): void {
   const assignments = keys.map((k) => `${COLUMN[k]} = ?`).join(', ')
   handle()
     .prepare(`UPDATE download_job SET ${assignments}, updated_at = ? WHERE id = ?`)
-    .run(...keys.map((k) => patch[k] ?? null), new Date().toISOString(), id)
+    .run(...keys.map((k) => bindable(patch[k])), new Date().toISOString(), id)
 }
 
 export function remove(id: string): void {
   handle().prepare('DELETE FROM download_job WHERE id = ?').run(id)
 }
 
+/**
+ * Clear finished jobs — except a script still waiting to be paired: the row is
+ * the only record of which post it came from and which videos it could go with.
+ */
 export function removeFinished(): string[] {
+  const finished = `state = 'done' AND awaiting_pair = 0`
   const ids = (
-    handle().prepare(`SELECT id FROM download_job WHERE state = 'done'`).all() as { id: string }[]
+    handle().prepare(`SELECT id FROM download_job WHERE ${finished}`).all() as { id: string }[]
   ).map((r) => r.id)
-  handle().prepare(`DELETE FROM download_job WHERE state = 'done'`).run()
+  handle().prepare(`DELETE FROM download_job WHERE ${finished}`).run()
   return ids
+}
+
+/** Scripts waiting for the user to pick their video, oldest first. */
+export function listAwaitingPair(): JobRecord[] {
+  const rows = handle()
+    .prepare(
+      `SELECT * FROM download_job WHERE awaiting_pair = 1 AND state = 'done' ORDER BY created_at ASC`
+    )
+    .all() as JobRow[]
+  return rows.map(toRecord)
 }
 
 /**

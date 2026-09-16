@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { EventEmitter } from 'node:events'
 import { existsSync } from 'node:fs'
-import { copyFile, readdir, rm, stat } from 'node:fs/promises'
+import { copyFile, readdir, rename, rm, stat } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { shell } from 'electron'
 import chokidar, { type FSWatcher } from 'chokidar'
@@ -1576,9 +1576,8 @@ export async function addWantedMedia(
 }
 
 /**
- * Supply the file a placeholder was waiting for. The file is copied into the
- * library beside its sidecar and renamed to the placeholder's own name, so the
- * scripts already grouped against that base keep matching.
+ * Supply the file a placeholder was waiting for, from a file the user pointed
+ * at.
  *
  * Copy, not move: the user may have paid for that download and it may live on
  * a drive we are not entitled to empty.
@@ -1588,21 +1587,82 @@ export async function attachWantedFile(
   mediaId: string,
   sourceAbsPath: string
 ): Promise<MediaDetail | null> {
-  const handle = handles.get(libraryId)
-  if (!handle) return null
+  if (!handles.has(libraryId)) return null
   if (!existsSync(sourceAbsPath)) throw new AppError('media_not_found', { path: sourceAbsPath })
 
   const target = await openForEdit(libraryId, mediaId)
-  const { meta } = target
-  if (!meta.wanted) throw new AppError('media_not_found', { mediaId })
+  if (!target.meta.wanted) throw new AppError('media_not_found', { mediaId })
 
+  const placed = await fillWanted(target, extensionOf(sourceAbsPath), (finalAbs) =>
+    copyFile(sourceAbsPath, finalAbs)
+  )
+  return placed.detail
+}
+
+/**
+ * Supply the file a placeholder was waiting for, from a download that was
+ * queued for that entry. Moved rather than copied: the partial file is the
+ * queue's own, and nobody else will ever look for it.
+ *
+ * The file goes straight to the placeholder's name instead of landing in the
+ * library root first. Landing first would let the scanner see an unknown video
+ * and stand up a second entry for it before this one was filled — which is
+ * exactly how a pasted link used to end up as an entry of its own.
+ *
+ * Returns where the file ended up, or null when the entry is gone or already
+ * has its file; the caller then files the download like any other.
+ */
+export async function fillWantedFromDownload(
+  libraryId: string,
+  mediaId: string,
+  partPath: string,
+  fileName: string
+): Promise<string | null> {
+  if (!handles.has(libraryId)) return null
+  const target = await openForEdit(libraryId, mediaId).catch(() => null)
+  if (!target?.meta.wanted) return null
+  const placed = await fillWanted(target, extensionOf(fileName), (finalAbs) =>
+    moveFile(partPath, finalAbs)
+  )
+  return placed.finalAbs
+}
+
+/** `.mp4` from `clip.mp4`; empty when the name has none. */
+function extensionOf(path: string): string {
+  const name = basename(path)
+  const dot = name.lastIndexOf('.')
+  return dot > 0 ? name.slice(dot) : ''
+}
+
+/** Rename, or copy and delete when the two paths are on different volumes. */
+async function moveFile(from: string, to: string): Promise<void> {
+  try {
+    await rename(from, to)
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== 'EXDEV') throw e
+    await copyFile(from, to)
+    await rm(from, { force: true })
+  }
+}
+
+/**
+ * Put a file in place beside a placeholder's sidecar under the placeholder's
+ * own name, so the scripts already grouped against that name keep matching,
+ * and turn the placeholder into an ordinary entry.
+ */
+async function fillWanted(
+  target: EditTarget,
+  ext: string,
+  put: (finalAbs: string) => Promise<void>
+): Promise<{ detail: MediaDetail; finalAbs: string }> {
+  const { handle, meta } = target
+  const libraryId = handle.library.id
   const dir = dirname(target.mediaAbs)
   const base = mediaBasename(basename(target.mediaAbs))
-  const ext = basename(sourceAbsPath).slice(basename(sourceAbsPath).lastIndexOf('.'))
   const finalName = freeName(dir, base, ext || '.mp4', sidecarPathFor(target.mediaAbs))
   const finalAbs = join(dir, finalName)
 
-  await copyFile(sourceAbsPath, finalAbs)
+  await put(finalAbs)
 
   // The sidecar is named after its media file, so it moves with the extension.
   const oldSidecar = sidecarPathFor(target.mediaAbs)
@@ -1622,7 +1682,10 @@ export async function attachWantedFile(
   const mtime = Math.floor((await stat(sidecarPathFor(finalAbs))).mtimeMs)
   handle.db.upsertFromSidecar(filled, relPath, mtime)
   libraryEvents.emit('media-changed', { libraryId })
-  return toDetail(libraryId, relPath, finalAbs, filled, handle.db.fileAddedAt(filled.id))
+  return {
+    detail: toDetail(libraryId, relPath, finalAbs, filled, handle.db.fileAddedAt(filled.id)),
+    finalAbs
+  }
 }
 
 /**

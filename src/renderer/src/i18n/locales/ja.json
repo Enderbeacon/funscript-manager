@@ -790,6 +790,8 @@
     "file_exists": "同じ名前のファイルがすでにあります。",
     "player_unreachable": "そのプレーヤーから応答がありません。起動中か、アドレスが正しいか確認してください。",
     "no_player_connected": "先に動画プレーヤーを追加してください。",
+    "ffmpeg_unavailable": "この動画を再生するには ffmpeg を入れてください。",
+    "stream_failed": "この動画は再生できませんでした。",
     "update_check_failed": "GitHub に接続できず、更新を確認できませんでした。",
     "update_rate_limited": "このネットワークからのリクエストが GitHub に制限されています。1 時間後にもう一度お試しください。",
     "update_download_failed": "アップデートをダウンロードできませんでした。もう一度お試しください。",
@@ -897,7 +899,10 @@
     "clearSelection": "選択を解除",
     "download": "ダウンロード",
     "openDownloads": "すべてのダウンロードを表示",
-    "railSummary": "{{count}} 件進行中"
+    "railSummary": "{{count}} 件進行中",
+    "addLink": "リンクを追加",
+    "addLinkPlaceholder": "ダウンロードリンクを貼り付け",
+    "addLinkConfirm": "追加"
   },
   "wanted": {
     "title": "動画ファイルがありません",
@@ -912,6 +917,14 @@
     "matchQuestion": "新しく追加された {{file}} がこの項目と同名です。関連付けますか？",
     "matchYes": "関連付ける",
     "matchNo": "無視"
+  },
+  "pairing": {
+    "prompt": "動画を選ぶ必要があるスクリプト: {{count}} 件",
+    "title": "各スクリプトはどの動画のものですか？",
+    "notDownloaded": "未ダウンロード",
+    "ownEntry": "別の項目にする",
+    "later": "あとで",
+    "apply": "適用"
   },
   "topbar": {
     "toggleTheme": "テーマを切り替え",
@@ -1040,6 +1053,9 @@
     "exitFullscreen": "全画面を終了",
     "showPicture": "映像を表示",
     "unsupported": "このプレーヤーはこの形式を再生できません。",
+    "needsFfmpeg": "この動画の再生には ffmpeg が必要です。",
+    "installFfmpeg": "ffmpeg を入れる",
+    "installingFfmpeg": "ffmpeg を入れています…",
     "subtitles": {
       "off": "字幕なし",
       "searching": "字幕を探しています…",

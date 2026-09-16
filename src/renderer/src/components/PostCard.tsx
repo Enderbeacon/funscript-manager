@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ChevronDown,
@@ -9,8 +9,10 @@ import {
   FileText,
   Hand,
   Image as ImageIcon,
+  Link as LinkIcon,
   Loader2,
   MessageSquareQuote,
+  Plus,
   Radio,
   TriangleAlert,
   User,
@@ -21,6 +23,7 @@ import type { ScrapedLink, ScrapedPost } from '@shared/schemas/scraped-post'
 import HosterBadge from './HosterBadge'
 import { formatDate } from '../format'
 import { ipcInvoke } from '../ipc'
+import { useErrorMessage } from '../useErrorMessage'
 import { useRemoteImage } from '../useRemoteImage'
 
 /** What a liveness check found; `unchecked` means nobody has looked yet. */
@@ -60,8 +63,14 @@ function sincePost(postedAt: string, replyAt: string): string {
 function linkThumbUrl(link: ScrapedLink, post: ScrapedPost): string {
   if (link.isScript) return ''
   if (link.hoster === 'pixeldrain') {
-    const id = /pixeldrain\.com\/(?:u|l)\/([\w-]+)/i.exec(link.url)?.[1]
-    if (id) return `https://pixeldrain.com/api/file/${id}/thumbnail?width=136&height=84`
+    try {
+      const parsed = new URL(link.url)
+      const id = /^\/(?:u|api\/file)\/([\w-]+)/i.exec(parsed.pathname)?.[1]
+      if (id) return `${parsed.origin}/api/file/${id}/thumbnail?width=128&height=80`
+    } catch {
+      // The parser already validates normal links; a malformed added link just
+      // falls back to the post image.
+    }
   }
   return post.previewImage
 }
@@ -206,9 +215,10 @@ function hostOf(url: string): string {
 }
 
 export default function PostCard({
-  post,
+  post: parsed,
   alreadyHave,
   disabled,
+  error,
   onRemove,
   onDownload,
   onSaveForLater
@@ -217,12 +227,30 @@ export default function PostCard({
   /** Library path of a media already carrying this post URL, if any. */
   alreadyHave: string | null
   disabled: boolean
+  /** Why the last press of Download did not queue anything. */
+  error: string | null
   onRemove: () => void
-  onDownload: (links: ScrapedLink[]) => void
+  /** The post as the user sees it — with any links they added — and what they ticked. */
+  onDownload: (post: ScrapedPost, links: ScrapedLink[]) => void
   onSaveForLater: () => void
 }): React.JSX.Element {
   const { t } = useTranslation()
-  const poster = useRemoteImage(post.previewImage)
+  const toMessage = useErrorMessage()
+  const poster = useRemoteImage(parsed.previewImage)
+
+  /**
+   * Links the user pasted in: a mirror found somewhere else, or the direct file
+   * behind a page the app could not read. They join the post's own links, so
+   * they download and file along with the post rather than as strays.
+   */
+  const [added, setAdded] = useState<ScrapedLink[]>([])
+  const post = useMemo(
+    () => (added.length === 0 ? parsed : { ...parsed, links: [...parsed.links, ...added] }),
+    [parsed, added]
+  )
+  const [adding, setAdding] = useState(false)
+  const [pasted, setPasted] = useState('')
+  const [addError, setAddError] = useState<string | null>(null)
 
   const scripts = post.links.filter((l) => l.isScript)
   /**
@@ -345,6 +373,23 @@ export default function PostCard({
     // The post is fixed for the life of this card; its links never change.
   }, [post.postUrl])
 
+  const addLink = async (): Promise<void> => {
+    const url = pasted.trim()
+    if (!url) return
+    try {
+      const link = await ipcInvoke('scrape:describeLink', { url })
+      setAddError(null)
+      setPasted('')
+      setAdding(false)
+      // Already in the post: pasting it again means "this one".
+      if (!post.links.some((l) => l.url === link.url)) setAdded((cur) => [...cur, link])
+      if (link.downloadable) setPicked((cur) => new Set(cur).add(link.url))
+      if (link.downloadable && !link.isScript) void runCheck([link.url], false)
+    } catch (e) {
+      setAddError(toMessage(e))
+    }
+  }
+
   const chosen = post.links.filter((l) => l.downloadable && picked.has(l.url))
   const nothingToFetch = post.links.every((l) => !l.downloadable)
 
@@ -450,6 +495,34 @@ export default function PostCard({
           </>
         )}
 
+        {adding ? (
+          <form
+            className="post-add"
+            onSubmit={(e) => {
+              e.preventDefault()
+              void addLink()
+            }}
+          >
+            <input
+              className="settings-input"
+              autoFocus
+              value={pasted}
+              placeholder={t('posts.addLinkPlaceholder')}
+              onChange={(e) => setPasted(e.target.value)}
+            />
+            <button className="primary" type="submit" disabled={!pasted.trim()}>
+              <Plus size={14} />
+              {t('posts.addLinkConfirm')}
+            </button>
+          </form>
+        ) : (
+          <button className="lk-more" onClick={() => setAdding(true)}>
+            <LinkIcon size={13} />
+            {t('posts.addLink')}
+          </button>
+        )}
+        {addError && <div className="post-fail">{addError}</div>}
+
         {others.length > 0 &&
           (showOthers ? (
             <>
@@ -463,6 +536,13 @@ export default function PostCard({
             </button>
           ))}
       </div>
+
+      {error && (
+        <div className="post-fail post-fail-bar">
+          <TriangleAlert size={13} />
+          {error}
+        </div>
+      )}
 
       <div className="post-bar">
         {nothingToFetch ? (
@@ -487,7 +567,7 @@ export default function PostCard({
               <button
                 className="primary"
                 disabled={disabled || chosen.length === 0}
-                onClick={() => onDownload(chosen)}
+                onClick={() => onDownload(post, chosen)}
               >
                 <Download size={15} />
                 {t('posts.download')}

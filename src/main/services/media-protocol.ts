@@ -19,7 +19,12 @@ import { findByAbsPath, getMediaLocation } from './library/library-manager'
 
 export const MEDIA_SCHEME = 'fsmgr-media'
 
-/** Extensions Chromium can actually decode; others get no inline preview. */
+/**
+ * Types for the containers that have a registered one. Anything else goes out
+ * as octet-stream and Chromium looks at the bytes, which is how MKV plays:
+ * naming it `video/x-matroska` would only give Chromium a type it says it does
+ * not support.
+ */
 const MIME: Record<string, string> = {
   '.mp4': 'video/mp4',
   '.m4v': 'video/mp4',

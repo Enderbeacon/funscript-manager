@@ -35,7 +35,11 @@ export function parseFfmpegBanner(text: string): MediaInfo {
     )
   }
 
-  const videoLine = text.split(/\r?\n/).find((line) => VIDEO.test(line))
+  // A cover image embedded in the file is a video stream too, and can come
+  // first; it says nothing about how the file plays.
+  const videoLine = text
+    .split(/\r?\n/)
+    .find((line) => VIDEO.test(line) && !line.includes('(attached pic)'))
   if (videoLine) {
     info.videoCodec = VIDEO.exec(videoLine)?.[1]
     const size = SIZE.exec(videoLine)

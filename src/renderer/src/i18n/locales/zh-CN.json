@@ -790,6 +790,8 @@
     "file_exists": "这个名字已经被同目录下的文件占用了。",
     "player_unreachable": "这个播放器没有响应。确认它在运行，地址填对了。",
     "no_player_connected": "先添加一个视频播放器。",
+    "ffmpeg_unavailable": "安装 ffmpeg 后才能播放这个视频。",
+    "stream_failed": "这个视频无法播放。",
     "update_check_failed": "连不上 GitHub，无法检查更新。",
     "update_rate_limited": "GitHub 暂时限制了当前网络的请求，请一小时后再试。",
     "update_download_failed": "更新下载失败，请重试。",
@@ -897,7 +899,10 @@
     "clearSelection": "取消全选",
     "download": "下载",
     "openDownloads": "查看全部下载",
-    "railSummary": "{{count}} 个进行中"
+    "railSummary": "{{count}} 个进行中",
+    "addLink": "添加链接",
+    "addLinkPlaceholder": "粘贴下载链接",
+    "addLinkConfirm": "添加"
   },
   "wanted": {
     "title": "缺少视频文件",
@@ -912,6 +917,14 @@
     "matchQuestion": "库中新增的 {{file}} 与本条目同名，是否关联？",
     "matchYes": "关联",
     "matchNo": "忽略"
+  },
+  "pairing": {
+    "prompt": "{{count}} 个脚本需要选择视频",
+    "title": "每个脚本对应哪个视频？",
+    "notDownloaded": "未下载",
+    "ownEntry": "单独成为一个条目",
+    "later": "稍后",
+    "apply": "应用"
   },
   "topbar": {
     "toggleTheme": "切换主题",
@@ -1040,6 +1053,9 @@
     "exitFullscreen": "退出全屏",
     "showPicture": "显示画面",
     "unsupported": "当前播放器不支持此格式。",
+    "needsFfmpeg": "这个视频需要 ffmpeg 才能播放。",
+    "installFfmpeg": "安装 ffmpeg",
+    "installingFfmpeg": "正在安装 ffmpeg…",
     "subtitles": {
       "off": "关闭字幕",
       "searching": "正在查找字幕…",

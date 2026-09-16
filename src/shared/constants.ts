@@ -27,7 +27,19 @@ export const VIDEO_EXTENSIONS = [
   '.mp4', '.mkv', '.webm', '.mov', '.avi', '.wmv', '.m4v', '.ts', '.flv'
 ] as const
 
-export const AUDIO_EXTENSIONS = ['.mp3', '.m4a', '.flac', '.wav', '.opus'] as const
+/**
+ * How far every timestamp in a converted stream is pushed forward, in seconds.
+ *
+ * Some tracks start a little below zero — AAC's encoder delay, a B-frame
+ * video's first decode time — and a fragmented MP4 cannot store a negative
+ * time, so the muxer would otherwise shift every track by a different amount.
+ * Pushing everything forward by a fixed amount keeps them all positive, and
+ * the picture takes the same amount back off, so a frame lands exactly where
+ * the source puts it.
+ */
+export const STREAM_TIME_OFFSET_S = 10
+
+export const AUDIO_EXTENSIONS =['.mp3', '.m4a', '.flac', '.wav', '.opus'] as const
 
 export const SUBTITLE_EXTENSIONS = ['.srt', '.vtt', '.ass', '.ssa'] as const
 

@@ -13,17 +13,24 @@ import {
   InternalPlayerReportSchema,
   MediaSourceCapabilitiesSchema,
   MediaSourceStatusSchema,
+  StreamRouteSchema,
   SubtitleCueSchema,
-  SubtitleTrackSchema
+  SubtitleTrackSchema,
+  VideoRouteFallbackSchema,
+  VideoRouteSchema
 } from '../schemas/playback'
 import { DeleteModeSchema, DeletePlanSchema, RenamePlanSchema } from '../schemas/media-lifecycle'
 import { NAME_FIELDS, SCRIPT_AXIS_KEYS } from '../schemas/media-meta'
 import { ENTITY_KINDS, FilterNodeSchema } from '../schemas/taxonomy'
 import { QueuedOpSchema } from '../schemas/organise-queue'
 import { QueueItemSchema, QueueSourceSchema, QueueStateSchema } from '../schemas/queue'
-import { DownloadJobSchema, DownloadProgressSchema } from '../schemas/download'
+import {
+  DownloadJobSchema,
+  DownloadProgressSchema,
+  PairingRequestSchema
+} from '../schemas/download'
 import { BinaryIdSchema, BinaryStatusSchema, InstallProgressSchema } from '../schemas/dependencies'
-import { ScrapedPostSchema } from '../schemas/scraped-post'
+import { ScrapedLinkSchema, ScrapedPostSchema } from '../schemas/scraped-post'
 import { StartupStatusSchema } from '../schemas/startup'
 import { ReleaseSummarySchema, StartupNoticesSchema, UpdateStateSchema } from '../schemas/updates'
 import {
@@ -883,6 +890,42 @@ export const ipcContract = {
   },
 
   /*
+   * Getting a file onto the picture.
+   *
+   * `route` says whether Chromium can take the file as it is or ffmpeg has to
+   * rewrite it first. A rewrite comes back over IPC, one read at a time, rather
+   * than through a URL: the forum windows share the app's session, and a URL
+   * the picture could fetch would be one their pages could fetch too.
+   */
+  'video:route': {
+    input: z.object({
+      path: z.string(),
+      /** Whether this machine can decode HEVC; only the renderer can tell. */
+      hevc: z.boolean(),
+      fallback: VideoRouteFallbackSchema
+    }),
+    output: VideoRouteSchema
+  },
+  /** Start ffmpeg on a file from a position. One stream per window at a time. */
+  'video:streamOpen': {
+    input: z.object({
+      path: z.string(),
+      startMs: z.number().nonnegative(),
+      route: StreamRouteSchema
+    }),
+    output: z.object({ id: z.string() })
+  },
+  /** The next bytes of a stream; null once it has all been read. */
+  'video:streamRead': {
+    input: z.object({ id: z.string() }),
+    output: z.object({ chunk: z.instanceof(Uint8Array).nullable() })
+  },
+  'video:streamClose': {
+    input: z.object({ id: z.string() }),
+    output: z.void()
+  },
+
+  /*
    * Subtitles for the picture.
    *
    * The list is asked for when the menu opens rather than kept with the
@@ -1070,7 +1113,9 @@ export const ipcContract = {
     input: z.object({
       url: z.string().min(1),
       libraryId: z.uuid(),
-      fileName: z.string().min(1).optional()
+      fileName: z.string().min(1).optional(),
+      /** An entry waiting for its video: the download fills it on arrival. */
+      mediaId: z.uuid().optional()
     }),
     output: z.object({ jobIds: z.array(z.uuid()) })
   },
@@ -1116,6 +1161,25 @@ export const ipcContract = {
     input: z.void(),
     output: z.void()
   },
+  'download:pairings': {
+    /** Downloaded scripts waiting for the user to say which video each goes with. */
+    input: z.void(),
+    output: z.object({ requests: z.array(PairingRequestSchema) })
+  },
+  'download:resolvePairing': {
+    /**
+     * The user's answer for one post. `target` is the video's job id, or `own`
+     * for a script that should be an entry of its own. Scripts left out of the
+     * answer keep waiting.
+     */
+    input: z.object({
+      batchId: z.uuid(),
+      assignments: z.array(
+        z.object({ jobId: z.uuid(), target: z.union([z.uuid(), z.literal('own')]) })
+      )
+    }),
+    output: z.void()
+  },
   'download:checkLinks': {
     /**
      * Are these links still good? Asked of a post's links before the user
@@ -1154,6 +1218,11 @@ export const ipcContract = {
     /** Should the UI scrape this URL as a forum post, or just download it? */
     input: z.object({ url: z.string() }),
     output: z.object({ isPost: z.boolean() })
+  },
+  'scrape:describeLink': {
+    /** A link the user added to a parsed post, described like the post's own. */
+    input: z.object({ url: z.string().min(1) }),
+    output: ScrapedLinkSchema
   },
   'scrape:parsePost': {
     /** Fetch + parse one EroScripts post; throws scrape_login_required if gated. */

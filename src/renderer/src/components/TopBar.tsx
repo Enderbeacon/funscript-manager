@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowUpCircle, Languages, LogIn, MonitorPlay, Moon, RadioTower, Sun, User } from 'lucide-react'
+import { ArrowUpCircle, ChevronDown, Globe, LogIn, MonitorPlay, Moon, RadioTower, Sun, User } from 'lucide-react'
 import type { IpcOutput } from '@shared/ipc/contract'
 import type { Settings } from '@shared/schemas/app-config'
 import type { SyncProgress } from '@shared/schemas/media-index'
@@ -66,7 +66,7 @@ export default function TopBar({
   scriptPlayerDetached: boolean
   sourcesActive: boolean
 }): React.JSX.Element {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [settings, setSettings] = useState<Settings | null>(null)
   const [theme, setTheme] = useState<ResolvedTheme>(currentTheme())
   const [signedIn, setSignedIn] = useState<boolean | null>(null)
@@ -220,13 +220,18 @@ export default function TopBar({
         </button>
 
         <div className="topbar-lang">
+          {/* A globe and the current language's own name: both read the same to
+              someone who cannot read the interface's language. */}
           <button
-            className="topbar-btn"
+            className="topbar-btn topbar-lang-btn"
             onClick={() => setLangOpen((v) => !v)}
             title={t('settings.language')}
-            aria-label={t('settings.language')}
+            aria-haspopup="menu"
+            aria-expanded={langOpen}
           >
-            <Languages size={15} />
+            <Globe size={14} />
+            {LANGS.find((l) => l.key === i18n.language)?.label ?? 'English'}
+            <ChevronDown size={12} className="topbar-lang-caret" />
           </button>
           {langOpen && (
             <>

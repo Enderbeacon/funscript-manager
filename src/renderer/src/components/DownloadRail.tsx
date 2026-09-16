@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Activity, Download, List } from 'lucide-react'
 import type { DownloadJob, DownloadProgress } from '@shared/schemas/download'
 import HosterBadge, { hosterName } from './HosterBadge'
+import { ScriptPairingPrompt } from './ScriptPairing'
 import { ipcInvoke, ipcOn } from '../ipc'
 import { formatBytes, formatClock } from '../format'
 
@@ -61,6 +62,8 @@ export default function DownloadRail({
         <Download size={13} />
         {t('nav.downloads')}
       </div>
+
+      <ScriptPairingPrompt />
 
       {shown.length === 0 ? (
         <div className="rail-empty">{t('downloads.empty')}</div>

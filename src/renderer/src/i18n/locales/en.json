@@ -799,6 +799,8 @@
     "file_exists": "A file with that name is already there.",
     "player_unreachable": "That player didn't answer. Check it is running and the address is right.",
     "no_player_connected": "Add a video player first.",
+    "ffmpeg_unavailable": "Install ffmpeg to play this video.",
+    "stream_failed": "This video could not be played.",
     "update_check_failed": "Couldn't reach GitHub to check for updates.",
     "update_rate_limited": "GitHub is limiting requests from this network. Try again in an hour.",
     "update_download_failed": "The update couldn't be downloaded. Try again.",
@@ -909,7 +911,10 @@
     "clearSelection": "Clear selection",
     "download": "Download",
     "openDownloads": "View all downloads",
-    "railSummary": "{{count}} in progress"
+    "railSummary": "{{count}} in progress",
+    "addLink": "Add a link",
+    "addLinkPlaceholder": "Paste a download link",
+    "addLinkConfirm": "Add"
   },
   "wanted": {
     "title": "Video file missing",
@@ -924,6 +929,15 @@
     "matchQuestion": "A new file named {{file}} matches this entry. Is it the one?",
     "matchYes": "Link",
     "matchNo": "Ignore"
+  },
+  "pairing": {
+    "prompt": "{{count}} scripts need a video",
+    "prompt_one": "{{count}} script needs a video",
+    "title": "Which video is each script for?",
+    "notDownloaded": "not downloaded",
+    "ownEntry": "Separate item",
+    "later": "Later",
+    "apply": "Apply"
   },
   "topbar": {
     "toggleTheme": "Switch theme",
@@ -1059,6 +1073,9 @@
     "exitFullscreen": "Leave full screen",
     "showPicture": "Show the video",
     "unsupported": "This player cannot play this format.",
+    "needsFfmpeg": "This video needs ffmpeg to play.",
+    "installFfmpeg": "Install ffmpeg",
+    "installingFfmpeg": "Installing ffmpeg…",
     "subtitles": {
       "off": "No subtitles",
       "searching": "Looking for subtitles…",

@@ -91,7 +91,8 @@ export default function WantedPanel({
     if (!url) return
     setBusy(true)
     try {
-      await ipcInvoke('download:add', { url, libraryId: detail.libraryId })
+      // Tied to this entry, so the file fills it whatever name it arrives under.
+      await ipcInvoke('download:add', { url, libraryId: detail.libraryId, mediaId: detail.id })
       setDirectUrl('')
       setPasting(false)
       setError(null)

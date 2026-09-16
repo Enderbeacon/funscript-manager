@@ -1,11 +1,14 @@
 /**
  * Inline-preview source for a media item, served by the main-process
  * `fsmgr-media://` streaming protocol (see src/main/services/media-protocol.ts).
- * Only the extensions Chromium can decode get a preview; everything else falls
- * back to the static thumbnail.
+ * Only the containers Chromium opens get a preview; everything else falls back
+ * to the static thumbnail, and so does a file in one of these whose codec it
+ * cannot decode. Previews never convert: a card hover is not worth an ffmpeg
+ * run. MKV is here because Chromium does open it — the built-in player plays
+ * one as it is when its codecs allow.
  */
 
-const PREVIEWABLE = new Set(['mp4', 'm4v', 'mov', 'webm', 'ogv', 'ogg'])
+const PREVIEWABLE = new Set(['mp4', 'm4v', 'mov', 'webm', 'mkv', 'ogv', 'ogg'])
 
 export function isPreviewable(fileName: string): boolean {
   const ext = fileName.split('.').pop()?.toLowerCase()

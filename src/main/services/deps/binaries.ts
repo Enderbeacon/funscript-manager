@@ -157,6 +157,28 @@ export async function resolveFfmpeg(): Promise<string | null> {
   return (resolveWith('ffmpeg', await configuredPath('ffmpeg')))?.path ?? null
 }
 
+/** Paths already seen answering `-version`. */
+const ffmpegSeenRunning = new Set<string>()
+
+/**
+ * The ffmpeg to run, but only once it has been seen to start.
+ *
+ * `resolveFfmpeg` ends at a bare `ffmpeg` on PATH whether or not there is one,
+ * which is fine for work that simply skips when the spawn fails. The picture
+ * has to tell the user *before* trying that a video needs ffmpeg, so it asks
+ * this instead. Only a yes is remembered: a no has to be asked again after
+ * the user installs it.
+ */
+export async function runnableFfmpeg(): Promise<string | null> {
+  const path = await resolveFfmpeg()
+  if (!path) return null
+  if (ffmpegSeenRunning.has(path)) return path
+  const version = SPECS.ffmpeg.parseVersion((await runVersion(path, SPECS.ffmpeg.versionArgs)) ?? '')
+  if (version === null) return null
+  ffmpegSeenRunning.add(path)
+  return path
+}
+
 function runVersion(exe: string, args: string[]): Promise<string | null> {
   return new Promise((resolve) => {
     let proc: ReturnType<typeof spawn>

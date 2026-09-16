@@ -138,11 +138,49 @@ export const InternalPlayerReportSchema = z.object({
   /** The file ran out on its own — not a pause, not a close. */
   ended: z.boolean(),
   /**
-   * The picture cannot show this file. `unsupported_format` is the common one
-   * and the only one worth a sentence on screen: this build of Chromium has
-   * no decoder for it.
+   * The picture cannot show this file. `unsupported_format` is the common one:
+   * nothing — neither Chromium nor a conversion — could play it.
+   * `needs_ffmpeg` is the one the user can fix, by installing it.
    */
-  error: z.enum(['unsupported_format', 'load_failed']).nullable()
+  error: z.enum(['unsupported_format', 'load_failed', 'needs_ffmpeg']).nullable()
 })
 
 export type InternalPlayerReport = z.infer<typeof InternalPlayerReportSchema>
+
+/**
+ * How the picture gets at a file.
+ *
+ * `direct` hands Chromium the file as it is. `stream` has ffmpeg rewrite it on
+ * the fly into something Chromium plays: `copy` keeps the track as it is and
+ * only changes the container around it, `encode` converts it. `needs_ffmpeg`
+ * is a file that needs that conversion on a machine that cannot run ffmpeg.
+ */
+export const StreamVideoModeSchema = z.enum(['copy', 'encode'])
+export const StreamAudioModeSchema = z.enum(['copy', 'encode', 'none'])
+
+export const VideoRouteSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('direct') }),
+  z.object({
+    kind: z.literal('stream'),
+    video: StreamVideoModeSchema,
+    audio: StreamAudioModeSchema,
+    /** What the stream's video track is: the source's when copied, H.264 when converted. */
+    videoCodec: z.enum(['h264', 'hevc']),
+    /** The source's length; a stream cannot tell the element how long it is. */
+    durationMs: z.number().nonnegative().nullable(),
+    /** What the element's MediaSource is told it will be fed. */
+    mimeType: z.string()
+  }),
+  z.object({ kind: z.literal('needs_ffmpeg') })
+])
+
+export type VideoRoute = z.infer<typeof VideoRouteSchema>
+export const StreamRouteSchema = VideoRouteSchema.options[1]
+export type StreamRoute = z.infer<typeof StreamRouteSchema>
+
+/**
+ * Asked for again when the route that was tried did not play: `stream` after a
+ * direct load failed, `encode` after a stream that kept a track as it was.
+ */
+export const VideoRouteFallbackSchema = z.enum(['none', 'stream', 'encode'])
+export type VideoRouteFallback = z.infer<typeof VideoRouteFallbackSchema>

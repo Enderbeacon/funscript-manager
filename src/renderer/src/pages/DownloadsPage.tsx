@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import type { DownloadJob, DownloadProgress, DownloadState } from '@shared/schemas/download'
 import HosterBadge, { hosterName } from '../components/HosterBadge'
+import { ScriptPairingPrompt } from '../components/ScriptPairing'
 import { ipcInvoke, ipcOn } from '../ipc'
 import { useErrorMessage } from '../useErrorMessage'
 import { formatBytes, formatClock, formatEta } from '../format'
@@ -139,6 +140,7 @@ export default function DownloadsPage({ onClose }: { onClose: () => void }): Rea
         {error && <div className="error-banner download-queue-error">{error}</div>}
 
         <div className="download-queue-body">
+          <ScriptPairingPrompt />
           <div className="dl-tabs">
             {(['all', 'active', 'waiting', 'problem', 'done'] as Filter[]).map((key) => (
               <button

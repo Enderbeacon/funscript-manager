@@ -14,8 +14,9 @@
 const BARE_HOST = /^[\w-]+(\.[\w-]+)+(:\d+)?([/?#]|$)/
 
 export function normalizePastedUrl(input: string): string {
-  // Chat clients and forums like to wrap a pasted link in <> or quotes.
-  const trimmed = input.trim().replace(/^[<"'\s]+|[>"'\s]+$/g, '')
+  // Chat clients and forums like to wrap a pasted link in <>, quotes or
+  // markdown's code backticks.
+  const trimmed = input.trim().replace(/^[<"'`\s]+|[>"'`\s]+$/g, '')
   if (!trimmed) return ''
   if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return trimmed
   // Only add a scheme to something that actually looks like a host, so a

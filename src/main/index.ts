@@ -6,6 +6,7 @@ import { registerDownloaderPlugins } from './services/downloaders/register'
 import { dispose as disposeDownloads, init as initDownloads } from './services/downloaders/queue'
 import { disposePlayback, initPlayback } from './services/playback/playback-service'
 import { disposeMediaSources } from './services/playback/sources/registry'
+import { disposeVideoStreams } from './services/playback/internal/stream'
 import { startConnStatusPolling, stopConnStatusPolling } from './services/playback/conn-status'
 import { createMainWindow, rememberCloseChoice, showMainWindow } from './services/main-window'
 import { registerMediaProtocol, registerMediaScheme } from './services/media-protocol'
@@ -94,6 +95,7 @@ app.on('will-quit', (event) => {
   applyPendingOnQuit()
   stopConnStatusPolling()
   disposePlayback()
+  disposeVideoStreams()
   disposeDownloads()
   void Promise.all([
     disposeStartupArtworkPreparation(),

@@ -2357,6 +2357,56 @@ button.lk-check:hover { color: var(--text-primary); border-color: var(--accent);
 .post-bar-actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .post-bar-actions button { padding: 0.35rem 0.8rem; font-size: 13px; display: inline-flex; align-items: center; gap: 0.35rem; }
 
+/* A link the user pastes into a post, and what went wrong with a card. */
+.post-add { display: flex; gap: 0.4rem; margin-top: 0.45rem; }
+.post-add input { flex: 1; min-width: 0; }
+.post-add button { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.8rem; font-size: 13px; }
+.post-fail {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 0.4rem;
+  font-size: 12px;
+  color: var(--danger);
+  overflow-wrap: anywhere;
+}
+.post-fail-bar {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-top: 0.5px solid var(--border-tertiary);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+}
+
+/* Scripts waiting for the user to pick their video. */
+.pair-prompt {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.45rem 0.55rem;
+  border: 0.5px solid color-mix(in srgb, var(--warn) 55%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+  color: var(--warn);
+  font-size: 12px;
+  text-align: left;
+}
+.pair-prompt:hover { border-color: var(--warn); }
+.download-queue-body > .pair-prompt { margin-bottom: 0.6rem; }
+.pair-modal { width: min(760px, 94vw); }
+.pair-post + .pair-post { margin-top: 0.9rem; }
+.pair-post-title { font-size: 13px; font-weight: 600; margin-bottom: 0.4rem; overflow-wrap: anywhere; }
+.pair-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.3rem 0; }
+.pair-script {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.select-root.pair-select { flex: 0 0 min(320px, 48%); }
+
 /* ------------------------------------------------------------------ *
  * Download rail (glance version of the queue)
  * ------------------------------------------------------------------ */
@@ -2857,6 +2907,8 @@ button.lk-check:hover { color: var(--text-primary); border-color: var(--accent);
 .topbar-chip.ok { color: var(--success); border-color: color-mix(in srgb, var(--success) 45%, transparent); }
 
 .topbar-lang { position: relative; }
+.topbar-lang-btn { white-space: nowrap; }
+.topbar-lang-caret { margin-left: -0.15rem; opacity: 0.7; }
 
 .topbar-scrim {
   position: fixed;
@@ -6532,6 +6584,48 @@ button.sp-connect-button.connected:hover:not(:disabled) {
   font-size: 12.5px;
   text-align: center;
   max-width: 80%;
+}
+
+/* Above the gestures layer: the install button has to take the click. */
+.video-failed.needs-ffmpeg {
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.8rem 1rem;
+}
+
+.video-failed.needs-ffmpeg p {
+  margin: 0;
+}
+
+.video-failed.needs-ffmpeg button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.video-install-progress {
+  font-variant-numeric: tabular-nums;
+}
+
+.video-install-error {
+  color: var(--danger);
+  font-size: 12px;
+}
+
+/* Waiting for data. Never a target: a click still pauses the video. */
+.video-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  display: flex;
+  color: rgb(255 255 255 / 80%);
+  pointer-events: none;
+  filter: drop-shadow(0 1px 3px rgb(0 0 0 / 60%));
 }
 
 /* Full screen takes the window's bar off the screen, so it comes along here. */

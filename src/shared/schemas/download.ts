@@ -67,6 +67,36 @@ export const DownloadProgressSchema = z.object({
   etaSec: z.number().nonnegative().nullable()
 })
 
+/**
+ * Scripts from one post that could not be told apart by name, waiting for the
+ * user to say which video each goes with.
+ */
+export const PairingRequestSchema = z.object({
+  batchId: z.uuid(),
+  postTitle: z.string(),
+  postUrl: z.string(),
+  postThumb: z.string(),
+  videos: z.array(
+    z.object({
+      jobId: z.uuid(),
+      fileName: z.string(),
+      /** What the post's author wrote beside this video's link. */
+      note: z.string(),
+      /** False when the download failed; the scripts then wait with it. */
+      arrived: z.boolean()
+    })
+  ),
+  scripts: z.array(
+    z.object({
+      jobId: z.uuid(),
+      fileName: z.string(),
+      /** The video to offer first; null when nothing points anywhere. */
+      guess: z.uuid().nullable()
+    })
+  )
+})
+
 export type DownloadState = z.infer<typeof DownloadStateSchema>
 export type DownloadJob = z.infer<typeof DownloadJobSchema>
 export type DownloadProgress = z.infer<typeof DownloadProgressSchema>
+export type PairingRequest = z.infer<typeof PairingRequestSchema>

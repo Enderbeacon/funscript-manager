@@ -799,6 +799,8 @@
     "file_exists": "Eine Datei mit diesem Namen gibt es dort schon.",
     "player_unreachable": "Dieser Player antwortet nicht. Läuft er, und stimmt die Adresse?",
     "no_player_connected": "Zuerst einen Videoplayer hinzufügen.",
+    "ffmpeg_unavailable": "ffmpeg installieren, um dieses Video abzuspielen.",
+    "stream_failed": "Dieses Video konnte nicht abgespielt werden.",
     "update_check_failed": "GitHub ist nicht erreichbar, nach Updates kann nicht gesucht werden.",
     "update_rate_limited": "GitHub begrenzt Anfragen aus diesem Netzwerk. Versuche es in einer Stunde erneut.",
     "update_download_failed": "Das Update konnte nicht heruntergeladen werden. Versuche es erneut.",
@@ -911,7 +913,10 @@
     "download": "Herunterladen",
     "openDownloads": "Alle Downloads anzeigen",
     "railSummary": "{{count}} laufen",
-    "railSummary_one": "{{count}} läuft"
+    "railSummary_one": "{{count}} läuft",
+    "addLink": "Link hinzufügen",
+    "addLinkPlaceholder": "Download-Link einfügen",
+    "addLinkConfirm": "Hinzufügen"
   },
   "wanted": {
     "title": "Videodatei fehlt",
@@ -926,6 +931,15 @@
     "matchQuestion": "Die neue Datei {{file}} trägt den Namen dieses Eintrags. Ist sie es?",
     "matchYes": "Verknüpfen",
     "matchNo": "Ignorieren"
+  },
+  "pairing": {
+    "prompt": "{{count}} Skripte brauchen ein Video",
+    "prompt_one": "{{count}} Skript braucht ein Video",
+    "title": "Zu welchem Video gehört jedes Skript?",
+    "notDownloaded": "nicht heruntergeladen",
+    "ownEntry": "Eigener Eintrag",
+    "later": "Später",
+    "apply": "Übernehmen"
   },
   "topbar": {
     "toggleTheme": "Thema wechseln",
@@ -1060,6 +1074,9 @@
     "exitFullscreen": "Vollbild beenden",
     "showPicture": "Video anzeigen",
     "unsupported": "Dieser Player kann dieses Format nicht abspielen.",
+    "needsFfmpeg": "Für dieses Video wird ffmpeg benötigt.",
+    "installFfmpeg": "ffmpeg installieren",
+    "installingFfmpeg": "ffmpeg wird installiert…",
     "subtitles": {
       "off": "Keine Untertitel",
       "searching": "Untertitel werden gesucht…",

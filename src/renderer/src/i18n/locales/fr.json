@@ -799,6 +799,8 @@
     "file_exists": "Un fichier porte déjà ce nom à cet endroit.",
     "player_unreachable": "Ce lecteur ne répond pas. Vérifiez qu’il tourne et que l’adresse est bonne.",
     "no_player_connected": "Ajoutez d’abord un lecteur vidéo.",
+    "ffmpeg_unavailable": "Installez ffmpeg pour lire cette vidéo.",
+    "stream_failed": "Impossible de lire cette vidéo.",
     "update_check_failed": "Impossible de joindre GitHub pour chercher des mises à jour.",
     "update_rate_limited": "GitHub limite les requêtes depuis ce réseau. Réessayez dans une heure.",
     "update_download_failed": "La mise à jour n’a pas pu être téléchargée. Réessayez.",
@@ -909,7 +911,10 @@
     "clearSelection": "Tout désélectionner",
     "download": "Télécharger",
     "openDownloads": "Voir tous les téléchargements",
-    "railSummary": "{{count}} en cours"
+    "railSummary": "{{count}} en cours",
+    "addLink": "Ajouter un lien",
+    "addLinkPlaceholder": "Coller un lien de téléchargement",
+    "addLinkConfirm": "Ajouter"
   },
   "wanted": {
     "title": "Fichier vidéo manquant",
@@ -924,6 +929,15 @@
     "matchQuestion": "Le nouveau fichier {{file}} porte le nom de cette entrée. Est-ce le bon ?",
     "matchYes": "Associer",
     "matchNo": "Ignorer"
+  },
+  "pairing": {
+    "prompt": "{{count}} scripts attendent une vidéo",
+    "prompt_one": "{{count}} script attend une vidéo",
+    "title": "À quelle vidéo correspond chaque script ?",
+    "notDownloaded": "non téléchargée",
+    "ownEntry": "Élément séparé",
+    "later": "Plus tard",
+    "apply": "Appliquer"
   },
   "topbar": {
     "toggleTheme": "Changer de thème",
@@ -1060,6 +1074,9 @@
     "exitFullscreen": "Quitter le plein écran",
     "showPicture": "Afficher la vidéo",
     "unsupported": "Ce lecteur ne peut pas lire ce format.",
+    "needsFfmpeg": "Cette vidéo nécessite ffmpeg pour être lue.",
+    "installFfmpeg": "Installer ffmpeg",
+    "installingFfmpeg": "Installation de ffmpeg…",
     "subtitles": {
       "off": "Aucun sous-titre",
       "searching": "Recherche des sous-titres…",

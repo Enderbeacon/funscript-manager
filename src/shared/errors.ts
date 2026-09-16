@@ -38,6 +38,10 @@ export const APP_ERROR_CODES = [
   'player_unreachable',
   /** Nothing to play into: no player in the list is connected. */
   'no_player_connected',
+  /** The file needs converting to play, and ffmpeg will not run. */
+  'ffmpeg_unavailable',
+  /** ffmpeg ran on the file but produced nothing that can be played. */
+  'stream_failed',
   'credential_storage_unavailable',
   'disk_full',
   /** Not a failure to act on: a damaged index was rebuilt and is refilling. */

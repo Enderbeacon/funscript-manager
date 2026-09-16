@@ -19,7 +19,10 @@ const SECTION_PATTERNS: { section: LinkSection | 'details' | 'heatmap'; re: RegE
 ]
 
 const HOSTERS: { host: RegExp; hoster: ScrapedLink['hoster'] }[] = [
-  { host: /(^|\.)pixeldrain\.com$/i, hoster: 'pixeldrain' },
+  {
+    host: /(^|\.)(?:pixeldrain\.(?:com|net|nl|biz|tech|dev)|pixeldra\.in)$/i,
+    hoster: 'pixeldrain'
+  },
   { host: /(^|\.)mega\.(nz|io)$/i, hoster: 'mega' },
   { host: /(^|\.)gofile\.io$/i, hoster: 'gofile' },
   { host: /(^|\.)(drive|docs)\.google\.com$/i, hoster: 'gdrive' },
@@ -126,6 +129,21 @@ const FORUM_NAV = /^\/(u|t|c|tag|tags|g|search|latest|top|categories|badges|abou
 const IMAGE_EXT = /\.(gif|png|jpe?g|webp|svg|bmp|avif|ico)(\?|$)/i
 
 /**
+ * A URL as it sits in a post's markdown. Backticks and square brackets end it:
+ * none of them may appear unencoded in an address, and markdown puts all three
+ * right against one. Without that, `` `https://mega.nz/file/x#key` `` is read
+ * with the backtick on the end — a mega key with a stray character decrypts
+ * nothing, so a working link shows as dead — and `[https://a](https://a)` is
+ * read as a single address with the markup glued into the middle.
+ */
+function urlsIn(): RegExp {
+  return /https?:\/\/[^\s)<>"'`[\]]+/g
+}
+
+/** Invisible characters authors paste into link text along with the words. */
+const INVISIBLE = /[\u200b-\u200d\u2060\ufeff]/g
+
+/**
  * Is this link certainly not something to download? Kept deliberately narrow:
  * anything not matched here stays in the list, because a missing download link
  * is a much worse failure than one extra row the user ignores.
@@ -146,7 +164,7 @@ function isNotADownload(url: string, baseUrl: string): boolean {
 
 /** Trailing punctuation markdown leaves attached to a bare URL. */
 function trimUrl(url: string): string {
-  return url.replace(/[),.;:'"\]]+$/, '')
+  return url.replace(/[),.;:'"\]*`]+$/, '')
 }
 
 /**
@@ -239,7 +257,10 @@ function attachmentLinks(
       ? href
       : `${baseUrl}${href.startsWith('/') ? '' : '/'}${href}`
     const after = cooked.slice(m.index)
-    const label = /^[^>]*>([^<]+)</.exec(after)?.[1]?.trim() || fileNameOf(url)
+    // Anchor text is still HTML: `Tifa &amp; Cloud` has to become `Tifa & Cloud`
+    // before it is anybody's file name.
+    const text = unescapeHtml(/^[^>]*>([^<]+)</.exec(after)?.[1] ?? '')
+    const label = text.replace(INVISIBLE, '').trim() || fileNameOf(url)
     // The name that carries the extension: the href for a direct upload path,
     // the anchor text for the short-url form.
     const named = FILE_EXT.test(url) ? url : FILE_EXT.test(label) ? label : null
@@ -275,7 +296,7 @@ function isFetchable(url: string, claimed: (url: string) => boolean): boolean {
 function plainText(line: string): string {
   return line
     .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/https?:\/\/[^\s)<>"']+/g, '')
+    .replace(urlsIn(), '')
     // Emoji shortcodes go before the markdown strip, or `_` removal turns
     // `:slight_smile:` into the word `slightsmile` (same trap as headings).
     .replace(/:[a-z0-9_+-]+:/g, '')
@@ -387,7 +408,7 @@ export function extractLinks(
   }
 
   const shadowed = shortenedLabels(raw)
-  const urlRe = /https?:\/\/[^\s)<>"']+/g
+  const urlRe = urlsIn()
   for (let m = urlRe.exec(raw); m !== null; m = urlRe.exec(raw)) {
     const found = trimUrl(m[0])
     // A display-shortened copy of a link we are also collecting in full.
@@ -491,7 +512,7 @@ export function extractReplyLinks(
     }
 
     const shadowed = shortenedLabels(raw)
-    const urlRe = /https?:\/\/[^\s)<>"']+/g
+    const urlRe = urlsIn()
     for (let m = urlRe.exec(raw); m !== null; m = urlRe.exec(raw)) {
       const found = trimUrl(m[0])
       if (shadowed.has(found)) continue
@@ -529,6 +550,32 @@ export function extractReplyLinks(
   }
 
   return links
+}
+
+/**
+ * A link the user added to a post themselves: a mirror found elsewhere, or the
+ * direct file a page that would not parse left them to find. Described the way
+ * the post's own links are, so it downloads and files along with the post.
+ *
+ * Anything the user pasted on purpose is taken as a download, except a host
+ * that is only ever a page to visit.
+ */
+export function pastedLink(url: string): ScrapedLink {
+  const hoster = hosterOf(url)
+  const isScript = /\.funscript(\?|$)/i.test(url)
+  return {
+    url,
+    hoster,
+    section: isScript ? 'script' : 'video',
+    label: isScript || MEDIA_EXT.test(url) ? fileNameOf(url) : url,
+    isAttachment: false,
+    isScript,
+    manualOnly: MANUAL_ONLY.has(hoster),
+    needsManualLink: false,
+    downloadable: !MANUAL_ONLY.has(hoster),
+    note: '',
+    fromPost: null
+  }
 }
 
 /** Plain text of the details section, for the confirmation panel. */

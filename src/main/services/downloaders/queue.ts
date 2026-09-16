@@ -2,12 +2,14 @@ import { randomUUID } from 'node:crypto'
 import { EventEmitter } from 'node:events'
 import { existsSync } from 'node:fs'
 import { mkdir, rename, rm, stat } from 'node:fs/promises'
-import { dirname, extname, join } from 'node:path'
-import { LIBRARY_CACHE_DIR } from '@shared/constants'
+import { dirname, extname, join, relative, sep } from 'node:path'
+import { FUNSCRIPT_EXTENSION, LIBRARY_CACHE_DIR } from '@shared/constants'
 import { AppError } from '@shared/errors'
 import type { DownloadJob, DownloadProgress } from '@shared/schemas/download'
-import type { ScrapedPost } from '@shared/schemas/scraped-post'
+import type { ScrapedLink, ScrapedPost } from '@shared/schemas/scraped-post'
 import { getSettings, listLibraries } from '../config/config-service'
+import { isMediaFile } from '../library/companion-grouping'
+import { attachScriptsToMedia, fillWantedFromDownload } from '../library/library-manager'
 import { setActiveDownloads } from '../net/throttle'
 import {
   DirectLinkExpiredError,
@@ -18,6 +20,7 @@ import {
   type DownloaderPlugin,
   type ProgressEvent
 } from './base'
+import { fileNameFromUrl } from './direct'
 import { batchSettled, finalizeBatch } from './post-ingest'
 import * as store from './store'
 
@@ -183,15 +186,25 @@ export function listJobs(): DownloadJob[] {
   // gets the projection only — plus the two things the queue UI needs out of
   // that JSON. A file name alone does not say which post it belongs to, and
   // "VRPRD-016_B_4K.mp4" looks the same in a list of twelve.
-  return store.listNewestFirst().map(({ partPath: _partPath, namePinned: _pinned, postJson, ...job }) => {
-    const from = postJson ? parsePostJson(postJson) : null
-    return {
-      ...job,
-      postTitle: from?.title ?? '',
-      postUrl: from?.postUrl ?? '',
-      postThumb: from?.previewImage ?? ''
+  return store.listNewestFirst().map(
+    ({
+      partPath: _partPath,
+      namePinned: _pinned,
+      mediaId: _mediaId,
+      ingested: _ingested,
+      awaitingPair: _awaitingPair,
+      postJson,
+      ...job
+    }) => {
+      const from = postJson ? parsePostJson(postJson) : null
+      return {
+        ...job,
+        postTitle: from?.title ?? '',
+        postUrl: from?.postUrl ?? '',
+        postThumb: from?.previewImage ?? ''
+      }
     }
-  })
+  )
 }
 
 /** The stored post, or null when it is unreadable — a job must still list. */
@@ -204,9 +217,44 @@ function parsePostJson(json: string): ScrapedPost | null {
 }
 
 /**
+ * A name to start a job under. `pinned` means it came from something that knows
+ * better than the source — nothing discovered during the download replaces it.
+ * An unpinned name is only a starting point.
+ */
+interface NameHint {
+  value: string
+  pinned: boolean
+}
+
+interface JobOptions {
+  name?: NameHint
+  batch?: { batchId: string; role: DownloadJob['role']; postJson: string }
+  /**
+   * The library entry this download is for — one waiting for its video. The
+   * file goes straight into it on arrival instead of becoming an entry of its
+   * own.
+   */
+  mediaId?: string
+}
+
+/** One job to be, before anything is written. */
+interface PlannedJob {
+  sourceUrl: string
+  hoster: string
+  fileName: string
+  namePinned: boolean
+}
+
+/**
  * Enqueue the links a user ticked in a parsed post. They share a batch id so
- * post-download ingest can run once, after the whole set has settled, and each
- * job records what it is (video / script) and the post it came from.
+ * post-download ingest can run once the whole set has settled, and each job
+ * records what it is (video / script) and the post it came from.
+ *
+ * All or nothing. Every link is looked at — folders listed — before any job is
+ * written, because a folder listing can fail after the links before it were
+ * already queued: the scripts would download on their own, file themselves as
+ * a post with no video, and the user pressing Download again would fetch them a
+ * second time.
  */
 export async function addPostJobs(
   libraryId: string,
@@ -217,24 +265,54 @@ export async function addPostJobs(
    *  the post link's role and batch, so ingest still works on it. */
   manualLinks: Record<string, string> = {}
 ): Promise<{ jobIds: string[]; batchId: string }> {
-  const batchId = randomUUID()
-  const postJson = JSON.stringify(post)
-  const jobIds: string[] = []
+  const root = await libraryRoot(libraryId)
+  const batch = { batchId: randomUUID(), postJson: JSON.stringify(post) }
+
+  const plans: { planned: PlannedJob[]; role: DownloadJob['role'] }[] = []
   for (const url of urls) {
     const link = post.links.find((l) => l.url === url)
     if (!link) continue
     const target = manualLinks[url]?.trim() || url
     // A pasted link names the file itself, so the post's label — which for a
     // store page is just the page address — must not override it.
-    const hint = link.isAttachment && target === url ? link.label : undefined
-    const ids = await addJobs(target, libraryId, hint, {
-      batchId,
-      role: link.isScript ? 'script' : 'video',
-      postJson
+    const name = link.isAttachment && target === url ? attachmentName(link, post) : undefined
+    plans.push({
+      planned: await planJobs(target, name),
+      role: link.isScript ? 'script' : 'video'
     })
-    jobIds.push(...ids)
   }
-  return { jobIds, batchId }
+
+  const jobIds = plans.flatMap(({ planned, role }) =>
+    insertPlanned(planned, libraryId, root, { batch: { ...batch, role } })
+  )
+  notifyChanged()
+  void pump()
+  return { jobIds, batchId: batch.batchId }
+}
+
+/**
+ * What to save a forum attachment as.
+ *
+ * The link text is usually the file's name, and a better one than the upload's
+ * hash. But authors retitle links: three scripts posted as "Sex only", with no
+ * extension and the same words each time, were saved as `Sex only`,
+ * `Sex only (2)` and `Sex only (3)` — files the library cannot recognise, with
+ * their axes lost. So the text is only trusted when it looks like a file name
+ * and no other attachment in the post shares it; otherwise the name the forum
+ * sends with the file wins, and the text, given the extension it has to have,
+ * is only the fallback.
+ */
+function attachmentName(link: ScrapedLink, post: ScrapedPost): NameHint {
+  const label = link.label.trim()
+  const extension = link.isScript ? FUNSCRIPT_EXTENSION : extname(fileNameFromUrl(link.url))
+  const named = link.isScript
+    ? label.toLowerCase().endsWith(FUNSCRIPT_EXTENSION)
+    : /\.[a-z0-9]{2,5}$/i.test(label)
+  const shared =
+    post.links.filter((l) => l.isAttachment && l.label.trim().toLowerCase() === label.toLowerCase())
+      .length > 1
+  if (named && !shared) return { value: label, pinned: true }
+  return { value: named ? label : `${label}${extension}`, pinned: false }
 }
 
 /**
@@ -244,13 +322,19 @@ export async function addPostJobs(
 export async function addJobs(
   url: string,
   libraryId: string,
-  /** Caller-supplied name; forum attachment URLs are hashes, the post knows better. */
-  fileNameHint?: string,
-  batch?: { batchId: string; role: DownloadJob['role']; postJson: string }
+  options: JobOptions = {}
 ): Promise<string[]> {
+  const root = await libraryRoot(libraryId)
+  const ids = insertPlanned(await planJobs(url, options.name), libraryId, root, options)
+  notifyChanged()
+  void pump()
+  return ids
+}
+
+/** Find the plugin and list the files behind a URL, without writing anything. */
+async function planJobs(url: string, name?: NameHint): Promise<PlannedJob[]> {
   const plugin = findPlugin(url)
   if (!plugin) throw new AppError('download_no_plugin', { url })
-  const root = await libraryRoot(libraryId)
 
   let urls = [url]
   if (plugin.expand) {
@@ -259,31 +343,42 @@ export async function addJobs(
     } catch (e) {
       // A folder listing that fails is worth surfacing: the user asked for
       // several files and would otherwise silently get one broken job.
-      throw new AppError('download_expand_failed', { url, message: String(e) })
+      console.error(`[downloads] could not list ${url}:`, e)
+      throw new AppError('download_expand_failed', { url })
     }
   }
 
-  const ids: string[] = []
-  for (const one of urls) {
-    const id = randomUUID()
+  return urls.map((one) => {
     // A hint only makes sense for a single job; an expanded folder has one
     // real name per file and takes them from the source instead.
-    const hint = urls.length === 1 ? fileNameHint : undefined
-    store.insert({
-      id,
+    const hint = urls.length === 1 ? name : undefined
+    return {
       sourceUrl: one,
       hoster: plugin.id,
+      fileName: safeFileName(hint?.value ?? plugin.guessFileName?.(one) ?? 'download'),
+      namePinned: hint?.pinned ?? false
+    }
+  })
+}
+
+function insertPlanned(
+  planned: PlannedJob[],
+  libraryId: string,
+  root: string,
+  options: JobOptions
+): string[] {
+  return planned.map((job) => {
+    const id = randomUUID()
+    store.insert({
+      id,
+      ...job,
       libraryId,
-      fileName: safeFileName(hint ?? plugin.guessFileName?.(one) ?? 'download'),
-      namePinned: hint !== undefined,
       partPath: partPathFor(root, id),
-      ...(batch ?? {})
+      ...(options.batch ?? {}),
+      ...(options.mediaId ? { mediaId: options.mediaId } : {})
     })
-    ids.push(id)
-  }
-  notifyChanged()
-  void pump()
-  return ids
+    return id
+  })
 }
 
 export async function pauseJob(id: string): Promise<void> {
@@ -359,11 +454,24 @@ const UNSETTLED = new Set(['pending', 'running', 'paused', 'cooling'])
  * the real entry, and the library is left holding one entry per script plus the
  * right one.
  *
+ * A settled batch is still on its way in until its ingest has run. The last
+ * file to land wakes the scanner as well as the ingest, and the ingest waits
+ * for that very scan to index the video — so without this the scan would reach
+ * the loose scripts first, every time, and file the ones that belong to a video
+ * that failed, or that are waiting for the user to pick theirs.
+ *
  * Waiting costs nothing: a genuinely orphaned script gets its entry on the next
  * scan, once the queue is quiet and the answer cannot change under us.
  */
 export function isBusyFor(libraryId: string): boolean {
-  return store.list().some((job) => job.libraryId === libraryId && UNSETTLED.has(job.state))
+  return store
+    .list()
+    .some(
+      (job) =>
+        job.libraryId === libraryId &&
+        (UNSETTLED.has(job.state) ||
+          (job.batchId !== null && job.state === 'done' && !job.ingested && !job.awaitingPair))
+    )
 }
 
 async function pump(): Promise<void> {
@@ -568,24 +676,47 @@ function armCooldown(id: string, retryAt: Date): void {
   )
 }
 
-/** Batches whose ingest already ran, so a later pause/resume cannot repeat it. */
-const finalizedBatches = new Set<string>()
+/** The ingest pass running or queued for each batch; one at a time per batch. */
+const settling = new Map<string, Promise<void>>()
 
 /**
- * Run post-download ingest once the whole batch has settled. A paused job
- * keeps the batch open on purpose: the user may still resume it, and the
- * metadata write wants the complete set.
+ * Run post-download ingest whenever the batch has settled. A paused job keeps
+ * the batch open on purpose: the user may still resume it, and the metadata
+ * write wants the complete set.
+ *
+ * A batch can settle again later — a failed job retried — and ingest files only
+ * what is new, so running it again is safe. Running it twice at once is not:
+ * two jobs of one batch finishing together would both find the same scripts
+ * unfiled. So passes over one batch queue up behind each other.
  */
 async function settleBatch(batchId: string | null): Promise<void> {
-  if (!batchId || finalizedBatches.has(batchId)) return
-  if (!batchSettled(batchId)) return
-  finalizedBatches.add(batchId)
-  try {
-    await finalizeBatch(batchId)
-  } catch (e) {
-    console.error(`[downloads] batch ${batchId} ingest failed:`, e)
-  }
-  notifyChanged()
+  if (!batchId) return
+  const run = (settling.get(batchId) ?? Promise.resolve()).then(async () => {
+    if (!batchSettled(batchId)) return
+    try {
+      await finalizeBatch(batchId)
+    } catch (e) {
+      console.error(`[downloads] batch ${batchId} ingest failed:`, e)
+    }
+    notifyChanged()
+  })
+  settling.set(batchId, run)
+  await run
+  if (settling.get(batchId) === run) settling.delete(batchId)
+}
+
+/**
+ * Scripts waiting for the user to pick their video, as library-relative path
+ * keys. The scanner must not file these as entries of their own while the
+ * question is open — they have an owner, it just has not been named yet.
+ */
+export function awaitingPairKeys(libraryId: string, root: string): Set<string> {
+  return new Set(
+    store
+      .listAwaitingPair()
+      .filter((job) => job.libraryId === libraryId && job.filePath)
+      .map((job) => relative(root, job.filePath!).split(sep).join('/').toLowerCase())
+  )
 }
 
 /** An aborted attempt is either the user pausing or the user cancelling. */
@@ -602,21 +733,60 @@ function settleAborted(job: store.JobRecord, entry: RunningJob): void {
  * Move the finished .part into the library root under its real name. The
  * library watcher takes it from there — that is the same ingest path a file
  * dropped in by hand goes through, so downloads need no special casing.
+ *
+ * The exception is a download meant for an entry that is waiting for its
+ * video: that file goes straight into the entry.
  */
 async function finish(id: string): Promise<void> {
   const job = store.get(id)
   if (!job) return
+
+  if (job.mediaId && isMediaFile(job.fileName)) {
+    const placed = await fillWantedFromDownload(
+      job.libraryId,
+      job.mediaId,
+      job.partPath,
+      job.fileName
+    ).catch((e) => {
+      console.error(`[downloads] job ${id} could not fill its entry:`, e)
+      return null
+    })
+    if (placed) {
+      await markDone(id, placed, { ingested: true })
+      return
+    }
+    // The entry was merged, removed or filled some other way in the meantime.
+    // The file is still wanted; it is filed like any other download.
+    store.update(id, { mediaId: null })
+  }
+
   const root = await libraryRoot(job.libraryId)
   const target = freePath(root, job.fileName)
   await mkdir(dirname(target), { recursive: true })
   await rename(job.partPath, target)
-  const size = (await stat(target)).size
+
+  // A script from a link pasted for an entry — a folder holding the video and
+  // its scripts — belongs to that entry; there is no post to pair it by. Filed
+  // before the job reads as done, so the scanner never sees it unowned.
+  if (!job.batchId && job.mediaId && job.fileName.toLowerCase().endsWith(FUNSCRIPT_EXTENSION)) {
+    await attachScriptsToMedia(job.libraryId, job.mediaId, [{ absPath: target }], {}).catch((e) =>
+      console.error(`[downloads] job ${id} could not join its entry:`, e)
+    )
+    await markDone(id, target, { ingested: true })
+    return
+  }
+  await markDone(id, target)
+}
+
+async function markDone(id: string, filePath: string, extra: store.JobPatch = {}): Promise<void> {
+  const size = (await stat(filePath)).size
   store.update(id, {
     state: 'done',
-    filePath: target,
+    filePath,
     bytesDownloaded: size,
     totalBytes: size,
-    error: null
+    error: null,
+    ...extra
   })
   notifyChanged()
 }

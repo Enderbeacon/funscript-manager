@@ -7,6 +7,7 @@ import {
   Expand,
   FolderOpen,
   Frame,
+  Loader2,
   PictureInPicture2,
   Shrink,
   SlidersHorizontal,
@@ -15,10 +16,18 @@ import {
   VolumeX,
   X
 } from 'lucide-react'
-import type { InternalPlayerIntent, SubtitleTrack } from '@shared/schemas/playback'
+import type {
+  InternalPlayerIntent,
+  InternalPlayerReport,
+  SubtitleTrack,
+  VideoRoute,
+  VideoRouteFallback
+} from '@shared/schemas/playback'
 import { ipcInvoke, ipcOn } from '../ipc'
 import { mediaFileUrl } from '../mediaUrl'
 import { languageName } from '../languageName'
+import { StreamFeed } from '../streamFeed'
+import { useErrorMessage } from '../useErrorMessage'
 import { useMainWindowOpen } from '../useMainWindow'
 import ContextMenu, { type MenuItem } from './ContextMenu'
 import NowPlayingBar from './NowPlayingBar'
@@ -66,6 +75,24 @@ const LOOK_SAVE_MS = 300
 /** What one step of the subtitle nudge is worth, in seconds. */
 const NUDGES = [-0.5, -0.1, 0.1, 0.5]
 
+/** A load or seek quicker than this shows no spinner rather than a flicker. */
+const SPINNER_DELAY_MS = 300
+
+/**
+ * Whether this machine decodes HEVC. It depends on the graphics hardware, and
+ * a file the picture could take as it is would otherwise be converted.
+ */
+function canDecodeHevc(): boolean {
+  try {
+    return MediaSource.isTypeSupported('video/mp4; codecs="hvc1.1.6.L93.B0"')
+  } catch {
+    return false
+  }
+}
+
+/** Why there is nothing on the picture, when there is nothing on it. */
+type Trouble = 'unsupported' | 'needs_ffmpeg'
+
 export default function VideoPlayerStage({
   intent,
   form,
@@ -105,11 +132,32 @@ export default function VideoPlayerStage({
   onFullscreenChange?: (fullscreen: boolean) => void
 }): React.JSX.Element {
   const { t, i18n } = useTranslation()
+  const toMessage = useErrorMessage()
   /** With the main window closed, this window is the way back to the app. */
   const mainWindowOpen = useMainWindowOpen()
   const video = useRef<HTMLVideoElement | null>(null)
   const shell = useRef<HTMLDivElement | null>(null)
-  const [failed, setFailed] = useState(false)
+  const [trouble, setTrouble] = useState<Trouble | null>(null)
+  /** Loading or seeking for long enough to say so. */
+  const [waiting, setWaiting] = useState(false)
+  /** Installing ffmpeg from the picture: null, or the percentage so far (-1 = unknown). */
+  const [installing, setInstalling] = useState<number | null>(null)
+  const [installError, setInstallError] = useState<string | null>(null)
+  /** How the current file was loaded — what a failure falls back from. */
+  const loaded = useRef<VideoRoute | null>(null)
+  const feed = useRef<StreamFeed | null>(null)
+  /** Bumped by every load, so a route answered for an older one is dropped. */
+  const loadTurn = useRef(0)
+  /**
+   * The load whose file is on the element. While it lags `loadTurn` a new
+   * route is still being worked out, and a failure reported in that gap is
+   * the old one's — falling back from it again would skip a step.
+   */
+  const settledTurn = useRef(0)
+  const pausedNow = useRef(intent.paused)
+  pausedNow.current = intent.paused
+  /** Where the app last asked the picture to be, in milliseconds. */
+  const askedMs = useRef(intent.seekMs)
   const [fullscreen, setFullscreen] = useState(false)
   /** Where the floating picture has been dragged to, in pixels from top-left. */
   const [spot, setSpot] = useState<{ x: number; y: number } | null>(null)
@@ -155,28 +203,138 @@ export default function VideoPlayerStage({
     }
   }, [detached])
 
+  const report = useCallback(
+    (extra: { ended?: boolean; error?: InternalPlayerReport['error'] }): void => {
+      const el = video.current
+      void ipcInvoke('video:report', {
+        path,
+        positionMs: el && Number.isFinite(el.currentTime) ? el.currentTime * 1000 : null,
+        durationMs: el && Number.isFinite(el.duration) ? el.duration * 1000 : null,
+        paused: el ? el.paused : true,
+        volume: el ? Math.round(el.volume * 100) : 100,
+        ended: extra.ended ?? false,
+        error: extra.error ?? null
+      }).catch(() => {})
+    },
+    [path]
+  )
+
+  const fail = useCallback(
+    (why: Trouble): void => {
+      feed.current?.dispose()
+      feed.current = null
+      const el = video.current
+      if (el) {
+        el.removeAttribute('src')
+        el.load()
+      }
+      setTrouble(why)
+      report({ error: why === 'needs_ffmpeg' ? 'needs_ffmpeg' : 'unsupported_format' })
+    },
+    [report]
+  )
+
+  /**
+   * Put the file on the picture, the way the main process says it plays.
+   *
+   * `atS` null means wherever the app last asked for, read once the route is
+   * known — a seek made while it was being worked out is not lost.
+   */
+  const load = useCallback(
+    async (fallback: VideoRouteFallback, atS: number | null): Promise<void> => {
+      const el = video.current
+      if (!el || !path) return
+      const turn = ++loadTurn.current
+      feed.current?.dispose()
+      feed.current = null
+      setTrouble(null)
+      let route: VideoRoute
+      try {
+        route = await ipcInvoke('video:route', { path, hevc: canDecodeHevc(), fallback })
+      } catch {
+        if (turn === loadTurn.current) fail('unsupported')
+        return
+      }
+      if (turn !== loadTurn.current) return
+      loaded.current = route
+      settledTurn.current = turn
+      const at = atS ?? askedMs.current / 1000
+
+      if (route.kind === 'needs_ffmpeg') {
+        fail('needs_ffmpeg')
+        return
+      }
+      if (route.kind === 'direct') {
+        // Asked for something other than the file as it is, and still told to
+        // play it as it is: nothing is left to try.
+        if (fallback !== 'none') {
+          fail('unsupported')
+          return
+        }
+        el.src = mediaFileUrl(path)
+        el.currentTime = at
+      } else {
+        const next: StreamFeed = new StreamFeed(el, path, route, () => {
+          if (feed.current === next) fallBack.current()
+        })
+        feed.current = next
+        next.start(at)
+      }
+      if (!pausedNow.current) void el.play().catch(() => {})
+    },
+    [fail, path]
+  )
+
+  /**
+   * The route tried did not play: try the next one down. The file as it is,
+   * then its tracks moved into a container Chromium opens, then converted.
+   * Chromium does not say *why* it will not play something, so each step is
+   * simply the next thing that might.
+   */
+  const fallBack = useRef<() => void>(() => {})
+  fallBack.current = (): void => {
+    if (settledTurn.current !== loadTurn.current) return
+    const route = loaded.current
+    const el = video.current
+    const at = el && Number.isFinite(el.currentTime) ? el.currentTime : null
+    if (route?.kind === 'direct') void load('stream', at)
+    else if (route?.kind === 'stream' && (route.video === 'copy' || route.audio === 'copy')) {
+      void load('encode', at)
+    } else fail('unsupported')
+  }
+
   // Load whatever the intent names. Changing `src` resets the element, so this
   // runs on the media alone — every other field is handled without a reload.
   useEffect(() => {
     const el = video.current
     if (!el) return
-    setFailed(false)
+    seenSeek.current = intent.seekToken
+    askedMs.current = intent.seekMs
+    loaded.current = null
+    feed.current?.dispose()
+    feed.current = null
+    setTrouble(null)
+    setInstallError(null)
+    el.removeAttribute('src')
+    el.load()
     if (!intent.media) {
-      el.removeAttribute('src')
-      el.load()
+      loadTurn.current++
       return
     }
-    el.src = mediaFileUrl(intent.media.path)
-    el.currentTime = intent.seekMs / 1000
-    seenSeek.current = intent.seekToken
+    void load('none', null)
     // Keyed on the file alone: a new position for one already loaded is a
     // seek, which the effect below does without throwing the buffer away.
   }, [path])
+
+  useEffect(() => () => feed.current?.dispose(), [])
 
   useEffect(() => {
     const el = video.current
     if (!el || intent.seekToken === seenSeek.current) return
     seenSeek.current = intent.seekToken
+    askedMs.current = intent.seekMs
+    // A stream follows the element's seek on its own, starting ffmpeg again
+    // when the position is not buffered.
     el.currentTime = intent.seekMs / 1000
   }, [intent.seekToken, intent.seekMs])
 
@@ -197,26 +355,12 @@ export default function VideoPlayerStage({
   // Report position, and the two things only the element knows: how long the
   // file is, and whether it ran out.
   useEffect(() => {
-    const send = (extra: { ended?: boolean; error?: 'unsupported_format' | 'load_failed' }): void => {
-      const el = video.current
-      void ipcInvoke('video:report', {
-        path,
-        positionMs: el && Number.isFinite(el.currentTime) ? el.currentTime * 1000 : null,
-        durationMs: el && Number.isFinite(el.duration) ? el.duration * 1000 : null,
-        paused: el ? el.paused : true,
-        volume: el ? Math.round(el.volume * 100) : 100,
-        ended: extra.ended ?? false,
-        error: extra.error ?? null
-      }).catch(() => {})
-    }
-    const timer = setInterval(() => send({}), REPORT_MS)
+    const timer = setInterval(() => report({}), REPORT_MS)
     const el = video.current
-    const onEnded = (): void => send({ ended: true })
+    const onEnded = (): void => report({ ended: true })
     const onError = (): void => {
-      setFailed(true)
-      // Chromium does not say *why* it will not play something, so the message
-      // is the one that is true either way: this player cannot show this file.
-      send({ error: 'unsupported_format' })
+      // An element with nothing loaded has nothing to fail at.
+      if (loaded.current) fallBack.current()
     }
     el?.addEventListener('ended', onEnded)
     el?.addEventListener('error', onError)
@@ -225,7 +369,58 @@ export default function VideoPlayerStage({
       el?.removeEventListener('ended', onEnded)
       el?.removeEventListener('error', onError)
     }
-  }, [path])
+  }, [report])
+
+  // The spinner: shown while the element is waiting for data, whether that is
+  // a first load, a seek, or a converted stream catching up.
+  useEffect(() => {
+    const el = video.current
+    if (!el) return
+    let timer: number | undefined
+    const busy = (): void => {
+      if (timer === undefined) timer = window.setTimeout(() => setWaiting(true), SPINNER_DELAY_MS)
+    }
+    const ready = (): void => {
+      window.clearTimeout(timer)
+      timer = undefined
+      setWaiting(false)
+    }
+    const busyOn = ['loadstart', 'waiting', 'seeking']
+    const readyOn = ['loadeddata', 'canplay', 'playing', 'seeked', 'error', 'emptied']
+    for (const name of busyOn) el.addEventListener(name, busy)
+    for (const name of readyOn) el.addEventListener(name, ready)
+    return () => {
+      window.clearTimeout(timer)
+      for (const name of busyOn) el.removeEventListener(name, busy)
+      for (const name of readyOn) el.removeEventListener(name, ready)
+    }
+  }, [])
+
+  // Installing ffmpeg from the picture, then trying the file again.
+  useEffect(
+    () =>
+      ipcOn('event:dep-progress', (progress) => {
+        if (progress.id !== 'ffmpeg') return
+        const { bytesDownloaded, totalBytes } = progress
+        setInstalling((cur) =>
+          cur === null ? cur : totalBytes ? Math.floor((bytesDownloaded / totalBytes) * 100) : -1
+        )
+      }),
+    []
+  )
+
+  const installFfmpeg = useCallback(async (): Promise<void> => {
+    setInstalling(-1)
+    setInstallError(null)
+    try {
+      await ipcInvoke('deps:install', { id: 'ffmpeg' })
+      setInstalling(null)
+      void load('none', null)
+    } catch (e) {
+      setInstalling(null)
+      setInstallError(toMessage(e))
+    }
+  }, [load, toMessage])
 
   // Full screen belongs to whichever window the picture is in, so it is the
   // browser's own: in the main window it covers the app, in the detached
@@ -540,7 +735,33 @@ export default function VideoPlayerStage({
             onClose={() => setPanelOpen(false)}
           />
         )}
-        {failed && <p className="video-failed">{t('player.unsupported')}</p>}
+        {waiting && !trouble && (
+          <div className="video-loading">
+            <Loader2 size={30} className="spin" />
+          </div>
+        )}
+        {trouble === 'unsupported' && <p className="video-failed">{t('player.unsupported')}</p>}
+        {trouble === 'needs_ffmpeg' && (
+          <div className="video-failed needs-ffmpeg">
+            <p>{t('player.needsFfmpeg')}</p>
+            <button
+              className="primary"
+              disabled={installing !== null}
+              onClick={() => void installFfmpeg()}
+            >
+              {installing === null ? (
+                t('player.installFfmpeg')
+              ) : (
+                <>
+                  <Loader2 size={13} className="spin" />
+                  {t('player.installingFfmpeg')}
+                  {installing >= 0 && <span className="video-install-progress">{installing}%</span>}
+                </>
+              )}
+            </button>
+            {installError && <p className="video-install-error">{installError}</p>}
+          </div>
+        )}
         {/*
           The one place controls have to sit on the picture. Full screen takes
           the bar at the foot of the window with it, so the same bar comes

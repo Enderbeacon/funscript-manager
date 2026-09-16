@@ -13,7 +13,11 @@ import * as lifecycle from '../services/library/media-lifecycle'
 import * as playlists from '../services/library/playlists'
 import { checkLinks } from '../services/downloaders/link-check'
 import * as downloads from '../services/downloaders/queue'
-import { unfetchableLinks } from '../services/downloaders/post-ingest'
+import {
+  pairingRequests,
+  resolvePairing,
+  unfetchableLinks
+} from '../services/downloaders/post-ingest'
 import { downloadEvents } from '../services/downloaders/queue'
 import * as deps from '../services/deps/binaries'
 import { depsEvents } from '../services/deps/binaries'
@@ -22,6 +26,7 @@ import { updateEvents } from '../services/updates/updater'
 import { knownReleases, releaseEvents } from '../services/updates/releases'
 import * as notices from '../services/updates/notices'
 import * as scraper from '../services/scraper/discourse'
+import { pastedLink } from '../services/scraper/post-parser'
 import { findPostForMedia } from '../services/matcher/match-service'
 import { videoAuthorFromTitle } from '../services/matcher/author'
 import {
@@ -53,6 +58,8 @@ import {
   videoIntent,
   videoSurfaceEvents
 } from '../services/playback/internal/surface'
+import { routeVideo } from '../services/playback/internal/route'
+import { closeStream, openStream, readStream } from '../services/playback/internal/stream'
 import {
   isMainWindowOpen,
   rememberCloseChoice,
@@ -730,6 +737,13 @@ export function registerIpcHandlers(): void {
   handle('video:attach', () => ({ detached: attachVideoPlayerWindow() }))
   handle('video:surface', () => ({ detached: isVideoPlayerDetached() }))
 
+  handle('video:route', ({ path, hevc, fallback }) => routeVideo(path, { hevc, fallback }))
+  handle('video:streamOpen', async (input, sender) => ({ id: await openStream(sender, input) }))
+  handle('video:streamRead', async ({ id }, sender) => ({ chunk: await readStream(sender, id) }))
+  handle('video:streamClose', ({ id }, sender) => {
+    closeStream(sender, id)
+  })
+
   handle('video:subtitleTracks', async ({ path }) => ({
     tracks: await listSubtitleTracks(path)
   }))
@@ -798,11 +812,10 @@ export function registerIpcHandlers(): void {
   handle('download:list', () => ({ jobs: downloads.listJobs() }))
 
   handle('download:add', async (input) => ({
-    jobIds: await downloads.addJobs(
-      normalizePastedUrl(input.url),
-      input.libraryId,
-      input.fileName
-    )
+    jobIds: await downloads.addJobs(normalizePastedUrl(input.url), input.libraryId, {
+      ...(input.fileName ? { name: { value: input.fileName, pinned: true } } : {}),
+      ...(input.mediaId ? { mediaId: input.mediaId } : {})
+    })
   }))
 
   handle('download:addFromPost', (input) =>
@@ -818,6 +831,13 @@ export function registerIpcHandlers(): void {
   handle('download:cancel', (input) => downloads.cancelJob(input.id))
 
   handle('download:clearFinished', () => downloads.clearFinished())
+
+  handle('download:pairings', () => ({ requests: pairingRequests() }))
+
+  handle('download:resolvePairing', async ({ batchId, assignments }) => {
+    await resolvePairing(batchId, assignments)
+    downloadEvents.emit('jobs-changed')
+  })
 
   handle('download:checkLinks', async (input) => ({
     statuses: await checkLinks(input.urls, { force: input.force ?? false })
@@ -868,6 +888,8 @@ export function registerIpcHandlers(): void {
   handle('scrape:isPostUrl', (input) => ({
     isPost: scraper.isPostUrl(normalizePastedUrl(input.url))
   }))
+
+  handle('scrape:describeLink', (input) => pastedLink(normalizePastedUrl(input.url)))
 
   handle('scrape:parsePost', (input) =>
     scraper.fetchPost(normalizePastedUrl(input.url), (postsRead, postsTotal) =>

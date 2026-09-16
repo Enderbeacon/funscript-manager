@@ -32,6 +32,10 @@ interface Pending {
   alreadyHave?: string | null
   /** How far the scraper has read this thread. */
   read?: { postsRead: number; postsTotal: number }
+  /** Queueing the ticked links is under way. */
+  queueing?: boolean
+  /** Why the last attempt to queue this post's links did not go through. */
+  downloadError?: string | null
 }
 
 export default function PostsPage({
@@ -135,17 +139,24 @@ export default function PostsPage({
     }
   }, [toMessage])
 
+  /**
+   * Queue what was ticked. A failure is said on the card it belongs to, next to
+   * the button that was pressed — at the top of the page it read as the button
+   * having done nothing. Nothing is queued when it fails, so pressing again is
+   * safe.
+   */
   const download = useCallback(
-    async (post: ScrapedPost, links: ScrapedLink[]) => {
+    async (entryUrl: string, post: ScrapedPost, links: ScrapedLink[]) => {
+      update(entryUrl, { queueing: true, downloadError: null })
       try {
         await ipcInvoke('download:addFromPost', {
           libraryId,
           post,
           urls: links.map((l) => l.url)
         })
-        setPending((cur) => cur.filter((c) => c.url !== post.postUrl && c.post?.postId !== post.postId))
+        setPending((cur) => cur.filter((c) => c.url !== entryUrl && c.post?.postId !== post.postId))
       } catch (e) {
-        setError(toMessage(e))
+        update(entryUrl, { queueing: false, downloadError: toMessage(e) })
       }
     },
     [libraryId, toMessage]
@@ -241,9 +252,10 @@ export default function PostsPage({
                 key={entry.url}
                 post={entry.post}
                 alreadyHave={entry.alreadyHave ?? null}
-                disabled={false}
+                disabled={entry.queueing ?? false}
+                error={entry.downloadError ?? null}
                 onRemove={() => setPending((cur) => cur.filter((c) => c.url !== entry.url))}
-                onDownload={(links) => void download(entry.post!, links)}
+                onDownload={(post, links) => void download(entry.url, post, links)}
                 onSaveForLater={() => void saveForLater(entry.post!)}
               />
             ) : (

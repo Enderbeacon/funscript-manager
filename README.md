@@ -22,7 +22,7 @@ MultiFunPlayer.
   external players. Scripts drive TCode devices over serial, TCP, UDP or
   WebSocket, or The Handy, from the built-in script player; MultiFunPlayer is
   supported as an alternative route.
-- **Languages** — English, Chinese (Simplified), Japanese, German, French.
+- **Languages** — English, Chinese, Japanese, German, French.
 
 ## Design
 

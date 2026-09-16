@@ -65,9 +65,14 @@ export const attachmentPlugin: DownloaderPlugin = {
     return status
   },
 
-  /** The link is already direct; a `short-url` one redirects to the real file. */
+  /**
+   * The link is already direct; a `short-url` one redirects to the real file.
+   *
+   * No file name: the one in the URL is the upload's hash. The job keeps the
+   * name it was queued under until the forum sends the real one with the file.
+   */
   async resolve(url) {
-    return { url, filename: fileNameFromUrl(url) || 'download' }
+    return { url, filename: '' }
   },
 
   async download(

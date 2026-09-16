@@ -33,14 +33,25 @@ import {
 
 /** `https://mega.nz/file/<id>#<key>` and the older `#!<id>!<key>` form. */
 const FILE_URL = /^https:\/\/mega\.(?:nz|io)\/(?:file\/[\w-]+#|#!)/i
-/** `https://mega.nz/folder/<id>#<key>`, optionally deep-linked to one file. */
+/** `https://mega.nz/folder/<id>#<key>`, optionally deep-linked to something inside. */
 const FOLDER_URL = /^https:\/\/mega\.(?:nz|io)\/folder\/[\w-]+#[\w-]+/i
-/** mega's own deep link to one file inside a public folder. */
-const FOLDER_CHILD = /^(https:\/\/mega\.nz\/folder\/[\w-]+#[\w-]+)\/file\/([\w-]+)$/i
+/**
+ * mega's own deep link to one node inside a public folder: a file, or a
+ * subfolder. Authors link a subfolder when one share holds several scenes.
+ */
+const FOLDER_CHILD = /^(https:\/\/mega\.nz\/folder\/[\w-]+#[\w-]+)\/(file|folder)\/([\w-]+)$/i
+/** The old folder form, `https://mega.nz/#F!<id>!<key>`, still found in older posts. */
+const LEGACY_FOLDER = /^https:\/\/mega\.nz\/#F!([\w-]+)!([\w-]+)$/i
 
-/** megajs only accepts mega.nz; mega.io is the same service under a newer name. */
+/**
+ * One spelling per link. megajs only accepts mega.nz — mega.io is the same
+ * service under a newer name — and the old `#F!` folder form becomes the
+ * current one, so deep links into it can be built the same way.
+ */
 function normalize(url: string): string {
-  return url.replace(/^https:\/\/mega\.io\//i, 'https://mega.nz/')
+  const nz = url.replace(/^https:\/\/mega\.io\//i, 'https://mega.nz/')
+  const legacy = LEGACY_FOLDER.exec(nz)
+  return legacy ? `https://mega.nz/folder/${legacy[1]}#${legacy[2]}` : nz
 }
 
 /** megajs types the node loosely; this is the shape we actually use. */
@@ -93,6 +104,24 @@ function descendantFiles(folder: MegaNode): MegaNode[] {
     out.push(node)
   }
   return out
+}
+
+/**
+ * The node a deep link names, wherever in the tree it sits.
+ *
+ * Looking only among the top-level children is what failed every file inside a
+ * subfolder: expanding a folder lists files at any depth, so a share with a
+ * `1080p/` folder queued jobs whose download then reported the file as gone.
+ */
+function findNode(folder: MegaNode, id: string): MegaNode | null {
+  const stack = [...(folder.children ?? [])]
+  let visited = 0
+  while (stack.length > 0 && visited++ < 100_000) {
+    const node = stack.pop()!
+    if (childId(node) === id) return node
+    if (node.directory) stack.push(...(node.children ?? []))
+  }
+  return null
 }
 
 /**
@@ -186,7 +215,7 @@ async function loadNode(url: string): Promise<MegaNode> {
     if (deep) {
       const folder = File.fromURL(deep[1]!) as unknown as MegaNode
       await folder.loadAttributes()
-      const child = (folder.children ?? []).find((c) => childId(c) === deep[2])
+      const child = findNode(folder, deep[3]!)
       if (!child) throw new PermanentError('mega_gone')
       return child
     }
@@ -218,13 +247,17 @@ export const megaPlugin: DownloaderPlugin = {
   /**
    * A folder becomes one job per file, addressed with mega's own deep link so
    * the URL we persist still opens the right file in a browser and can be
-   * re-resolved later. A file link stays a single job.
+   * re-resolved later. A file link stays a single job. A link to a subfolder
+   * expands to the files under that subfolder only, addressed from the shared
+   * folder at the top — deep links are always relative to that.
    */
   async expand(url) {
-    const normalized = normalize(url)
-    if (!FOLDER_URL.test(normalized) || FOLDER_CHILD.test(normalized)) return [normalized]
+    const normalized = normalize(url).replace(/\/+$/, '')
+    if (!FOLDER_URL.test(normalized)) return [normalized]
+    const deep = FOLDER_CHILD.exec(normalized)
+    if (deep && deep[2]!.toLowerCase() === 'file') return [normalized]
     const folder = await loadNode(normalized)
-    const base = normalized.replace(/\/+$/, '')
+    const base = deep ? deep[1]! : normalized
     const files = descendantFiles(folder)
     // An empty or unreadable folder keeps the original URL, so the job fails
     // visibly instead of disappearing at enqueue time.
