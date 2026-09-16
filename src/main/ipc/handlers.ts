@@ -638,8 +638,23 @@ export function registerIpcHandlers(): void {
       name: input.name,
       author: input.author,
       sourceUrl: input.sourceUrl,
-      notes: input.notes
+      notes: input.notes,
+      axisAssignments: input.axisAssignments
     })
+  )
+
+  handle('media:mergeScriptVersions', (input) =>
+    libraryManager.mergeScriptVersions(
+      input.libraryId,
+      input.mediaId,
+      input.sourceVersionId,
+      input.targetVersionId,
+      input.axisAssignments
+    )
+  )
+
+  handle('media:autoRepairScriptVersions', (input) =>
+    libraryManager.autoRepairScriptVersions(input.libraryId, input.mediaId)
   )
 
   handle('media:addScriptVersion', (input) =>

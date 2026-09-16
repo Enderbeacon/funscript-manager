@@ -6,6 +6,7 @@ import {
   FUNSCRIPT_EXTENSION,
   SUBTITLE_EXTENSIONS,
   VIDEO_EXTENSIONS,
+  funscriptAxisFromToken,
   type CompanionMatchLevel,
   type FunscriptAxis
 } from '@shared/constants'
@@ -19,8 +20,6 @@ import type { ScriptVersion, Subtitle } from '@shared/schemas/media-meta'
  * about and test. All paths produced are plain filenames, i.e. relative to
  * the media file's own directory (which is also the sidecar's directory).
  */
-
-const AXIS_SET = new Set<string>(FUNSCRIPT_AXES)
 
 export function isVideoFile(name: string): boolean {
   return VIDEO_EXTENSIONS.some((ext) => name.toLowerCase().endsWith(ext))
@@ -179,6 +178,31 @@ interface ParsedFunscript extends NameMatch {
 }
 
 /**
+ * Read a script's own filename without requiring a media name to match it.
+ *
+ * Download ingest already knows which media a script belongs to, so the
+ * script family is stronger evidence there than the post title used for a
+ * placeholder. `Kobeni.funscript` and `Kobeni.roll.funscript` must still join
+ * when that placeholder is called `[Studio] Kobeni (multi-axis)`.
+ */
+export function parseFunscriptFamily(
+  filename: string
+): { versionKey: string; axis: FunscriptAxis } | null {
+  if (!filename.toLowerCase().endsWith(FUNSCRIPT_EXTENSION)) return null
+  const core = filename.slice(0, -FUNSCRIPT_EXTENSION.length)
+  const segments = core.split('.')
+  // The first segment is the actual title, even when that title happens to be
+  // "Roll" or "Pitch". Axis markers are dot-delimited additions to it.
+  for (let i = segments.length - 1; i >= 1; i--) {
+    const axis = funscriptAxisFromToken(segments[i]!)
+    if (!axis) continue
+    segments.splice(i, 1)
+    return { versionKey: segments.join('.'), axis }
+  }
+  return { versionKey: core, axis: 'main' }
+}
+
+/**
  * Parse a funscript filename against a media basename. The axis token may
  * sit anywhere among the dot-segments (real-world names put variant labels
  * after the axis); the remaining segments form the version key.
@@ -217,6 +241,33 @@ export function parseFunscript(
 }
 
 /**
+ * Parse a script whose media owner is already known (for example, after post
+ * download pairing). Its own filename family is the stable grouping key; the
+ * media-name parser is consulted only for a shorter human-facing variant
+ * label. This avoids partial title matches splitting main and secondary axes.
+ */
+export function parseOwnedFunscript(
+  mediaBase: string,
+  filename: string,
+  level: CompanionMatchLevel = 'exact'
+): { familyKey: string; family: string; axis: FunscriptAxis; label?: string } | null {
+  const family = parseFunscriptFamily(filename)
+  if (!family) return null
+  const parsed = parseFunscript(mediaBase, filename, level)
+  const label =
+    parsed?.versionKey &&
+    parsed.versionKey.toLocaleLowerCase() !== family.versionKey.toLocaleLowerCase()
+      ? parsed.versionKey
+      : undefined
+  return {
+    familyKey: family.versionKey.toLocaleLowerCase(),
+    family: family.versionKey,
+    axis: family.axis,
+    ...(label ? { label } : {})
+  }
+}
+
+/**
  * Two scripts must never share a version key unless they really are the same
  * version. The looser levels can match with nothing left over at all — `clip`
  * found inside `SLR_clip_4320p` leaves no label — and two of those would land
@@ -241,8 +292,8 @@ function keyed(
 function trailingAxis(core: string): { core: string; axis: FunscriptAxis } | null {
   const dot = core.lastIndexOf('.')
   if (dot === -1) return null
-  const tail = core.slice(dot + 1).toLowerCase()
-  return AXIS_SET.has(tail) ? { core: core.slice(0, dot), axis: tail as FunscriptAxis } : null
+  const axis = funscriptAxisFromToken(core.slice(dot + 1))
+  return axis ? { core: core.slice(0, dot), axis } : null
 }
 
 const BRACKET_PAIRS: Record<string, string> = { ')': '(', ']': '[', '}': '{', '】': '【', '）': '（', '〕': '〔' }
@@ -280,9 +331,9 @@ function splitAxis(leftover: string): { versionKey: string; axis: FunscriptAxis 
   // Last known-axis segment wins (axis-at-end is the common convention).
   let axis: FunscriptAxis = 'main'
   for (let i = segments.length - 1; i >= 0; i--) {
-    const seg = segments[i]!.toLowerCase()
-    if (AXIS_SET.has(seg)) {
-      axis = seg as FunscriptAxis
+    const found = funscriptAxisFromToken(segments[i]!)
+    if (found) {
+      axis = found
       segments.splice(i, 1)
       break
     }

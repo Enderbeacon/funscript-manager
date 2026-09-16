@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { SCRIPT_AXIS_KEYS } from './media-meta'
 
 /**
  * Renderer-facing projections of the index layer (derived cache).
@@ -61,6 +62,8 @@ export const ScriptVersionInfoSchema = z.object({
   axes: z.array(z.string()),
   /** Script file names, relative to the media file's folder (delete confirm). */
   files: z.array(z.string()),
+  /** Axis → script file, for correcting a misidentified axis in the editor. */
+  axisFiles: z.partialRecord(z.enum(SCRIPT_AXIS_KEYS), z.string()),
   /** Single-axis version with a multi-axis version available to borrow from. */
   canInheritAxes: z.boolean(),
   /** Borrowing is on (only meaningful when canInheritAxes). */

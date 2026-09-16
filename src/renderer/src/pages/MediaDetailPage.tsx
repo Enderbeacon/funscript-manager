@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight, DownloadCloud, ExternalLink, Heart, X } from 'lucide-react'
+import { funscriptAxisFromToken } from '@shared/constants'
 import type { MediaDetail, ScriptVersionInfo } from '@shared/schemas/media-index'
 import { SCRIPT_AXIS_KEYS, type NameField } from '@shared/schemas/media-meta'
 import type { MediaSelection } from '../App'
@@ -59,8 +60,8 @@ function guessAxis(filePath: string): string {
   const name = filePath.split(/[\\/]/).pop() ?? filePath
   const segments = name.replace(/\.funscript$/i, '').split('.')
   for (let i = segments.length - 1; i >= 0; i--) {
-    const seg = segments[i]!.toLowerCase()
-    if ((SCRIPT_AXIS_KEYS as readonly string[]).includes(seg)) return seg
+    const axis = funscriptAxisFromToken(segments[i]!)
+    if (axis) return axis
   }
   return 'main'
 }
@@ -434,6 +435,62 @@ export default function MediaDetailPage({
     [libraryId, mediaId, toMessage]
   )
 
+  const mergeVersion = useCallback(
+    async (
+      sourceVersionId: string,
+      targetVersionId: string,
+      axisAssignments: Partial<Record<ScriptAxis, ScriptAxis>>
+    ): Promise<void> => {
+      setBusy(true)
+      try {
+        const d = await ipcInvoke('media:mergeScriptVersions', {
+          libraryId,
+          mediaId,
+          sourceVersionId,
+          targetVersionId,
+          axisAssignments
+        })
+        if (d) {
+          setDetail(d)
+          setSelectedId(targetVersionId)
+        }
+        setError(null)
+      } catch (e) {
+        setError(toMessage(e))
+      } finally {
+        setBusy(false)
+      }
+    },
+    [libraryId, mediaId, toMessage]
+  )
+
+  const autoRepairVersions = useCallback(async (): Promise<void> => {
+    setBusy(true)
+    setNotice(null)
+    try {
+      const result = await ipcInvoke('media:autoRepairScriptVersions', { libraryId, mediaId })
+      setDetail(result.detail)
+      setSelectedId((current) =>
+        current && result.detail.scriptVersions.some((version) => version.id === current)
+          ? current
+          : initialVersionId(result.detail)
+      )
+      setNotice(
+        result.mergedVersions > 0
+          ? t('detail.autoRepairDone', {
+              groups: result.repairedGroups,
+              versions: result.mergedVersions
+            })
+          : t('detail.autoRepairNothing')
+      )
+      setError(null)
+    } catch (e) {
+      setError(toMessage(e))
+    } finally {
+      setBusy(false)
+    }
+  }, [libraryId, mediaId, t, toMessage])
+
   /**
    * Add every version the form built, one call each — the sidecar takes one
    * version at a time. Stops at the first failure and reports how many landed,
@@ -687,6 +744,15 @@ export default function MediaDetailPage({
             <span className="detail-section-label">{t('detail.scripts')}</span>
             <span className="detail-section-meta">
               {t('detail.versions', { count: detail.scriptVersions.length })}
+              {detail.scriptVersions.length > 1 && !adding && (
+                <button
+                  className="ghost detail-add-version"
+                  disabled={busy}
+                  onClick={() => void autoRepairVersions()}
+                >
+                  {t('detail.autoRepairAxes')}
+                </button>
+              )}
               {/* The form carries its own cancel, so this only opens it. */}
               {!adding && (
                 <button
@@ -732,6 +798,8 @@ export default function MediaDetailPage({
                   onDelete={() => void deleteVersion(v.id)}
                   onToggleInherit={() => void setInheritAxes(v.id, !v.inheritAxes)}
                   onEdit={(edit) => void updateVersion(v.id, edit)}
+                  mergeTargets={detail.scriptVersions.filter((candidate) => candidate.id !== v.id)}
+                  onMerge={(targetId, axes) => void mergeVersion(v.id, targetId, axes)}
                 />
               ))}
             </ul>
@@ -968,12 +1036,15 @@ export default function MediaDetailPage({
   )
 }
 
+type ScriptAxis = (typeof SCRIPT_AXIS_KEYS)[number]
+
 /** Fields of a version the detail page can edit (main merges, null clears). */
 interface VersionEdit {
   name?: string
   author?: string | null
   sourceUrl?: string | null
   notes?: string | null
+  axisAssignments?: Partial<Record<ScriptAxis, ScriptAxis>>
 }
 
 interface AddVersionInput {
@@ -991,7 +1062,9 @@ function VersionRow({
   onSetDefault,
   onDelete,
   onToggleInherit,
-  onEdit
+  onEdit,
+  mergeTargets,
+  onMerge
 }: {
   version: ScriptVersionInfo
   selected: boolean
@@ -1002,6 +1075,11 @@ function VersionRow({
   onDelete: () => void
   onToggleInherit: () => void
   onEdit: (edit: VersionEdit) => void
+  mergeTargets: ScriptVersionInfo[]
+  onMerge: (
+    targetVersionId: string,
+    axisAssignments: Partial<Record<ScriptAxis, ScriptAxis>>
+  ) => void
 }): React.JSX.Element {
   const { t } = useTranslation()
   const [confirmingDelete, setConfirmingDelete] = useState(false)
@@ -1069,10 +1147,15 @@ function VersionRow({
             <EditVersionForm
               version={version}
               disabled={disabled}
+              mergeTargets={mergeTargets}
               onCancel={() => setEditing(false)}
               onSubmit={(edit) => {
                 setEditing(false)
                 onEdit(edit)
+              }}
+              onMerge={(targetId, assignments) => {
+                setEditing(false)
+                onMerge(targetId, assignments)
               }}
             />
           ) : confirmingDelete ? (
@@ -1133,26 +1216,75 @@ function VersionRow({
 }
 
 /**
- * Rename + author / source / notes for one version. Only the fields the user
- * actually changed are sent, so a concurrent edit elsewhere is not overwritten
- * by stale form values; clearing a field sends null.
+ * Descriptive fields and file axes for one version, plus an explicit merge
+ * into another version. A merge moves sidecar references only; the files stay
+ * where they are.
  */
 function EditVersionForm({
   version,
   disabled,
+  mergeTargets,
   onCancel,
-  onSubmit
+  onSubmit,
+  onMerge
 }: {
   version: ScriptVersionInfo
   disabled: boolean
+  mergeTargets: ScriptVersionInfo[]
   onCancel: () => void
   onSubmit: (edit: VersionEdit) => void
+  onMerge: (
+    targetVersionId: string,
+    axisAssignments: Partial<Record<ScriptAxis, ScriptAxis>>
+  ) => void
 }): React.JSX.Element {
   const { t } = useTranslation()
   const [name, setName] = useState(version.name)
   const [author, setAuthor] = useState(version.author ?? '')
   const [sourceUrl, setSourceUrl] = useState(version.sourceUrl ?? '')
   const [notes, setNotes] = useState(version.notes ?? '')
+  const [mergeTargetId, setMergeTargetId] = useState('none')
+  /** Original axis → where that file should live after Save or Merge. */
+  const [axisAssignments, setAxisAssignments] = useState<Record<string, ScriptAxis>>(() =>
+    Object.fromEntries(version.axes.map((axis) => [axis, axis as ScriptAxis])) as Record<
+      string,
+      ScriptAxis
+    >
+  )
+
+  const target = mergeTargets.find((candidate) => candidate.id === mergeTargetId)
+  const assignedAxes = version.axes.map((axis) => axisAssignments[axis] ?? (axis as ScriptAxis))
+  const duplicateAxis = new Set(assignedAxes).size !== assignedAxes.length
+  const targetCollision = target
+    ? assignedAxes.some((axis) => target.axes.includes(axis))
+    : false
+  const missingMain = !target && !assignedAxes.includes('main')
+  const axesValid = !duplicateAxis && !targetCollision && !missingMain
+
+  const chooseMergeTarget = (targetId: string): void => {
+    setMergeTargetId(targetId)
+    if (targetId === 'none') {
+      setAxisAssignments(
+        Object.fromEntries(version.axes.map((axis) => [axis, axis as ScriptAxis])) as Record<
+          string,
+          ScriptAxis
+        >
+      )
+      return
+    }
+    const destination = mergeTargets.find((candidate) => candidate.id === targetId)
+    if (!destination) return
+    const occupied = new Set(destination.axes)
+    const next: Record<string, ScriptAxis> = {}
+    for (const sourceAxis of version.axes) {
+      const file = version.axisFiles[sourceAxis as ScriptAxis] ?? ''
+      const guessed = guessAxis(file) as ScriptAxis
+      const preferred = !occupied.has(guessed) ? guessed : (sourceAxis as ScriptAxis)
+      next[sourceAxis] = preferred
+      occupied.add(preferred)
+    }
+    setAxisAssignments(next)
+  }
 
   const submit = (): void => {
     const edit: VersionEdit = {}
@@ -1160,7 +1292,22 @@ function EditVersionForm({
     if (author.trim() !== (version.author ?? '')) edit.author = author.trim() || null
     if (sourceUrl.trim() !== (version.sourceUrl ?? '')) edit.sourceUrl = sourceUrl.trim() || null
     if (notes.trim() !== (version.notes ?? '')) edit.notes = notes.trim() || null
+    const changedAxes = Object.fromEntries(
+      version.axes
+        .filter((axis) => (axisAssignments[axis] ?? axis) !== axis)
+        .map((axis) => [axis, axisAssignments[axis]!])
+    ) as Partial<Record<ScriptAxis, ScriptAxis>>
+    if (Object.keys(changedAxes).length > 0) edit.axisAssignments = changedAxes
     onSubmit(edit)
+  }
+
+  const apply = (): void => {
+    if (!axesValid) return
+    if (target) {
+      onMerge(target.id, axisAssignments as Partial<Record<ScriptAxis, ScriptAxis>>)
+    } else {
+      submit()
+    }
   }
 
   return (
@@ -1168,7 +1315,7 @@ function EditVersionForm({
       className="version-form"
       onSubmit={(e) => {
         e.preventDefault()
-        submit()
+        apply()
       }}
     >
       <label className="version-field">
@@ -1192,9 +1339,57 @@ function EditVersionForm({
         <span>{t('detail.versionNotes')}</span>
         <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
       </label>
+      <div className="version-file-editor">
+        <span className="version-file-editor-label">{t('detail.scriptFilesLabel')}</span>
+        {version.axes.map((sourceAxis) => {
+          const file = version.axisFiles[sourceAxis as ScriptAxis] ?? ''
+          return (
+            <div className="version-file-axis" key={sourceAxis}>
+              <span className="version-file-name" title={file}>
+                {file.split(/[\\/]/).pop() || file}
+              </span>
+              <Select
+                className="axis"
+                value={axisAssignments[sourceAxis] ?? (sourceAxis as ScriptAxis)}
+                disabled={disabled}
+                ariaLabel={t('detail.fileAxis')}
+                onChange={(axis) =>
+                  setAxisAssignments((current) => ({ ...current, [sourceAxis]: axis }))
+                }
+                options={SCRIPT_AXIS_KEYS.map((axis) => ({ value: axis, label: axis }))}
+              />
+            </div>
+          )
+        })}
+      </div>
+      {mergeTargets.length > 0 && (
+        <label className="version-field">
+          <span>{t('detail.mergeIntoVersion')}</span>
+          <Select
+            className="version-merge-pick"
+            value={mergeTargetId}
+            disabled={disabled}
+            onChange={chooseMergeTarget}
+            options={[
+              { value: 'none', label: t('detail.keepSeparateVersion') },
+              ...mergeTargets.map((candidate) => ({ value: candidate.id, label: candidate.name }))
+            ]}
+          />
+        </label>
+      )}
+      {(duplicateAxis || targetCollision) && (
+        <span className="add-version-warn">{t('detail.addVersionDuplicateAxis')}</span>
+      )}
+      {missingMain && (
+        <span className="add-version-warn">{t('detail.addVersionNeedsMain')}</span>
+      )}
       <div className="version-actions">
-        <button className="primary" type="submit" disabled={disabled || !name.trim()}>
-          {t('detail.save')}
+        <button
+          className="primary"
+          type="submit"
+          disabled={disabled || !name.trim() || !axesValid}
+        >
+          {t(target ? 'detail.mergeVersion' : 'detail.save')}
         </button>
         <button className="ghost" type="button" disabled={disabled} onClick={onCancel}>
           {t('detail.cancel')}

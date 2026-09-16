@@ -9,6 +9,7 @@ import {
   DEFAULT_COMPANION_MATCH,
   FUNSCRIPT_EXTENSION,
   LIBRARY_CACHE_DIR,
+  funscriptAxisFromToken,
   type CompanionMatchLevel
 } from '@shared/constants'
 import type { RegisteredLibrary } from '@shared/schemas/app-config'
@@ -32,10 +33,15 @@ import { readSidecar, sidecarPathFor, writeSidecar } from './sidecar'
 import {
   isMultiAxis,
   mediaBasename,
-  parseFunscript,
-  scriptVersionName
+  parseOwnedFunscript
 } from './companion-grouping'
-import { axisDonor, borrowedAxes, combineAxes, inheritsAxes } from './script-axes'
+import {
+  axisDonor,
+  borrowedAxes,
+  combineAxes,
+  inheritsAxes,
+  repairMisgroupedAxes
+} from './script-axes'
 import { disposeFingerprintPool } from './fingerprint'
 import { normaliseNames } from '../taxonomy/taxonomy-service'
 import { IgnoreList } from './ignore-list'
@@ -437,6 +443,9 @@ function toDetail(
       isMultiAxis: isMultiAxis(v),
       axes: SCRIPT_AXIS_KEYS.filter((a) => v.files[a] !== undefined),
       files: SCRIPT_AXIS_KEYS.map((a) => v.files[a]).filter((f): f is string => f !== undefined),
+      axisFiles: Object.fromEntries(
+        SCRIPT_AXIS_KEYS.flatMap((axis) => (v.files[axis] ? [[axis, v.files[axis]]] : []))
+      ),
       canInheritAxes: !isMultiAxis(v) && axisDonor(meta, v) !== null,
       inheritAxes: inheritsAxes(meta, v),
       borrowedAxes: borrowedAxes(meta, v),
@@ -647,6 +656,28 @@ export interface ScriptVersionEdit {
   author?: string | null
   sourceUrl?: string | null
   notes?: string | null
+  /** Current axis → corrected axis. Unmentioned files keep their axis. */
+  axisAssignments?: Partial<Record<ScriptAxis, ScriptAxis>>
+}
+
+type ScriptAxis = (typeof SCRIPT_AXIS_KEYS)[number]
+
+/** Apply axis corrections without ever losing a file or creating two of one axis. */
+function remapScriptFiles(
+  files: ScriptVersion['files'],
+  assignments: Partial<Record<ScriptAxis, ScriptAxis>>,
+  requireMain: boolean
+): ScriptVersion['files'] {
+  const next: Partial<Record<ScriptAxis, string>> = {}
+  for (const sourceAxis of SCRIPT_AXIS_KEYS) {
+    const file = files[sourceAxis]
+    if (!file) continue
+    const targetAxis = assignments[sourceAxis] ?? sourceAxis
+    if (next[targetAxis]) throw new AppError('script_axis_conflict', { axis: targetAxis })
+    next[targetAxis] = file
+  }
+  if (requireMain && !next.main) throw new AppError('script_main_axis_required')
+  return next as ScriptVersion['files']
 }
 
 /**
@@ -681,6 +712,11 @@ export async function updateScriptVersion(
       if (value === '') delete next[key]
       else next[key] = value
     }
+    if (edit.axisAssignments) {
+      next.files = remapScriptFiles(version.files, edit.axisAssignments, true)
+      // A corrected multi-axis version is complete in itself.
+      if (isMultiAxis(next)) delete next.inheritAxes
+    }
     return next
   }
 
@@ -696,6 +732,111 @@ export async function updateScriptVersion(
     ...(authors !== null ? { scriptAuthors: authors } : {}),
     updatedAt: new Date().toISOString()
   })
+}
+
+/**
+ * Move one version's file references into another version.
+ *
+ * The files stay where they are; only the sidecar changes ownership. This is
+ * the repair path for a multi-axis set that an older filename parser split
+ * into one main-axis version per file.
+ */
+export async function mergeScriptVersions(
+  libraryId: string,
+  mediaId: string,
+  sourceVersionId: string,
+  targetVersionId: string,
+  axisAssignments: Partial<Record<ScriptAxis, ScriptAxis>>
+): Promise<MediaDetail> {
+  if (sourceVersionId === targetVersionId) throw new AppError('script_version_merge_invalid')
+  const opened = await openForEdit(libraryId, mediaId)
+  const { meta } = opened
+  const source = meta.scriptVersions.find((v) => v.id === sourceVersionId)
+  const target = meta.scriptVersions.find((v) => v.id === targetVersionId)
+  if (!source || !target) throw new AppError('script_version_not_found')
+
+  const moved = remapScriptFiles(source.files, axisAssignments, false)
+  const files: Partial<Record<ScriptAxis, string>> = { ...target.files }
+  for (const axis of SCRIPT_AXIS_KEYS) {
+    const file = moved[axis]
+    if (!file) continue
+    if (files[axis]) throw new AppError('script_axis_conflict', { axis })
+    files[axis] = file
+  }
+
+  const merged: ScriptVersion = {
+    ...target,
+    ...(!target.author && source.author ? { author: source.author } : {}),
+    ...(!target.sourceUrl && source.sourceUrl ? { sourceUrl: source.sourceUrl } : {}),
+    ...(!target.notes && source.notes ? { notes: source.notes } : {}),
+    files: files as ScriptVersion['files'],
+    ...(target.isDefault || source.isDefault ? { isDefault: true } : {})
+  }
+  delete merged.inheritAxes
+
+  const scriptVersions = meta.scriptVersions
+    .filter((v) => v.id !== sourceVersionId)
+    .map((v) => {
+      if (v.id === targetVersionId) return merged
+      return source.isDefault ? { ...v, isDefault: false } : v
+    })
+  const lastUsed = meta.userMeta.lastUsedScriptVersionId
+  const withVersions: MediaMeta = {
+    ...meta,
+    scriptVersions,
+    userMeta: {
+      ...meta.userMeta,
+      ...(lastUsed === sourceVersionId ? { lastUsedScriptVersionId: targetVersionId } : {})
+    }
+  }
+  const authors = scriptAuthorsUpdate(withVersions)
+  if (authors !== null) await normaliseNames('scriptAuthors', authors)
+
+  return commitSidecar(opened, {
+    ...withVersions,
+    ...(authors !== null ? { scriptAuthors: authors } : {}),
+    updatedAt: new Date().toISOString()
+  })
+}
+
+/** One-click repair for old entries split into one apparent version per axis. */
+export async function autoRepairScriptVersions(
+  libraryId: string,
+  mediaId: string
+): Promise<{ detail: MediaDetail; mergedVersions: number; repairedGroups: number }> {
+  const opened = await openForEdit(libraryId, mediaId)
+  const repair = repairMisgroupedAxes(opened.meta.scriptVersions)
+  if (repair.mergedVersions === 0) {
+    const { handle, relPath, mediaAbs, meta } = opened
+    return {
+      detail: toDetail(libraryId, relPath, mediaAbs, meta, handle.db.fileAddedAt(mediaId)),
+      mergedVersions: 0,
+      repairedGroups: 0
+    }
+  }
+
+  const lastUsed = opened.meta.userMeta.lastUsedScriptVersionId
+  const redirectedLastUsed = lastUsed ? repair.redirects.get(lastUsed) : undefined
+  const withVersions: MediaMeta = {
+    ...opened.meta,
+    scriptVersions: repair.versions,
+    userMeta: {
+      ...opened.meta.userMeta,
+      ...(redirectedLastUsed ? { lastUsedScriptVersionId: redirectedLastUsed } : {})
+    }
+  }
+  const authors = scriptAuthorsUpdate(withVersions)
+  if (authors !== null) await normaliseNames('scriptAuthors', authors)
+  const detail = await commitSidecar(opened, {
+    ...withVersions,
+    ...(authors !== null ? { scriptAuthors: authors } : {}),
+    updatedAt: new Date().toISOString()
+  })
+  return {
+    detail,
+    mergedVersions: repair.mergedVersions,
+    repairedGroups: repair.repairedGroups
+  }
 }
 
 /** Conventional companion filename, so a copied script still round-trips
@@ -1113,9 +1254,11 @@ export interface DownloadedScript {
 }
 
 /**
- * Fold script files into a sidecar as script versions, grouping them the way
- * the scanner would so `clip.funscript` + `clip.roll.funscript` become one
- * multi-axis version. Shared by the two ingest paths.
+ * Fold script files into a sidecar as script versions. Download pairing has
+ * already established their media owner, so grouping uses each script's own
+ * filename family rather than requiring the post/video title to match it:
+ * `clip.funscript` + `clip.roll.funscript` become one multi-axis version even
+ * under a decorated placeholder title. Shared by the two ingest paths.
  */
 function groupDownloadedScripts(
   meta: MediaMeta,
@@ -1144,7 +1287,17 @@ function groupDownloadedScripts(
   }
 
   const attributed = new Map<string, string>()
-  const groups = new Map<string, { files: Record<string, string>; author?: string }>()
+  const groups = new Map<
+    string,
+    {
+      files: Record<string, string>
+      /** Script family as written, used when several versions need distinct names. */
+      family: string
+      /** Variant label relative to the media name, when that match was meaningful. */
+      label?: string
+      author?: string
+    }
+  >()
   for (const script of scripts) {
     if (!existsSync(script.absPath)) continue
     const existing = owner.get(script.absPath.toLowerCase())
@@ -1155,22 +1308,30 @@ function groupDownloadedScripts(
       continue
     }
     const name = basename(script.absPath)
-    const parsed = parseFunscript(mediaBase, name, level)
-    const key = parsed?.versionKey ?? name
-    const group = groups.get(key) ?? { files: {}, ...(script.author ? { author: script.author } : {}) }
-    group.files[parsed?.axis ?? 'main'] = relative(mediaDir, script.absPath).split(PATH_SEP).join('/')
-    groups.set(key, group)
+    const parsed = parseOwnedFunscript(mediaBase, name, level)
+    if (!parsed) continue
+    const group = groups.get(parsed.familyKey) ?? {
+      files: {},
+      family: parsed.family,
+      ...(script.author ? { author: script.author } : {})
+    }
+    if (parsed.label) group.label ??= parsed.label
+    group.files[parsed.axis] = relative(mediaDir, script.absPath).split(PATH_SEP).join('/')
+    groups.set(parsed.familyKey, group)
   }
 
   const versions: ScriptVersion[] = []
   const names: string[] = []
   const authors: string[] = [...attributed.values()]
-  for (const [key, group] of groups) {
+  for (const group of groups.values()) {
     if (group.files.main === undefined) continue // schema needs a main axis
-    // Name the version after its author, or the filename's own
-    // variant label when it has one.  The last resort is the script file's own
-    // name — 'Default' says nothing when every entry has one.
-    const name = key || group.author || scriptVersionName(group.files.main!)
+    // A single family is normally the post author's version. When several
+    // families were deliberately attached, keep their filenames visible so
+    // two versions by the same author are still distinguishable.
+    const name =
+      group.label ||
+      (groups.size === 1 ? group.author : undefined) ||
+      group.family
     versions.push({
       id: randomUUID(),
       name,
@@ -1754,8 +1915,9 @@ function wantedBaseNames(meta: MediaMeta, mediaAbs: string): string[] {
       const withoutExt = name.slice(0, name.toLowerCase().lastIndexOf(FUNSCRIPT_EXTENSION))
       if (!withoutExt) continue
       // `clip.roll.funscript` belongs to `clip`, not to `clip.roll`.
-      const axis = SCRIPT_AXIS_KEYS.find((a) => withoutExt.toLowerCase().endsWith(`.${a}`))
-      bases.add(axis ? withoutExt.slice(0, -(axis.length + 1)) : withoutExt)
+      const dot = withoutExt.lastIndexOf('.')
+      const hasAxis = dot !== -1 && funscriptAxisFromToken(withoutExt.slice(dot + 1)) !== null
+      bases.add(hasAxis ? withoutExt.slice(0, dot) : withoutExt)
     }
   }
   return [...bases].filter(Boolean)

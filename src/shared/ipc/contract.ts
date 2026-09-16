@@ -720,9 +720,33 @@ export const ipcContract = {
       author: z.string().nullable().optional(),
       /** Must parse as a URL unless it is being cleared. */
       sourceUrl: z.string().nullable().optional(),
-      notes: z.string().nullable().optional()
+      notes: z.string().nullable().optional(),
+      /** Current axis → corrected axis; omitted files stay where they are. */
+      axisAssignments: z
+        .partialRecord(z.enum(SCRIPT_AXIS_KEYS), z.enum(SCRIPT_AXIS_KEYS))
+        .optional()
     }),
     output: MediaDetailSchema.nullable()
+  },
+  'media:mergeScriptVersions': {
+    /** Move every file in one version into another, optionally correcting axes. */
+    input: z.object({
+      libraryId: z.uuid(),
+      mediaId: z.uuid(),
+      sourceVersionId: z.uuid(),
+      targetVersionId: z.uuid(),
+      axisAssignments: z.partialRecord(z.enum(SCRIPT_AXIS_KEYS), z.enum(SCRIPT_AXIS_KEYS))
+    }),
+    output: MediaDetailSchema.nullable()
+  },
+  'media:autoRepairScriptVersions': {
+    /** Safely merge every unambiguous filename family that was split by axis. */
+    input: z.object({ libraryId: z.uuid(), mediaId: z.uuid() }),
+    output: z.object({
+      detail: MediaDetailSchema,
+      mergedVersions: z.number().int().nonnegative(),
+      repairedGroups: z.number().int().nonnegative()
+    })
   },
   'media:addScriptVersion': {
     /**

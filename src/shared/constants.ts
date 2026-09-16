@@ -50,6 +50,34 @@ export const FUNSCRIPT_AXES = ['roll', 'pitch', 'surge', 'sway', 'twist'] as con
 export type FunscriptAxis = (typeof FUNSCRIPT_AXES)[number] | 'main'
 
 /**
+ * Axis tokens used by funscript authors and device software.
+ *
+ * The L/R names are the common TCode spellings. Treating `scene.L1.funscript`
+ * as a version called "L1" creates six single-axis versions from one set, so
+ * every filename parser goes through this table instead of only recognizing
+ * the long names.
+ */
+const FUNSCRIPT_AXIS_TOKENS: Readonly<Record<string, FunscriptAxis>> = {
+  main: 'main',
+  stroke: 'main',
+  l0: 'main',
+  surge: 'surge',
+  l1: 'surge',
+  sway: 'sway',
+  l2: 'sway',
+  twist: 'twist',
+  r0: 'twist',
+  roll: 'roll',
+  r1: 'roll',
+  pitch: 'pitch',
+  r2: 'pitch'
+}
+
+export function funscriptAxisFromToken(token: string): FunscriptAxis | null {
+  return FUNSCRIPT_AXIS_TOKENS[token.trim().toLowerCase()] ?? null
+}
+
+/**
  * How hard a scan tries to see a media's name inside a companion's, from the
  * strictest to the loosest. The rules themselves live in
  * services/library/companion-grouping.ts; the list is here because the settings

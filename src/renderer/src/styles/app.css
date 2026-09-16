@@ -1756,6 +1756,30 @@ textarea:disabled { opacity: 0.55; cursor: default; }
 
 .version-field input,
 .version-field textarea { flex: 1; min-width: 0; }
+.version-field .version-merge-pick { flex: 1; min-width: 0; }
+.version-file-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 0;
+  border-top: 0.5px solid var(--border-tertiary);
+  border-bottom: 0.5px solid var(--border-tertiary);
+}
+.version-file-editor-label { color: var(--text-tertiary); }
+.version-file-axis {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.version-file-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+.version-file-axis .select-root.axis { flex: 0 0 84px; }
 .add-version-file .select-root.axis { flex: 0 0 84px; }
 .add-version-file .select-root.version-pick { flex: 0 0 108px; }
 .add-version-file .select-button { font-size: 11px; padding: 3px 6px; }

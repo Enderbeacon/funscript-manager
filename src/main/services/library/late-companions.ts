@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 import {
   FUNSCRIPT_AXES,
   FUNSCRIPT_EXTENSION,
+  funscriptAxisFromToken,
   type CompanionMatchLevel
 } from '@shared/constants'
 import type { MediaMeta, ScriptVersion } from '@shared/schemas/media-meta'
@@ -108,8 +109,9 @@ export function mergeLateCompanions(
 /** `clip.roll.funscript` → `clip`; `clip.funscript` → `clip`. */
 export function scriptBaseName(fileName: string): string {
   const core = fileName.slice(0, fileName.length - FUNSCRIPT_EXTENSION.length)
-  const axis = FUNSCRIPT_AXES.find((a) => core.toLowerCase().endsWith(`.${a}`))
-  return axis ? core.slice(0, -(axis.length + 1)) : core
+  const dot = core.lastIndexOf('.')
+  if (dot === -1 || !funscriptAxisFromToken(core.slice(dot + 1))) return core
+  return core.slice(0, dot)
 }
 
 /**

@@ -1,5 +1,5 @@
 import { SCRIPT_AXIS_KEYS, type MediaMeta, type ScriptVersion } from '@shared/schemas/media-meta'
-import { isMultiAxis } from './companion-grouping'
+import { isMultiAxis, parseFunscriptFamily } from './companion-grouping'
 
 /**
  * "Single-axis borrows the other axes".
@@ -98,4 +98,105 @@ export function combineAxes(versions: ScriptVersion[]): ScriptVersion[] {
     delete host.inheritAxes
   }
   return out
+}
+
+type ScriptAxis = (typeof SCRIPT_AXIS_KEYS)[number]
+
+export interface AxisRepairResult {
+  versions: ScriptVersion[]
+  /** Number of redundant version rows removed. */
+  mergedVersions: number
+  /** Number of filename families repaired. */
+  repairedGroups: number
+  /** Removed version id → surviving version id. */
+  redirects: Map<string, string>
+}
+
+/** Filename only, independent of the platform that reads a forward-slash sidecar path. */
+function fileName(path: string): string {
+  return path.split(/[\\/]/).pop() ?? path
+}
+
+/**
+ * Safely repair old sidecars that filed every secondary-axis script as the
+ * main file of a separate version.
+ *
+ * A family is changed only when all involved versions contain files from that
+ * family, filename-derived axes are unique, exactly one file is the real main
+ * axis, and authorship does not conflict. Ambiguous families are untouched.
+ */
+export function repairMisgroupedAxes(versions: ScriptVersion[]): AxisRepairResult {
+  type Record = { version: ScriptVersion; file: string; axis: ScriptAxis }
+  const families = new Map<string, Record[]>()
+  const versionFamilies = new Map<string, Set<string>>()
+
+  for (const version of versions) {
+    for (const file of Object.values(version.files)) {
+      if (!file) continue
+      const parsed = parseFunscriptFamily(fileName(file))
+      if (!parsed) continue
+      const familyKey = parsed.versionKey.toLocaleLowerCase()
+      const record: Record = { version, file, axis: parsed.axis }
+      families.set(familyKey, [...(families.get(familyKey) ?? []), record])
+      const own = versionFamilies.get(version.id) ?? new Set<string>()
+      own.add(familyKey)
+      versionFamilies.set(version.id, own)
+    }
+  }
+
+  const repairs = new Map<string, { sourceIds: Set<string>; merged: ScriptVersion }>()
+  const redirects = new Map<string, string>()
+  let defaultTarget: string | null = null
+
+  for (const records of families.values()) {
+    const participants = [...new Map(records.map((r) => [r.version.id, r.version])).values()]
+    if (participants.length < 2) continue
+    if (participants.some((v) => versionFamilies.get(v.id)?.size !== 1)) continue
+
+    const axes = records.map((r) => r.axis)
+    if (new Set(axes).size !== axes.length) continue
+    const mains = records.filter((r) => r.axis === 'main')
+    if (mains.length !== 1) continue
+
+    const authors = new Set(
+      participants.flatMap((v) => (v.author ? [v.author.trim().toLocaleLowerCase()] : []))
+    )
+    if (authors.size > 1) continue
+
+    const target = mains[0]!.version
+    const sourceIds = new Set(participants.filter((v) => v.id !== target.id).map((v) => v.id))
+    const files = Object.fromEntries(records.map((r) => [r.axis, r.file])) as ScriptVersion['files']
+    const first = (pick: (v: ScriptVersion) => string | undefined): string | undefined =>
+      participants.map(pick).find((value) => Boolean(value))
+    const author = first((v) => v.author)
+    const sourceUrl = first((v) => v.sourceUrl)
+    const notes = first((v) => v.notes)
+    const hasDefault = participants.some((v) => v.isDefault)
+    const merged: ScriptVersion = {
+      ...target,
+      ...(!target.author && author ? { author } : {}),
+      ...(!target.sourceUrl && sourceUrl ? { sourceUrl } : {}),
+      ...(!target.notes && notes ? { notes } : {}),
+      files,
+      ...(hasDefault ? { isDefault: true } : {})
+    }
+    delete merged.inheritAxes
+    repairs.set(target.id, { sourceIds, merged })
+    for (const sourceId of sourceIds) redirects.set(sourceId, target.id)
+    if (hasDefault) defaultTarget = target.id
+  }
+
+  const removed = new Set([...repairs.values()].flatMap((repair) => [...repair.sourceIds]))
+  const repaired = versions.flatMap((version) => {
+    if (removed.has(version.id)) return []
+    const merge = repairs.get(version.id)
+    const next = merge?.merged ?? version
+    return [defaultTarget && next.id !== defaultTarget ? { ...next, isDefault: false } : next]
+  })
+  return {
+    versions: repaired,
+    mergedVersions: removed.size,
+    repairedGroups: repairs.size,
+    redirects
+  }
 }
