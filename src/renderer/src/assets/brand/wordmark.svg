@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="528" height="266" viewBox="0 0 528 266" role="img" aria-labelledby="fsm-wordmark-title">
+  <title id="fsm-wordmark-title">Funscript Manager</title>
+  <!-- Custom outlined lettering; no installed font or external resource is required. -->
+  <defs>
+    <path id="fsm-letter-F" d="M0 0H64L53 18H20V42H57L47 60H20V100H0Z"/>
+    <path id="fsm-letter-u" d="M0 28H18V72Q18 84 31 84Q46 84 46 68V28H64V100H47V91Q38 102 25 102Q0 102 0 75Z"/>
+    <path id="fsm-letter-n" d="M0 28H18V37Q26 26 40 26Q64 26 64 54V100H46V58Q46 44 33 44Q18 44 18 61V100H0Z"/>
+    <path id="fsm-letter-s" d="M55 32L48 47Q39 41 29 41Q18 41 18 47Q18 52 33 55Q58 59 58 78Q58 102 28 102Q11 102 0 94L7 79Q18 87 28 87Q40 87 40 80Q40 75 25 72Q1 68 1 49Q1 26 29 26Q45 26 55 32Z"/>
+    <path id="fsm-letter-c" d="M59 35L48 49Q42 43 34 43Q18 43 18 64Q18 85 34 85Q42 85 49 78L60 92Q49 102 33 102Q0 102 0 64Q0 26 33 26Q49 26 59 35Z"/>
+    <path id="fsm-letter-r" d="M0 28H18V40Q25 26 43 26V45Q18 42 18 66V100H0Z"/>
+    <path id="fsm-letter-i" d="M0 28H18V100H0ZM0 0H18V18H0Z"/>
+    <path id="fsm-letter-p" fill-rule="evenodd" d="M0 28H18V36Q26 26 39 26Q66 26 66 64Q66 102 39 102Q26 102 18 93V126H0ZM18 64Q18 84 33 84Q48 84 48 64Q48 44 33 44Q18 44 18 64Z"/>
+    <path id="fsm-letter-t" d="M10 8H28V28H46V44H28V75Q28 85 37 85Q42 85 46 83V99Q39 102 32 102Q10 102 10 79V44H0V28H10Z"/>
+    <path id="fsm-letter-M" d="M0 100V0H21L44 49L67 0H88V100H68V36L48 78H39L20 36V100Z"/>
+    <path id="fsm-letter-a" fill-rule="evenodd" d="M46 28H64V100H47V92Q40 102 27 102Q0 102 0 64Q0 26 28 26Q40 26 46 35ZM18 64Q18 84 32 84Q46 84 46 64Q46 44 32 44Q18 44 18 64Z"/>
+    <path id="fsm-letter-g" fill-rule="evenodd" d="M46 28H64V94Q64 128 30 128Q12 128 2 120L9 105Q18 111 30 111Q46 111 46 96V91Q38 100 27 100Q0 100 0 63Q0 26 28 26Q40 26 46 35ZM18 63Q18 82 32 82Q46 82 46 63Q46 44 32 44Q18 44 18 63Z"/>
+    <path id="fsm-letter-e" fill-rule="evenodd" d="M62 69H18Q20 86 36 86Q47 86 54 80L61 93Q49 102 34 102Q0 102 0 64Q0 26 32 26Q62 26 62 61ZM18 55H44Q42 41 32 41Q21 41 18 55Z"/>
+  </defs>
+  <g fill="var(--accent, #4c6fff)">
+    <use href="#fsm-letter-F"/>
+    <use href="#fsm-letter-u" x="68"/>
+    <use href="#fsm-letter-n" x="138"/>
+    <use href="#fsm-letter-s" x="208"/>
+    <use href="#fsm-letter-c" x="272"/>
+    <use href="#fsm-letter-r" x="338"/>
+    <use href="#fsm-letter-i" x="386"/>
+    <use href="#fsm-letter-p" x="410"/>
+    <use href="#fsm-letter-t" x="477"/>
+  </g>
+  <g transform="translate(0 134)" fill="var(--text-primary, #161a24)">
+    <use href="#fsm-letter-M"/>
+    <use href="#fsm-letter-a" x="94"/>
+    <use href="#fsm-letter-n" x="164"/>
+    <use href="#fsm-letter-a" x="234"/>
+    <use href="#fsm-letter-g" x="304"/>
+    <use href="#fsm-letter-e" x="374"/>
+    <use href="#fsm-letter-r" x="442"/>
+  </g>
+</svg>

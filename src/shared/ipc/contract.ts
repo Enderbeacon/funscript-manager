@@ -74,8 +74,8 @@ export const ipcContract = {
     output: z.object({ paths: z.array(z.string()) })
   },
   'dialog:pickImage': {
-    /** Single-image picker (organise page cover art). */
-    input: z.object({ title: z.string().optional() }).default({}),
+    /** SVG is opt-in because taxonomy cover storage accepts raster images only. */
+    input: z.object({ title: z.string().optional(), svg: z.boolean().optional() }).default({}),
     output: z.object({ path: z.string().nullable() })
   },
 
@@ -88,6 +88,15 @@ export const ipcContract = {
     /** The card's close button: leave, whatever startup was in the middle of. */
     input: z.void(),
     output: z.void()
+  },
+  'app:startupArtwork': {
+    /** Existing images only; fetching artwork never holds up the startup sequence. */
+    input: z.void(),
+    output: z.object({
+      images: z.array(z.string()),
+      rotate: z.boolean(),
+      intervalSeconds: z.number().int().min(1).max(60)
+    })
   },
   'app:windowReady': {
     /**

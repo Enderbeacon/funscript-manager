@@ -27,6 +27,12 @@ import { applyPendingOnQuit, runUpdaterStartup } from './services/updates/update
 
 runUpdaterStartup()
 
+// Packaged builds get this from electron-builder. Development runs through
+// electron.exe instead, so give Windows the same stable identity explicitly.
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.funscriptmanager.desktop')
+}
+
 // Test/dev hook: e2e smokes point this at a scratch directory so they never
 // touch the real profile (also isolates the single-instance lock below).
 const userDataOverride = process.env['FSMGR_USER_DATA']

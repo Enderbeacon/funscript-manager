@@ -8,6 +8,7 @@ import { applyLanguageSetting, type LanguageSetting } from '../i18n'
 import { applyThemeSetting, type ThemeSetting } from '../theme'
 import HosterBadge from '../components/HosterBadge'
 import PaletteEditor from '../components/PaletteEditor'
+import StartupArtworkSettings from '../components/StartupArtworkSettings'
 import Select from '../components/Select'
 import { ipcInvoke, ipcOn } from '../ipc'
 import { useErrorMessage } from '../useErrorMessage'
@@ -339,7 +340,12 @@ export default function SettingsPage({
       )}
 
       {tab === 'appearance' && (
-      <div className="settings-cols wide">
+      <div className="settings-row appearance">
+        <StartupArtworkSettings
+          value={settings.ui.startupArtwork}
+          libraryId={settings.ui.mediaLibraryId}
+          onChange={(startupArtwork) => patch({ ui: { startupArtwork } })}
+        />
         <div className="card">
           <h2 className="settings-section-title">{t('settings.palette.title')}</h2>
           <PaletteEditor

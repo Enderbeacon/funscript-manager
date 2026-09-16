@@ -4,7 +4,7 @@ import type { Settings } from '@shared/schemas/app-config'
 import type { StartupStatus } from '@shared/schemas/startup'
 import { broadcast } from '../../ipc/register'
 import { getSettings } from '../config/config-service'
-import { hideMainWindow, isDarkTheme, windowBackground } from '../main-window'
+import { hideMainWindow, isDarkTheme } from '../main-window'
 
 /**
  * The startup card: a small window that stands in for the app while it gets
@@ -56,19 +56,22 @@ export function openCard(settings: Settings | null): Promise<void> {
   if (isCardOpen()) return Promise.resolve()
   const theme = settings?.ui.theme ?? 'system'
   card = new BrowserWindow({
-    width: 440,
-    height: 200,
+    // Includes room around the card for its rounded corners and shadow.
+    width: 780,
+    height: 520,
     resizable: false,
     maximizable: false,
     minimizable: false,
     fullscreenable: false,
     frame: false,
+    transparent: true,
+    hasShadow: false,
     show: false,
     center: true,
     // In front of whatever else is on screen, the way a startup card is
     // expected to be — it is gone within seconds.
     alwaysOnTop: true,
-    backgroundColor: windowBackground(theme),
+    backgroundColor: '#00000000',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js')
     }

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { Announcement, LocalizedText, UpdateState } from '@shared/schemas/updates'
 import { ipcInvoke, ipcOn } from '../ipc'
 import { useErrorMessage } from '../useErrorMessage'
+import { useTour } from '../tour/tour'
 import { useDialogEscape } from './ConfirmDialog'
 import Markdown from './Markdown'
 
@@ -26,6 +27,7 @@ export default function UpdateNotices({
   /** Take the user to the About page, where the whole story is. */
   onOpenUpdates: () => void
 }): React.JSX.Element | null {
+  const tour = useTour()
   const [notices, setNotices] = useState<Notice[]>([])
   const [update, setUpdate] = useState<UpdateState | null>(null)
   const [promptOpen, setPromptOpen] = useState(false)
@@ -61,6 +63,13 @@ export default function UpdateNotices({
       }),
     []
   )
+
+  // Keep notices queued until the tour has loaded and left the screen,
+  // including its final hint. Otherwise its popup tracking highlights the
+  // notice dialog instead of the control the current step is explaining.
+  if (!tour.ready || tour.welcome || tour.menu || tour.hint || tour.offer || tour.section !== null) {
+    return null
+  }
 
   const front = notices[0]
   if (front) {

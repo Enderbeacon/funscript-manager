@@ -10,6 +10,7 @@ import { applyThemeSetting, currentTheme, onThemeChange, type ResolvedTheme } fr
 import { ipcInvoke, ipcOn } from '../ipc'
 import { playerLabel } from '../playerLabel'
 import TourButton from '../tour/TourButton'
+import brandMark from '../assets/brand/mark.svg'
 
 type SourceStatus = IpcOutput<'playback:sources'>[number]
 
@@ -51,15 +52,15 @@ function overlayColors(theme: ResolvedTheme): { color: string; symbolColor: stri
 }
 
 export default function TopBar({
-  onOpenScriptPlayer,
-  onOpenSources,
+  onToggleScriptPlayer,
+  onToggleSources,
   onOpenUpdates,
   scriptPlayerActive,
   scriptPlayerDetached,
   sourcesActive
 }: {
-  onOpenScriptPlayer: () => void
-  onOpenSources: () => void
+  onToggleScriptPlayer: () => void
+  onToggleSources: () => void
   onOpenUpdates: () => void
   scriptPlayerActive: boolean
   scriptPlayerDetached: boolean
@@ -147,7 +148,10 @@ export default function TopBar({
 
   return (
     <header className="topbar">
-      <span className="topbar-brand">{t('app.title')}</span>
+      <span className="topbar-brand">
+        <img className="topbar-brand-mark" src={brandMark} alt="" aria-hidden="true" />
+        <span>{t('app.title')}</span>
+      </span>
 
       <div className="topbar-actions">
         {/* Only while there is something to do about it; the About page has
@@ -163,7 +167,8 @@ export default function TopBar({
           data-tour="topbar-sources"
           className={`topbar-btn script-player-entry${sourcesActive ? ' active' : ''}`}
           type="button"
-          onClick={onOpenSources}
+          onClick={onToggleSources}
+          aria-pressed={sourcesActive}
           title={t('players.title')}
         >
           <MonitorPlay size={14} />
@@ -175,7 +180,8 @@ export default function TopBar({
           data-tour="topbar-script-player"
           className={`topbar-btn script-player-entry${scriptPlayerActive ? ' active' : ''}`}
           type="button"
-          onClick={onOpenScriptPlayer}
+          onClick={onToggleScriptPlayer}
+          aria-pressed={scriptPlayerActive}
           title={t('scriptPlayer.title')}
         >
           <RadioTower size={14} />

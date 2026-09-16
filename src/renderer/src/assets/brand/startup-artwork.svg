@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="500" viewBox="0 0 440 500">
+  <title>Faceted horizon</title>
+  <rect width="440" height="500" fill="#e6eaff"/>
+  <path d="M0 0H440V195L331 156L224 217L102 178L0 239Z" fill="#d5ddff"/>
+  <path d="M0 0H440L267 93Z" fill="#f0f2ff"/>
+  <path d="M267 93L440 0V195L331 156Z" fill="#c4d1ff"/>
+  <path d="M0 239L102 178L170 276L55 340Z" fill="#899cf4"/>
+  <path d="M102 178L224 217L170 276Z" fill="#b5c3ff"/>
+  <path d="M224 217L331 156L291 310L170 276Z" fill="#6e83eb"/>
+  <path d="M331 156L440 195V307L291 310Z" fill="#9caff9"/>
+  <path d="M0 239L55 340L0 407Z" fill="#6077dc"/>
+  <path d="M55 340L170 276L208 394Z" fill="#5368d1"/>
+  <path d="M170 276L291 310L208 394Z" fill="#7880dc"/>
+  <path d="M291 310L440 307L361 403L208 394Z" fill="#a497e8"/>
+  <path d="M440 307V500L361 403Z" fill="#8576c8"/>
+  <path d="M0 407L55 340L208 394L105 500H0Z" fill="#394baa"/>
+  <path d="M208 394L361 403L300 500H105Z" fill="#6355ad"/>
+  <path d="M361 403L440 500H300Z" fill="#4b4089"/>
+</svg>

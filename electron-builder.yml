@@ -23,6 +23,7 @@ extraResources:
 # Only the unpacked folder: the installer, the portable zip and the update
 # packages are built from it by scripts/release.mjs.
 win:
+  icon: build/icon.ico
   target:
     - dir
 npmRebuild: true

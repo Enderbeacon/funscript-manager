@@ -1,23 +1,20 @@
-/*
- * The startup card: the whole window is the card, so it carries the page
- * background and the window drag. Only the tokens from themes.css are used
- * here — the app's stylesheet is far too heavy for a window whose job is to
- * be on screen first.
- */
+/* The startup window keeps its own small stylesheet so it can paint first. */
 
 html,
 body {
   margin: 0;
   height: 100%;
   overflow: hidden;
+  background: transparent;
 }
 
 body {
+  box-sizing: border-box;
+  padding: 10px;
   font-family:
     'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', 'Noto Sans SC', 'Noto Sans JP',
     sans-serif;
   color: var(--text-primary);
-  background: var(--bg-page);
   -webkit-user-select: none;
   user-select: none;
 }
@@ -25,61 +22,83 @@ body {
 .splash {
   position: relative;
   height: 100%;
-  box-sizing: border-box;
-  padding: 1.5rem 1.6rem 1.25rem;
-  display: flex;
-  flex-direction: column;
-  background:
-    radial-gradient(120% 90% at 8% 0%, color-mix(in srgb, var(--blob-1) 22%, transparent), transparent 60%),
-    radial-gradient(110% 80% at 100% 110%, color-mix(in srgb, var(--blob-3) 18%, transparent), transparent 62%),
-    var(--bg-page);
-  border: 0.5px solid var(--border-secondary);
+  display: grid;
+  grid-template-columns: 42% minmax(0, 1fr);
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--text-primary) 16%, transparent);
   -webkit-app-region: drag;
 }
 
+:root[data-theme='dark'] .splash {
+  background: var(--bg-page);
+  box-shadow: 0 2px 8px var(--overlay-scrim);
+}
+
+.splash-info {
+  min-width: 0;
+  padding: 34px 32px;
+  display: flex;
+  flex-direction: column;
+}
+
+.splash-logo {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 18px;
+}
+
 .splash-name {
-  font-size: 19px;
-  font-weight: 650;
-  letter-spacing: 0.01em;
-  background: linear-gradient(100deg, var(--grad-a), var(--grad-b));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  margin: 0;
+  width: 240px;
+  max-width: 100%;
+  line-height: 0;
+}
+
+.splash-logo svg,
+.splash-name svg {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 .splash-version {
-  margin-top: 0.15rem;
+  margin-top: 14px;
   font-size: 12px;
+  line-height: 1.5;
   color: var(--text-tertiary);
 }
 
-.splash-foot {
-  margin-top: auto;
-  display: flex;
-  align-items: baseline;
-  gap: 0.6rem;
+.splash-status {
+  margin-top: 64px;
   font-size: 12px;
+  line-height: 1.6;
   color: var(--text-secondary);
 }
 
 .splash-step {
-  flex: 1;
+  min-height: 3.2em;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 .splash-count {
-  flex: none;
+  min-height: 1.6em;
+  margin-top: 8px;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
   color: var(--text-tertiary);
 }
 
 .splash-bar {
-  margin-top: 0.55rem;
-  height: 3px;
-  border-radius: 3px;
-  background: var(--bg-sunken);
+  margin-top: 12px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--border-tertiary);
   overflow: hidden;
 }
 
@@ -87,17 +106,42 @@ body {
   display: block;
   height: 100%;
   width: 0;
-  border-radius: 3px;
-  background: linear-gradient(90deg, var(--grad-a), var(--grad-b));
+  border-radius: inherit;
+  background: var(--accent);
   transition: width 240ms ease-out;
+}
+
+.splash-artwork {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--bg-page);
+  border-left: 1px solid var(--border-tertiary);
+}
+
+.splash-photo,
+.splash-photos {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.splash-photo {
+  display: block;
+  object-fit: cover;
+}
+
+:root[data-theme='dark'] .splash-artwork {
+  background: var(--bg-card);
 }
 
 .splash-quit {
   position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  width: 24px;
-  height: 24px;
+  top: 12px;
+  right: 12px;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
   border: 0;
@@ -111,6 +155,15 @@ body {
 }
 
 .splash-quit:hover {
-  background: var(--bg-sunken);
+  background: var(--border-tertiary);
   color: var(--text-primary);
+}
+
+.splash-quit:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-bar span { transition: none; }
 }

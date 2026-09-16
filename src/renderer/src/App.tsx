@@ -113,6 +113,8 @@ export default function App(): React.JSX.Element {
   // Escape closes whichever floating panel is in front, drawer included.
   useSurfaceEscape()
   const drawerInFront = useIsFrontSurface('drawer')
+  const sourcesInFront = useIsFrontSurface('media-source')
+  const scriptPlayerInFront = useIsFrontSurface('script-player')
 
   /**
    * The queue button on the bar, and the one on the media page's toolbar.
@@ -222,6 +224,23 @@ export default function App(): React.JSX.Element {
     }
   }
 
+  /** Top-bar entries behave like switches once their panel is in front. */
+  const toggleSources = (): void => {
+    if (!sourcesOpen) openSources()
+    else if (!sourcesInFront) raiseSurface('media-source')
+    else setSourcesOpen(false)
+  }
+
+  const toggleScriptPlayer = (): void => {
+    // A detached player is a real window; the entry brings it forward rather
+    // than silently destroying it from the main window's toolbar.
+    if (scriptPlayerDetached) {
+      void ipcInvoke('script-player:detach')
+    } else if (!scriptPlayerOpen) openScriptPlayer()
+    else if (!scriptPlayerInFront) raiseSurface('script-player')
+    else setScriptPlayerOpen(false)
+  }
+
   /**
    * How the tour moves the app around. Re-registered on every render, because
    * these close over the state as it is now — a driver captured once would be
@@ -325,9 +344,9 @@ export default function App(): React.JSX.Element {
   return (
     <div className="app">
       <TopBar
-        onOpenSources={openSources}
+        onToggleSources={toggleSources}
         sourcesActive={sourcesOpen}
-        onOpenScriptPlayer={openScriptPlayer}
+        onToggleScriptPlayer={toggleScriptPlayer}
         scriptPlayerActive={scriptPlayerOpen || scriptPlayerDetached}
         scriptPlayerDetached={scriptPlayerDetached}
         onOpenUpdates={() => setPage('about')}

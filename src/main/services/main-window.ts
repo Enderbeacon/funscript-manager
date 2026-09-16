@@ -108,6 +108,10 @@ export function createMainWindow(theme: Theme, show = true): void {
     show: false,
     backgroundColor: windowBackground(theme),
     autoHideMenuBar: true,
+    // In production Windows uses the icon embedded in the packaged EXE. In
+    // development the executable is Electron's, so the window needs our icon
+    // explicitly or the taskbar falls back to Electron's logo.
+    ...(app.isPackaged ? {} : { icon: join(app.getAppPath(), 'build', 'icon.ico') }),
     /*
      * The native title bar is a grey strip that has nothing to do with the rest
      * of the window. Hidden, with only the system buttons overlaid, the app's

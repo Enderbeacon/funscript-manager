@@ -62,6 +62,7 @@ import {
 import * as startup from '../services/startup/startup'
 import { markWindowReady } from '../services/startup/startup'
 import { startupStatus } from '../services/startup/splash-window'
+import { loadStartupArtwork } from '../services/startup/artwork'
 import {
   listSubtitleTracks,
   loadSubtitleCues,
@@ -188,6 +189,12 @@ export function registerIpcHandlers(): void {
 
   handle('app:startupStatus', () => startupStatus())
 
+  handle('app:startupArtwork', async () => {
+    const { ui } = await config.getSettings()
+    const libraries = ui.startupArtwork.mode === 'library' ? await config.listLibraries() : []
+    return loadStartupArtwork(ui, libraries)
+  })
+
   handle('app:startupCancel', () => {
     // The card is the only window at this point, but the main window may
     // already be loading behind it — leaving means leaving both.
@@ -226,7 +233,7 @@ export function registerIpcHandlers(): void {
     const result = await dialog.showOpenDialog({
       title: input.title,
       properties: ['openFile'],
-      filters: [{ name: 'Image', extensions: taxonomy.IMAGE_EXTENSIONS }]
+      filters: [{ name: 'Image', extensions: [...taxonomy.IMAGE_EXTENSIONS, ...(input.svg ? ['svg'] : [])] }]
     })
     return { path: result.canceled ? null : (result.filePaths[0] ?? null) }
   })

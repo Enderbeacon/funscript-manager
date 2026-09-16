@@ -325,6 +325,20 @@ export const SettingsSchema = z.object({
       mediaView: z.enum(['grid', 'list']).default('grid'),
       /** Last library shown on the media page; empty means all libraries. */
       mediaLibraryId: z.union([z.uuid(), z.literal('')]).default(''),
+      /** Artwork shown while the application starts. */
+      startupArtwork: z
+        .object({
+          mode: z.enum(['default', 'library', 'custom']).default('default'),
+          customPath: z.string().default(''),
+          /** Seconds between library preview changes on the startup card. */
+          intervalSeconds: z.number().int().min(1).max(60).default(6),
+          /** Any selected tag, playlist or folder can supply a video preview. */
+          tags: z.array(z.string()).default([]),
+          playlists: z.array(z.string()).default([]),
+          /** Folder references include their library id and match descendants. */
+          folders: z.array(z.string()).default([])
+        })
+        .prefault({}),
       /** Last general media sort. Playlist order only exists with its filter. */
       mediaSort: z
         .enum(['path', 'title', 'addedAt', 'updatedAt', 'size', 'rating', 'scriptCount'])
