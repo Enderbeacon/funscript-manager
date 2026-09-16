@@ -10,12 +10,9 @@ import { resolveFfmpeg } from '../deps/binaries'
  * ffmpeg spawns are capped at a small concurrency so a fresh library doesn't
  * fork-bomb.
  *
- * The ffmpeg used here is whichever one the app resolves — the copy the user
- * installed from the settings page, or the bundled ffmpeg-static — so updating
- * it there updates it for thumbnails too.
- *
- * Packaging note: ffmpeg-static must be asar-unpacked when we wire up
- * electron-builder distribution (binaries can't run from inside app.asar).
+ * The ffmpeg used here is whichever one the app resolves — the copy it
+ * installed, a path the user set, or one on PATH — so updating it in settings
+ * updates it for thumbnails too.
  */
 
 const THUMB_WIDTH = 480

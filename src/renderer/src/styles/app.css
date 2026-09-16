@@ -670,6 +670,14 @@ button:disabled { opacity: 0.5; cursor: default; }
 /* A URL field is useless if it only shows the first 20 characters. */
 .dep-url { width: 100%; }
 
+.deps-prompt-item + .deps-prompt-item { border-top: 0.5px solid var(--border-tertiary); }
+.deps-prompt-status {
+  flex: none;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
 /* One row per source that can be signed in to. */
 
 .site-row {

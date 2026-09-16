@@ -8,7 +8,7 @@ import { z } from 'zod'
 export const BinaryIdSchema = z.enum(['ytdlp', 'ffmpeg'])
 
 /** Where the binary in use came from — the UI offers "install" vs "update". */
-export const BinarySourceSchema = z.enum(['configured', 'managed', 'bundled', 'path'])
+export const BinarySourceSchema = z.enum(['configured', 'managed', 'path'])
 
 export const BinaryStatusSchema = z.object({
   id: BinaryIdSchema,

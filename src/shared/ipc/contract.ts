@@ -1133,6 +1133,11 @@ export const ipcContract = {
     input: z.void(),
     output: z.object({ binaries: z.array(BinaryStatusSchema) })
   },
+  'deps:missing': {
+    /** The binaries that will not run; checked locally, without asking GitHub. */
+    input: z.void(),
+    output: z.object({ ids: z.array(BinaryIdSchema) })
+  },
   'deps:install': {
     /** Download and install (or update) one binary; progress via `event:dep-progress`. */
     input: z.object({ id: BinaryIdSchema }),

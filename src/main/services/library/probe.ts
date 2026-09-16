@@ -6,8 +6,9 @@ import { resolveFfmpeg } from '../deps/binaries'
  * What a media file says about itself: duration, size on screen, codecs.
  *
  * Read with `ffmpeg -i`, not ffprobe. They report the same thing, but ffprobe
- * is a second binary — the FFmpeg-Builds zip carries it and ffmpeg-static does
- * not, so relying on it would mean the bundled copy silently has no probing.
+ * is a second binary — the app installs only `ffmpeg.exe`, and a path the user
+ * points at need not have ffprobe beside it, so relying on it would silently
+ * leave some setups with no probing.
  * `ffmpeg -i` with no output file prints the banner and exits non-zero, which
  * is exactly the information wanted and costs one header read.
  */

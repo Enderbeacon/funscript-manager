@@ -273,7 +273,12 @@ export const SettingsSchema = z.object({
       ytdlpPath: z.string().default(''),
       ytdlpUrl: z.string().default(''),
       ffmpegPath: z.string().default(''),
-      ffmpegUrl: z.string().default('')
+      ffmpegUrl: z.string().default(''),
+      /**
+       * Stop offering the download at startup when a binary is missing. Only
+       * the explicit "don't ask again" sets it; "later" asks on the next launch.
+       */
+      skipPrompt: z.boolean().default(false)
     })
     .prefault({}),
   library: z

@@ -1,17 +1,20 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
+import type { BinaryId } from '@shared/schemas/dependencies'
 import type { Announcement, LocalizedText, UpdateState } from '@shared/schemas/updates'
 import { ipcInvoke, ipcOn } from '../ipc'
 import { useErrorMessage } from '../useErrorMessage'
 import { useTour } from '../tour/tour'
 import { useDialogEscape } from './ConfirmDialog'
+import DependencyPrompt from './DependencyPrompt'
 import Markdown from './Markdown'
 
 /**
  * Everything the app says about itself unprompted, one dialog at a time:
- * what changed in the version just installed, notices from the project, and
- * a newer release found by the automatic check.
+ * the offer to download a missing yt-dlp or ffmpeg, what changed in the
+ * version just installed, notices from the project, and a newer release found
+ * by the automatic check.
  *
  * Mounted once in the main window. The settings page shows the same update
  * state in place, so a check started there never opens a dialog.
@@ -31,8 +34,27 @@ export default function UpdateNotices({
   const [notices, setNotices] = useState<Notice[]>([])
   const [update, setUpdate] = useState<UpdateState | null>(null)
   const [promptOpen, setPromptOpen] = useState(false)
+  /** Null until the startup check has answered, so nothing else jumps ahead of it. */
+  const [missing, setMissing] = useState<BinaryId[] | null>(null)
+  /**
+   * A tour section ran in this window. Its setup section already pointed at
+   * both installs, so asking again the moment it ends would be nagging; the
+   * next launch asks if they are still missing.
+   */
+  const [tourRan, setTourRan] = useState(false)
 
   useEffect(() => {
+    if (tour.section !== null) setTourRan(true)
+  }, [tour.section])
+
+  useEffect(() => {
+    Promise.all([ipcInvoke('settings:get'), ipcInvoke('deps:missing')])
+      .then(([settings, { ids }]) => setMissing(settings.dependencies.skipPrompt ? [] : ids))
+      .catch((e) => {
+        console.warn('[deps] startup check failed:', e)
+        setMissing([])
+      })
+
     ipcInvoke('updates:startupNotices')
       .then(({ whatsNew, announcements }) => {
         setNotices([
@@ -69,6 +91,11 @@ export default function UpdateNotices({
   // notice dialog instead of the control the current step is explaining.
   if (!tour.ready || tour.welcome || tour.menu || tour.hint || tour.offer || tour.section !== null) {
     return null
+  }
+
+  if (missing === null) return null
+  if (missing.length > 0 && !tourRan) {
+    return <DependencyPrompt ids={missing} onClose={() => setMissing([])} />
   }
 
   const front = notices[0]

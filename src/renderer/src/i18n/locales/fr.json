@@ -1282,6 +1282,19 @@
     "keep": "Les laisser ouverts",
     "closeAll": "Tout fermer"
   },
+  "depsPrompt": {
+    "title": "Télécharger les composants requis",
+    "body": "Sans eux, certaines fonctions ne marchent pas. Vous pouvez aussi les installer plus tard dans les Paramètres.",
+    "ytdlp": "Téléchargement depuis les sites vidéo",
+    "ffmpeg": "Vignettes, infos vidéo, réunion de l’image et du son",
+    "download": "Télécharger",
+    "later": "Plus tard",
+    "never": "Ne plus demander",
+    "hide": "Masquer",
+    "done": "Terminé",
+    "retry": "Réessayer",
+    "installed": "Installé"
+  },
   "updates": {
     "title": "Mises à jour",
     "current": "Version {{version}}",

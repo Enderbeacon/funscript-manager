@@ -49,8 +49,8 @@ npm run check:*       # protocol and data-compatibility checks (see scripts/)
 npm run release       # build and pack an installable release into release/velopack
 ```
 
-Optional binaries (`mpv.exe`, `ffmpeg.exe`, `yt-dlp.exe`) can be placed in
-`resources/bin/`; they are bundled with the packaged app.
+An optional `mpv.exe` can be placed in `resources/bin/`; it is bundled with
+the packaged app. yt-dlp and ffmpeg are not bundled — the app downloads them.
 
 ## Releasing
 

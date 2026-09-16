@@ -3,9 +3,8 @@ import { EventEmitter } from 'node:events'
 import { existsSync } from 'node:fs'
 import { mkdir, mkdtemp, rename, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join, sep } from 'node:path'
+import { join } from 'node:path'
 import { app } from 'electron'
-import ffmpegStatic from 'ffmpeg-static'
 import { getSettings } from '../config/config-service'
 import { httpDownloadToFile } from '../downloaders/http'
 
@@ -18,15 +17,16 @@ import { httpDownloadToFile } from '../downloaders/http'
  * install directory under Program Files is not writable for a normal user, so
  * updating there would fail on exactly the machines that need it.
  *
+ * Neither ships inside the app; on a first run the user is offered the download.
+ *
  * Resolution order, per binary: a path the user configured → our managed copy
- * → whatever shipped with the app → PATH. Installing therefore takes over from
- * a bundled copy, and a configured path always wins.
+ * → PATH. A configured path always wins.
  */
 
 export type BinaryId = 'ytdlp' | 'ffmpeg'
 
 /** Where a resolved binary came from; the UI says different things for each. */
-export type BinarySource = 'configured' | 'managed' | 'bundled' | 'path'
+export type BinarySource = 'configured' | 'managed' | 'path'
 
 export interface BinaryStatus {
   id: BinaryId
@@ -103,8 +103,8 @@ const SPECS: Record<BinaryId, BinarySpec> = {
       const date = releaseDate(r)
       return date ? `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6)}` : (r.name ?? null)
     },
-    // Only their own builds carry a date; anything else (the bundled
-    // ffmpeg-static, a distro build) is not comparable, so we say nothing.
+    // Only their own builds carry a date; anything else (a distro build, one
+    // from another packager) is not comparable, so we say nothing.
     isBehind: (installed, release) => {
       const mine = buildDate(installed)
       const theirs = releaseDate(release)
@@ -119,25 +119,6 @@ export function binDir(): string {
 
 function managedPath(id: BinaryId): string {
   return join(binDir(), SPECS[id].fileName)
-}
-
-/**
- * What ships inside the app, when anything does.
- *
- * ffmpeg-static resolves to its binary inside `node_modules`, which in a
- * packaged build sits inside `app.asar` — and nothing can be spawned from
- * there. electron-builder unpacks it beside the archive (`asarUnpack`), so the
- * path has to be redirected to the unpacked copy.
- */
-function bundledPath(id: BinaryId): string | null {
-  if (id === 'ffmpeg') {
-    if (!ffmpegStatic) return null
-    return app.isPackaged
-      ? ffmpegStatic.replace(`app.asar${sep}`, `app.asar.unpacked${sep}`)
-      : ffmpegStatic
-  }
-  const packaged = join(process.resourcesPath ?? '', 'bin', 'yt-dlp.exe')
-  return app.isPackaged && existsSync(packaged) ? packaged : null
 }
 
 /** Test seam: point the smokes at a specific binary. */
@@ -158,8 +139,6 @@ function resolveWith(id: BinaryId, configured: string): Resolved | null {
   if (configured) return existsSync(configured) ? { path: configured, source: 'configured' } : null
   const managed = managedPath(id)
   if (existsSync(managed)) return { path: managed, source: 'managed' }
-  const bundled = bundledPath(id)
-  if (bundled && existsSync(bundled)) return { path: bundled, source: 'bundled' }
   return { path: id === 'ytdlp' ? 'yt-dlp' : 'ffmpeg', source: 'path' }
 }
 
@@ -249,6 +228,24 @@ export async function status(): Promise<BinaryStatus[]> {
   return Promise.all((Object.keys(SPECS) as BinaryId[]).map(statusOf))
 }
 
+/**
+ * The binaries that will not run, for the startup prompt. Unlike `status` it
+ * never asks GitHub about releases: it runs on every launch, and the answer
+ * must not wait on the network or spend the hourly request allowance.
+ */
+export async function missing(): Promise<BinaryId[]> {
+  const ids = Object.keys(SPECS) as BinaryId[]
+  const runs = await Promise.all(
+    ids.map(async (id) => {
+      const resolved = resolveWith(id, await configuredPath(id))
+      if (!resolved) return false
+      const spec = SPECS[id]
+      return spec.parseVersion((await runVersion(resolved.path, spec.versionArgs)) ?? '') !== null
+    })
+  )
+  return ids.filter((_, i) => !runs[i])
+}
+
 export interface InstallProgress {
   id: BinaryId
   phase: 'downloading' | 'extracting'
@@ -281,8 +278,22 @@ function extractFromZip(zipPath: string, into: string, spec: BinarySpec): Promis
  * Download and install (or replace) one binary. The new file is assembled in a
  * temp directory and only moved into place once it is complete, so a failed
  * download never leaves a half-written executable where a working one was.
+ *
+ * The startup prompt and the settings page can both start one; a second
+ * request for a binary already downloading joins that download instead of
+ * racing it for the same target file.
  */
-export async function install(id: BinaryId): Promise<BinaryStatus> {
+const installing = new Map<BinaryId, Promise<BinaryStatus>>()
+
+export function install(id: BinaryId): Promise<BinaryStatus> {
+  const running = installing.get(id)
+  if (running) return running
+  const task = installNow(id).finally(() => installing.delete(id))
+  installing.set(id, task)
+  return task
+}
+
+async function installNow(id: BinaryId): Promise<BinaryStatus> {
   const spec = SPECS[id]
   const settings = await getSettings()
   const url =

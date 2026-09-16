@@ -1282,6 +1282,19 @@
     "keep": "保留播放器窗口",
     "closeAll": "全部关闭"
   },
+  "depsPrompt": {
+    "title": "下载所需组件",
+    "body": "缺少以下组件，部分功能用不了。之后也可以在设置里安装。",
+    "ytdlp": "从视频站下载",
+    "ffmpeg": "缩略图、视频信息、合并音视频",
+    "download": "下载",
+    "later": "稍后",
+    "never": "不再询问",
+    "hide": "隐藏",
+    "done": "完成",
+    "retry": "重试",
+    "installed": "已安装"
+  },
   "updates": {
     "title": "更新",
     "current": "当前版本 {{version}}",

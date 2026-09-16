@@ -808,6 +808,8 @@ export function registerIpcHandlers(): void {
 
   handle('deps:status', async () => ({ binaries: await deps.status() }))
 
+  handle('deps:missing', async () => ({ ids: await deps.missing() }))
+
   handle('deps:install', async (input) => ({ binary: await deps.install(input.id) }))
 
   handle('updates:state', () => updater.updateState())

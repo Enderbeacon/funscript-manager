@@ -8,9 +8,6 @@ files:
   - "!out/types-*/**"
 asarUnpack:
   - resources/bin/**
-  # ffmpeg-static ships its binary inside node_modules; a child process cannot
-  # be spawned from inside the asar archive, so it has to live on disk.
-  - node_modules/ffmpeg-static/**
 extraResources:
   - from: resources/bin
     to: bin

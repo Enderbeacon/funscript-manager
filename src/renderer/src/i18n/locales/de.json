@@ -1282,6 +1282,19 @@
     "keep": "Geöffnet lassen",
     "closeAll": "Alles schließen"
   },
+  "depsPrompt": {
+    "title": "Benötigte Komponenten herunterladen",
+    "body": "Ohne sie funktionieren einige Funktionen nicht. Du kannst sie auch später in den Einstellungen installieren.",
+    "ytdlp": "Downloads von Videoseiten",
+    "ffmpeg": "Vorschaubilder, Videoinfos, Zusammenfügen von Bild und Ton",
+    "download": "Herunterladen",
+    "later": "Später",
+    "never": "Nicht mehr fragen",
+    "hide": "Ausblenden",
+    "done": "Fertig",
+    "retry": "Erneut versuchen",
+    "installed": "Installiert"
+  },
   "updates": {
     "title": "Updates",
     "current": "Version {{version}}",

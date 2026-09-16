@@ -1282,6 +1282,19 @@
     "keep": "Leave them open",
     "closeAll": "Close everything"
   },
+  "depsPrompt": {
+    "title": "Download required components",
+    "body": "Some features don't work without these. You can also install them later in Settings.",
+    "ytdlp": "Downloads from video sites",
+    "ffmpeg": "Thumbnails, video info, joining video and audio",
+    "download": "Download",
+    "later": "Later",
+    "never": "Don't ask again",
+    "hide": "Hide",
+    "done": "Done",
+    "retry": "Retry",
+    "installed": "Installed"
+  },
   "updates": {
     "title": "Updates",
     "current": "Version {{version}}",
