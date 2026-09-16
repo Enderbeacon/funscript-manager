@@ -3,6 +3,10 @@ import { extname, join } from 'node:path'
 import { LIBRARY_CACHE_DIR } from '@shared/constants'
 import type { RegisteredLibrary, Settings } from '@shared/schemas/app-config'
 import { artworkCandidates } from './artwork-candidates'
+import {
+  activeStartupArtwork,
+  scheduleStartupArtworkPreparation
+} from './artwork-pool'
 
 const MIME: Record<string, string> = {
   '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
@@ -38,16 +42,43 @@ async function imageData(path: string, limit: number): Promise<string | null> {
  */
 export async function loadStartupArtwork(
   ui: Settings['ui'],
-  libraries: RegisteredLibrary[]
-): Promise<{ images: string[]; rotate: boolean; intervalSeconds: number }> {
+  libraries: RegisteredLibrary[],
+  purpose: 'startup' | 'settings'
+): Promise<{
+  images: string[]
+  rotate: boolean
+  intervalSeconds: number
+  presentation: 'cover' | 'framed'
+}> {
   const { mode, customPath, intervalSeconds } = ui.startupArtwork
-  if (mode === 'default') return { images: [], rotate: false, intervalSeconds }
+  if (mode === 'default') {
+    return { images: [], rotate: false, intervalSeconds, presentation: 'cover' }
+  }
   if (mode === 'custom') {
     const image = await imageData(customPath, 16 * 1024 * 1024)
-    return { images: image ? [image] : [], rotate: false, intervalSeconds }
+    return {
+      images: image ? [image] : [],
+      rotate: false,
+      intervalSeconds,
+      presentation: ui.startupArtwork.customPresentation
+    }
   }
 
   const selected = libraries.filter((library) => !ui.mediaLibraryId || library.id === ui.mediaLibraryId)
+  const active = await activeStartupArtwork(ui, libraries)
+  const highRes = await shuffledImages(active, (candidate) => candidate.path, 4 * 1024 * 1024)
+  if (highRes.length > 0) {
+    if (purpose === 'settings') {
+      scheduleStartupArtworkPreparation(ui, libraries, highRes[0]!.item.ref)
+    }
+    return {
+      images: highRes.map(({ image }) => image),
+      rotate: highRes.length > 1,
+      intervalSeconds,
+      presentation: ui.startupArtwork.libraryPresentation
+    }
+  }
+
   const groups = await Promise.all(selected.map(async (library) => {
     const folder = join(library.rootPath, LIBRARY_CACHE_DIR, 'cache', 'thumbs')
     const entries = await readdir(folder, { withFileTypes: true }).catch(() => [])
@@ -56,14 +87,33 @@ export async function loadStartupArtwork(
     return artworkCandidates(library, ui.startupArtwork, cachedNames)
   }))
   const candidates = groups.flat()
-  const images: string[] = []
-  // Partial Fisher-Yates: no duplicate candidates, even when there is one file.
+  const regular = await shuffledImages(candidates, (candidate) => candidate.thumbnailPath, 2 * 1024 * 1024)
+  if (purpose === 'settings') {
+    scheduleStartupArtworkPreparation(ui, libraries, regular[0]?.item)
+  }
+  const images = regular.map(({ image }) => image)
+  return {
+    images,
+    rotate: images.length > 1,
+    intervalSeconds,
+    presentation: ui.startupArtwork.libraryPresentation
+  }
+}
+
+/** Partial Fisher-Yates with a bounded number of failed file reads. */
+async function shuffledImages<T>(
+  input: T[],
+  pathOf: (item: T) => string,
+  sizeLimit: number
+): Promise<{ image: string; item: T }[]> {
+  const candidates = [...input]
+  const images: { image: string; item: T }[] = []
   for (let end = candidates.length; end > 0 && images.length < 8 && candidates.length - end < 32; end--) {
     const index = Math.floor(Math.random() * end)
-    const path = candidates[index]!
+    const item = candidates[index]!
     candidates[index] = candidates[end - 1]!
-    const image = await imageData(path, 2 * 1024 * 1024)
-    if (image) images.push(image)
+    const image = await imageData(pathOf(item), sizeLimit)
+    if (image) images.push({ image, item })
   }
-  return { images, rotate: images.length > 1, intervalSeconds }
+  return images
 }

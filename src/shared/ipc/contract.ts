@@ -91,11 +91,35 @@ export const ipcContract = {
   },
   'app:startupArtwork': {
     /** Existing images only; fetching artwork never holds up the startup sequence. */
-    input: z.void(),
+    input: z.object({ purpose: z.enum(['startup', 'settings']) }),
     output: z.object({
       images: z.array(z.string()),
       rotate: z.boolean(),
-      intervalSeconds: z.number().int().min(1).max(60)
+      intervalSeconds: z.number().int().min(1).max(60),
+      presentation: z.enum(['cover', 'framed'])
+    })
+  },
+  'app:startupArtworkCacheStatus': {
+    input: z.void(),
+    output: z.object({
+      running: z.boolean(),
+      processed: z.number().int().nonnegative(),
+      total: z.number().int().nonnegative(),
+      ready: z.number().int().nonnegative(),
+      stored: z.number().int().nonnegative(),
+      removable: z.number().int().nonnegative()
+    })
+  },
+  'app:startupArtworkClearUnused': {
+    /** Remove prepared images outside the currently active high-resolution pool. */
+    input: z.void(),
+    output: z.object({
+      running: z.boolean(),
+      processed: z.number().int().nonnegative(),
+      total: z.number().int().nonnegative(),
+      ready: z.number().int().nonnegative(),
+      stored: z.number().int().nonnegative(),
+      removable: z.number().int().nonnegative()
     })
   },
   'app:windowReady': {
@@ -1385,6 +1409,15 @@ export const ipcEvents = {
   'event:sync-progress': SyncProgressSchema,
   /** How far the startup sequence has got; only the startup card listens. */
   'event:startup': StartupStatusSchema,
+  /** A background artwork extraction made a sharper settings preview available. */
+  'event:startup-artwork-ready': z.object({}),
+  /** Live progress for the bounded, single-worker high-resolution preparation. */
+  'event:startup-artwork-cache': z.object({
+    running: z.boolean(),
+    processed: z.number().int().nonnegative(),
+    total: z.number().int().nonnegative(),
+    ready: z.number().int().nonnegative()
+  }),
   /** The library's index changed; media lists should be re-fetched. */
   'event:media-changed': z.object({ libraryId: z.uuid() }),
   /**

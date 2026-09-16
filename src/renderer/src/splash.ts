@@ -63,10 +63,10 @@ window.addEventListener('pagehide', () => {
   stopArtwork()
 }, { once: true })
 // The bundled artwork paints immediately; optional images never delay startup.
-void ipcInvoke('app:startupArtwork').then(({ images, rotate, intervalSeconds }) => {
+void ipcInvoke('app:startupArtwork', { purpose: 'startup' }).then(({ images, rotate, intervalSeconds, presentation }) => {
   if (!disposed) {
     stopArtwork = startArtworkSlideshow(
-      document.getElementById('photos')!, images, rotate, intervalSeconds * 1000
+      document.getElementById('photos')!, images, rotate, intervalSeconds * 1000, presentation
     )
   }
 }).catch(() => {})

@@ -332,6 +332,10 @@ export const SettingsSchema = z.object({
           customPath: z.string().default(''),
           /** Seconds between library preview changes on the startup card. */
           intervalSeconds: z.number().int().min(1).max(60).default(6),
+          /** Library previews use the prepared portrait crop as full-bleed artwork by default. */
+          libraryPresentation: z.enum(['cover', 'framed']).default('cover'),
+          /** Custom art keeps the historical full-bleed default. */
+          customPresentation: z.enum(['cover', 'framed']).default('cover'),
           /** Any selected tag, playlist or folder can supply a video preview. */
           tags: z.array(z.string()).default([]),
           playlists: z.array(z.string()).default([]),

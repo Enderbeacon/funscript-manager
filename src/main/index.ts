@@ -11,6 +11,7 @@ import { createMainWindow, rememberCloseChoice, showMainWindow } from './service
 import { registerMediaProtocol, registerMediaScheme } from './services/media-protocol'
 import { runStartup } from './services/startup/startup'
 import { focusCard } from './services/startup/splash-window'
+import { disposeStartupArtworkPreparation } from './services/startup/artwork-pool'
 import { disposeScriptPlayer } from '@script-player/composition/session'
 import { applyPendingOnQuit, runUpdaterStartup } from './services/updates/updater'
 
@@ -94,7 +95,10 @@ app.on('will-quit', (event) => {
   stopConnStatusPolling()
   disposePlayback()
   disposeDownloads()
-  void Promise.all([disposeAllLibraries(), disposeScriptPlayer(), disposeMediaSources()]).finally(
-    () => app.exit(0)
-  )
+  void Promise.all([
+    disposeStartupArtworkPreparation(),
+    disposeAllLibraries(),
+    disposeScriptPlayer(),
+    disposeMediaSources()
+  ]).finally(() => app.exit(0))
 })

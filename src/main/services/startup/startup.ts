@@ -1,8 +1,9 @@
 import type { RegisteredLibrary, Settings } from '@shared/schemas/app-config'
 import type { SyncProgress } from '@shared/schemas/media-index'
-import { listLibraries } from '../config/config-service'
+import { getSettings, listLibraries } from '../config/config-service'
 import {
   libraryEvents,
+  librariesReady,
   markLibrariesReady,
   startAllLibraries
 } from '../library/library-manager'
@@ -11,6 +12,10 @@ import { applyProxySettings } from '../net/proxy'
 import { abandonPrefetch, justUpdatedTo, prefetchNotices } from '../updates/notices'
 import { checkForUpdates, endStartupPhase, initUpdates } from '../updates/updater'
 import { closeCard, openCard, setStartupStatus } from './splash-window'
+import {
+  enableStartupArtworkPreparation,
+  scheduleStartupArtworkPreparation
+} from './artwork-pool'
 
 /**
  * Getting the app ready before the user is handed a window.
@@ -174,4 +179,14 @@ export async function runStartup(settings: Settings | null): Promise<void> {
   closeCard()
   // From here the app answers, it does not interrupt.
   endStartupPhase()
+
+  // High-resolution artwork is strictly after startup and after the initial
+  // library pass. A settings change made while that pass was still running
+  // wins over the routine refresh for the next launch.
+  void librariesReady().then(async () => {
+    const hadPendingSelection = enableStartupArtworkPreparation()
+    if (hadPendingSelection) return
+    const [latest, currentLibraries] = await Promise.all([getSettings(), listLibraries()])
+    scheduleStartupArtworkPreparation(latest.ui, currentLibraries, undefined, true)
+  }).catch((e) => console.error('[startup-artwork] activation failed:', e))
 }

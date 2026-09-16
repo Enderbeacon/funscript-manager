@@ -132,6 +132,51 @@ body {
   object-fit: cover;
 }
 
+/*
+ * A focused portrait crop sits over a deliberately soft copy of the same
+ * frame. Prepared artwork makes the foreground sharp; ordinary thumbnails
+ * remain a visually coherent fallback while that cache is being built.
+ */
+.splash-framed-preview {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.splash-framed-preview::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(180deg, rgb(0 0 0 / 10%), rgb(0 0 0 / 32%));
+}
+
+.splash-preview-backdrop {
+  position: absolute;
+  inset: -24px;
+  z-index: -2;
+  width: calc(100% + 48px);
+  height: calc(100% + 48px);
+  object-fit: cover;
+  filter: blur(20px) saturate(0.82) brightness(0.7);
+  transform: scale(1.06);
+}
+
+.splash-preview-image {
+  display: block;
+  width: 74%;
+  height: 75%;
+  object-fit: cover;
+  object-position: center;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 16px;
+  box-sizing: border-box;
+  box-shadow: 0 14px 34px rgb(0 0 0 / 34%);
+}
+
 :root[data-theme='dark'] .splash-artwork {
   background: var(--bg-card);
 }

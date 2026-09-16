@@ -64,6 +64,13 @@ import { markWindowReady } from '../services/startup/startup'
 import { startupStatus } from '../services/startup/splash-window'
 import { loadStartupArtwork } from '../services/startup/artwork'
 import {
+  artworkPoolEvents,
+  artworkSelectionKey,
+  clearUnusedStartupArtwork,
+  scheduleStartupArtworkPreparation,
+  startupArtworkCacheStatus
+} from '../services/startup/artwork-pool'
+import {
   listSubtitleTracks,
   loadSubtitleCues,
   pickedTrack,
@@ -189,10 +196,20 @@ export function registerIpcHandlers(): void {
 
   handle('app:startupStatus', () => startupStatus())
 
-  handle('app:startupArtwork', async () => {
+  handle('app:startupArtwork', async ({ purpose }) => {
     const { ui } = await config.getSettings()
     const libraries = ui.startupArtwork.mode === 'library' ? await config.listLibraries() : []
-    return loadStartupArtwork(ui, libraries)
+    return loadStartupArtwork(ui, libraries, purpose)
+  })
+
+  handle('app:startupArtworkCacheStatus', async () => {
+    const [{ ui }, libraries] = await Promise.all([config.getSettings(), config.listLibraries()])
+    return startupArtworkCacheStatus(ui, libraries)
+  })
+
+  handle('app:startupArtworkClearUnused', async () => {
+    const [{ ui }, libraries] = await Promise.all([config.getSettings(), config.listLibraries()])
+    return clearUnusedStartupArtwork(ui, libraries)
   })
 
   handle('app:startupCancel', () => {
@@ -276,10 +293,15 @@ export function registerIpcHandlers(): void {
 
   handle('library:add', async (input) => {
     const library = await config.addLibrary(input.rootPath, input.name)
-    broadcast('event:libraries-changed', { libraries: await config.listLibraries() })
+    const libraries = await config.listLibraries()
+    broadcast('event:libraries-changed', { libraries })
     // Fire-and-forget: first scan can be long; progress arrives via events.
     void libraryManager
       .startLibrary(library)
+      .then(async () => {
+        const settings = await config.getSettings()
+        scheduleStartupArtworkPreparation(settings.ui, await config.listLibraries())
+      })
       .catch((e) => console.error(`[library] start failed for ${library.rootPath}:`, e))
     return library
   })
@@ -287,7 +309,9 @@ export function registerIpcHandlers(): void {
   handle('library:remove', async (input) => {
     await libraryManager.stopLibrary(input.id)
     await config.removeLibrary(input.id)
-    broadcast('event:libraries-changed', { libraries: await config.listLibraries() })
+    const libraries = await config.listLibraries()
+    broadcast('event:libraries-changed', { libraries })
+    scheduleStartupArtworkPreparation((await config.getSettings()).ui, libraries)
   })
 
   handle('library:sync', async (input) => {
@@ -957,7 +981,15 @@ export function registerIpcHandlers(): void {
   handle('settings:get', () => config.getSettings())
 
   handle('settings:update', async (patch) => {
+    const previous = await config.getSettings()
     const settings = await config.updateSettings(patch)
+    const libraries = await config.listLibraries()
+    if (
+      previous.ui.startupArtwork.mode !== settings.ui.startupArtwork.mode ||
+      artworkSelectionKey(previous.ui, libraries) !== artworkSelectionKey(settings.ui, libraries)
+    ) {
+      scheduleStartupArtworkPreparation(settings.ui, libraries)
+    }
     // The close handler cannot read a file, so it reads this instead.
     rememberCloseChoice(settings.ui.onCloseMainWindow)
     // Also how the script route takes effect: switching to MFP has to make the
@@ -978,6 +1010,8 @@ export function registerIpcHandlers(): void {
   libraryEvents.on('sync-progress', (p) => broadcast('event:sync-progress', p))
   libraryEvents.on('media-changed', (p) => broadcast('event:media-changed', p))
   libraryEvents.on('sync-failed', (p) => broadcast('event:library-error', p))
+  artworkPoolEvents.onReady(() => broadcast('event:startup-artwork-ready', {}))
+  artworkPoolEvents.onProgress((progress) => broadcast('event:startup-artwork-cache', progress))
   playbackEvents.on('playback-changed', (p) => {
     broadcast('event:playback-changed', p)
     pokeConnStatus()

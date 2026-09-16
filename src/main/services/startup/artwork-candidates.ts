@@ -7,13 +7,21 @@ import { compileFilter } from '../db/filter-sql'
 
 type Artwork = Settings['ui']['startupArtwork']
 
+export interface ArtworkCandidate {
+  libraryId: string
+  mediaId: string
+  mediaPath: string
+  thumbnailPath: string
+  highResPath: string
+}
+
 /** Read the existing index without initializing, migrating or rebuilding it. */
 export function artworkCandidates(
   library: RegisteredLibrary,
   selection: Artwork,
-  cachedNames: Set<string>
-): string[] {
-  if (cachedNames.size === 0) return []
+  cachedNames?: Set<string>
+): ArtworkCandidate[] {
+  if (cachedNames?.size === 0) return []
   const children: FilterNode[] = []
   for (const [field, values] of [
     ['tags', selection.tags], ['playlists', selection.playlists], ['folder', selection.folders]
@@ -33,13 +41,20 @@ export function artworkCandidates(
     const rows = db.prepare(`
       SELECT m.id, m.file_path FROM media m
       WHERE m.missing = 0 AND m.wanted = 0 AND (${sql})
+      ORDER BY m.file_path COLLATE NOCASE, m.id
     `).iterate(params) as Iterable<{ id: string; file_path: string }>
-    const candidates: string[] = []
+    const candidates: ArtworkCandidate[] = []
     for (const row of rows) {
       const name = `${row.id}.jpg`
-      if (!cachedNames.has(name)) continue
+      if (cachedNames && !cachedNames.has(name)) continue
       if (!(VIDEO_EXTENSIONS as readonly string[]).includes(extname(row.file_path).toLowerCase())) continue
-      candidates.push(join(library.rootPath, LIBRARY_CACHE_DIR, 'cache', 'thumbs', name))
+      candidates.push({
+        libraryId: library.id,
+        mediaId: row.id,
+        mediaPath: join(library.rootPath, row.file_path),
+        thumbnailPath: join(library.rootPath, LIBRARY_CACHE_DIR, 'cache', 'thumbs', name),
+        highResPath: join(library.rootPath, LIBRARY_CACHE_DIR, 'cache', 'startup-artwork', name)
+      })
     }
     return candidates
   } catch {

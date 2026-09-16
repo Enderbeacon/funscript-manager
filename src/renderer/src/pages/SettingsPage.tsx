@@ -747,20 +747,22 @@ function DependenciesCard({
       })}
       {failed && <p className="mfp-install-error">{failed}</p>}
 
-      <div className="dep-section">{t('settings.deps.mirrors')}</div>
-      {(['ytdlp', 'ffmpeg'] as BinaryId[]).map((id) => (
-        <label key={id} className="settings-field">
-          <span className="settings-label">{t(`settings.deps.${id}Url`)}</span>
-          <input
-            className="settings-input dep-url"
-            type="text"
-            value={urls[id]}
-            placeholder={t(`settings.deps.${id}UrlPlaceholder`)}
-            onChange={(e) => setUrls((cur) => ({ ...cur, [id]: e.target.value }))}
-            onBlur={(e) => saveUrl(id, e.target.value.trim())}
-          />
-        </label>
-      ))}
+      <details className="mfp-alt">
+        <summary>{t('settings.deps.mirrors')}</summary>
+        {(['ytdlp', 'ffmpeg'] as BinaryId[]).map((id) => (
+          <label key={id} className="settings-field">
+            <span className="settings-label">{t(`settings.deps.${id}Url`)}</span>
+            <input
+              className="settings-input dep-url"
+              type="text"
+              value={urls[id]}
+              placeholder={t(`settings.deps.${id}UrlPlaceholder`)}
+              onChange={(e) => setUrls((cur) => ({ ...cur, [id]: e.target.value }))}
+              onBlur={(e) => saveUrl(id, e.target.value.trim())}
+            />
+          </label>
+        ))}
+      </details>
 
       <details className="mfp-alt">
         <summary>{t('settings.deps.customPaths')}</summary>
