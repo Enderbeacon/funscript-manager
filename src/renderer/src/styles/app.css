@@ -7079,3 +7079,28 @@ button.sp-connect-button.connected:hover:not(:disabled) {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--accent);
 }
+
+/*
+ * A library scan still running after the window was handed over. It sits on the
+ * bar's own bottom edge rather than taking a row of its own: the work is
+ * already out of the user's way, and the only thing owed is a sign that the app
+ * has not stalled.
+ */
+.topbar-sync {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  /* Taller than the line it draws, so there is something to hover for the
+     tooltip that says what is running. */
+  height: 4px;
+  display: flex;
+  align-items: flex-end;
+}
+
+.topbar-sync span {
+  display: block;
+  height: 2px;
+  background: linear-gradient(90deg, var(--grad-a), var(--grad-b));
+  transition: width 240ms ease-out;
+}

@@ -884,7 +884,8 @@
   },
   "topbar": {
     "toggleTheme": "Switch theme",
-    "sessionTitle": "EroScripts session"
+    "sessionTitle": "EroScripts session",
+    "scanning": "Scanning libraries…"
   },
   "common": {
     "remove": "Remove",
@@ -1267,12 +1268,14 @@
     "download": "Download update",
     "restart": "Restart now",
     "openRelease": "Open release page",
+    "goToUpdates": "See updates",
     "notSupported": "To update from here, install the app from a GitHub release.",
     "notes": "What's new",
     "otherVersions": "Install another version",
     "noReleases": "No releases yet",
     "installed": "Installed",
     "install": "Install",
+    "installBusy": "Another update is already in progress.",
     "confirmOlder": "Go back to version {{version}}? Anything saved by newer versions may not open in it.",
     "confirmInstall": "Install version {{version}}?",
     "availableTitle": "Version {{version}} is available",

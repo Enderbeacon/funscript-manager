@@ -884,7 +884,8 @@
   },
   "topbar": {
     "toggleTheme": "Thema wechseln",
-    "sessionTitle": "EroScripts-Sitzung"
+    "sessionTitle": "EroScripts-Sitzung",
+    "scanning": "Bibliotheken werden durchsucht…"
   },
   "common": {
     "remove": "Entfernen",
@@ -1267,12 +1268,14 @@
     "download": "Update herunterladen",
     "restart": "Jetzt neu starten",
     "openRelease": "Release-Seite öffnen",
+    "goToUpdates": "Updates ansehen",
     "notSupported": "Um hier zu aktualisieren, installiere die App aus einem GitHub-Release.",
     "notes": "Neuigkeiten",
     "otherVersions": "Andere Version installieren",
     "noReleases": "Noch keine Releases",
     "installed": "Installiert",
     "install": "Installieren",
+    "installBusy": "Ein anderes Update läuft bereits.",
     "confirmOlder": "Zurück zu Version {{version}}? Was neuere Versionen gespeichert haben, lässt sich dort eventuell nicht öffnen.",
     "confirmInstall": "Version {{version}} installieren?",
     "availableTitle": "Version {{version}} ist verfügbar",

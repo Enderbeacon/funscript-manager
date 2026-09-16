@@ -1,11 +1,7 @@
 import { BrowserWindow, app } from 'electron'
 import { registerIpcHandlers } from './ipc/handlers'
-import { getSettings, listLibraries } from './services/config/config-service'
-import {
-  disposeAllLibraries,
-  markLibrariesReady,
-  startAllLibraries
-} from './services/library/library-manager'
+import { getSettings } from './services/config/config-service'
+import { disposeAllLibraries } from './services/library/library-manager'
 import { registerDownloaderPlugins } from './services/downloaders/register'
 import { dispose as disposeDownloads, init as initDownloads } from './services/downloaders/queue'
 import { disposePlayback, initPlayback } from './services/playback/playback-service'
@@ -13,24 +9,20 @@ import { disposeMediaSources } from './services/playback/sources/registry'
 import { startConnStatusPolling, stopConnStatusPolling } from './services/playback/conn-status'
 import { createMainWindow, rememberCloseChoice, showMainWindow } from './services/main-window'
 import { registerMediaProtocol, registerMediaScheme } from './services/media-protocol'
-import { applyProxySettings } from './services/net/proxy'
+import { runStartup } from './services/startup/startup'
+import { focusCard } from './services/startup/splash-window'
 import { disposeScriptPlayer } from '@script-player/composition/session'
-import {
-  applyPendingOnQuit,
-  initUpdates,
-  runUpdaterStartup
-} from './services/updates/updater'
+import { applyPendingOnQuit, runUpdaterStartup } from './services/updates/updater'
 
 /**
  * Main process entry. Startup order:
  * 0. The updater's own hook — when it starts the app to finish an install or
  *    uninstall, that is all this run does
  * 1. IPC handlers and the media protocol
- * 2. App settings and the proxy, before anything touches the network
- * 3. The main window — it opens without waiting for the libraries
- * 4. In the background: each library's index sync and watcher, the player
- *    list, and the download queue (after the libraries, so a resumed job's
- *    target library can be resolved)
+ * 2. App settings, which decide what the startup card looks like
+ * 3. The startup sequence (startup.ts): the card, the proxy, the release
+ *    check, the libraries, and the window once it has drawn something
+ * 4. Behind the finished window: the player list and the download queue
  */
 
 runUpdaterStartup()
@@ -53,41 +45,18 @@ registerMediaScheme()
 app.whenReady().then(async () => {
   registerIpcHandlers()
   registerMediaProtocol()
-  // Cheap local read; lets the window open with the right background color.
+  // Cheap local read; decides the card's theme and language, and the window's
+  // background color.
   const settings = await getSettings().catch(() => null)
-  // Before anything reaches the network: the forum, the libraries and the
-  // download queue below all go out through whatever this puts in place.
-  await applyProxySettings().catch((e) => console.error('[proxy] setup failed:', e))
   // What closing the main window does to a detached player, where the close
   // handler can read it without going to disk.
   rememberCloseChoice(settings?.ui.onCloseMainWindow ?? 'ask')
-  createMainWindow(settings?.ui.theme ?? 'system')
 
-  // Background incremental index sync; a large library must not hold up the window.
-  void listLibraries()
-    .then((libraries) => startAllLibraries(libraries))
-    .catch((e) => {
-      console.error('[library] startup sync failed:', e)
-      // Whoever is waiting for the libraries waits forever otherwise.
-      markLibrariesReady()
-    })
-
-  startConnStatusPolling()
-
-  void initUpdates(settings)
-
-  // The player list, and the auto-connect scan for the ones marked for it.
-  void initPlayback().catch((e) => console.error('[playback] startup failed:', e))
-
-  // Downloads resume after the libraries are known: a job's target library
-  // has to resolve before anything can be moved into it.
-  registerDownloaderPlugins()
-  void initDownloads().catch((e) => console.error('[downloads] startup failed:', e))
-
-  // Starting the app again brings the main window forward — and builds it
-  // again when the user closed it and kept a player window running.
+  // Starting the app again brings forward whatever stands for it: the startup
+  // card while it is still getting ready, otherwise the main window — which is
+  // built again when the user closed it and kept a player window running.
   app.on('second-instance', () => {
-    void showMainWindow()
+    if (!focusCard()) void showMainWindow()
   })
 
   app.on('activate', () => {
@@ -95,6 +64,16 @@ app.whenReady().then(async () => {
       createMainWindow(settings?.ui.theme ?? 'system')
     }
   })
+
+  await runStartup(settings)
+
+  // Behind the finished window from here: nothing below has to exist before
+  // the user can work, and the downloads resume after the libraries are known
+  // so a resumed job's target library can be resolved.
+  startConnStatusPolling()
+  void initPlayback().catch((e) => console.error('[playback] startup failed:', e))
+  registerDownloaderPlugins()
+  void initDownloads().catch((e) => console.error('[downloads] startup failed:', e))
 })
 
 app.on('window-all-closed', () => {

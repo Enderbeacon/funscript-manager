@@ -162,12 +162,19 @@ export default function UpdatesCard(): React.JSX.Element {
                     <span className="release-date">{new Date(r.publishedAt).toLocaleDateString()}</span>
                   )}
                   <span className="grow" />
-                  {current ? (
-                    <span className="badge">{t('updates.installed')}</span>
-                  ) : (
+                  {current && <span className="badge">{t('updates.installed')}</span>}
+                  {/* Without the updater there is nothing to install with, so the
+                      row offers the download page instead of a dead button. */}
+                  {!current && !state.supported && (
+                    <button className="ghost" onClick={() => window.open(r.url, '_blank')}>
+                      {t('updates.openRelease')}
+                    </button>
+                  )}
+                  {!current && state.supported && (
                     <button
                       className="ghost"
-                      disabled={!state.supported || busy || state.phase === 'ready'}
+                      disabled={busy || state.phase === 'ready'}
+                      title={busy || state.phase === 'ready' ? t('updates.installBusy') : undefined}
                       onClick={() => void install(r)}
                     >
                       {t('updates.install')}

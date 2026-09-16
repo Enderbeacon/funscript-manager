@@ -884,7 +884,8 @@
   },
   "topbar": {
     "toggleTheme": "Changer de thème",
-    "sessionTitle": "Session EroScripts"
+    "sessionTitle": "Session EroScripts",
+    "scanning": "Analyse des bibliothèques…"
   },
   "common": {
     "remove": "Retirer",
@@ -1267,12 +1268,14 @@
     "download": "Télécharger la mise à jour",
     "restart": "Redémarrer maintenant",
     "openRelease": "Ouvrir la page de la version",
+    "goToUpdates": "Voir les mises à jour",
     "notSupported": "Pour mettre à jour d’ici, installez l’application depuis une version GitHub.",
     "notes": "Nouveautés",
     "otherVersions": "Installer une autre version",
     "noReleases": "Aucune version publiée",
     "installed": "Installée",
     "install": "Installer",
+    "installBusy": "Une autre mise à jour est déjà en cours.",
     "confirmOlder": "Revenir à la version {{version}} ? Ce qu’ont enregistré les versions plus récentes risque de ne pas s’y ouvrir.",
     "confirmInstall": "Installer la version {{version}} ?",
     "availableTitle": "La version {{version}} est disponible",

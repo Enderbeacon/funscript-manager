@@ -39,10 +39,14 @@ app.on('before-quit', () => {
   quitting = true
 })
 
+/** Whether a theme setting lands on the dark palette right now. */
+export function isDarkTheme(theme: Theme): boolean {
+  return theme === 'system' ? nativeTheme.shouldUseDarkColors : theme === 'dark'
+}
+
 /** Pre-paint window background; values mirror --bg-page in themes.css. */
-function windowBackground(theme: Theme): string {
-  const dark = theme === 'system' ? nativeTheme.shouldUseDarkColors : theme === 'dark'
-  return dark ? '#0b0d12' : '#eef0f7'
+export function windowBackground(theme: Theme): string {
+  return isDarkTheme(theme) ? '#0b0d12' : '#eef0f7'
 }
 
 /** Window-control colors to match; mirrors --text-primary in themes.css. */
@@ -91,7 +95,11 @@ export function resolveMainWindowClose(closePlayers: boolean): void {
   mainWindow?.close()
 }
 
-export function createMainWindow(theme: Theme): void {
+/**
+ * Build the main window. `show` is false during startup: the window loads
+ * behind the startup card and is revealed once it has drawn something.
+ */
+export function createMainWindow(theme: Theme, show = true): void {
   mainWindow = new BrowserWindow({
     width: 1360,
     height: 860,
@@ -118,8 +126,7 @@ export function createMainWindow(theme: Theme): void {
   })
 
   mainWindow.on('ready-to-show', () => {
-    mainWindow?.show()
-    broadcast('event:main-window', { open: true })
+    if (show) revealMainWindow()
   })
 
   /**
@@ -161,6 +168,18 @@ export function createMainWindow(theme: Theme): void {
   } else {
     void mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+}
+
+/** Put the window on screen, and tell whoever was waiting for it. */
+export function revealMainWindow(): void {
+  if (!isMainWindowOpen() || mainWindow!.isVisible()) return
+  mainWindow!.show()
+  broadcast('event:main-window', { open: true })
+}
+
+/** Out of sight without closing: the app is quitting to install an update. */
+export function hideMainWindow(): void {
+  if (isMainWindowOpen()) mainWindow!.hide()
 }
 
 /**

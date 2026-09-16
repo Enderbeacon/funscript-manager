@@ -135,13 +135,27 @@ export default function App(): React.JSX.Element {
   useEffect(() => {
     ipcInvoke('app:getInfo').then(setAppInfo).catch(console.error)
     // Apply persisted UI preferences on startup.
-    ipcInvoke('settings:get')
+    const preferences = ipcInvoke('settings:get')
       .then((s) => {
         applyLanguageSetting(s.ui.language)
         applyPaletteSetting(s.ui.palette)
         applyThemeSetting(s.ui.theme)
       })
       .catch(console.error)
+    /*
+     * The window is hidden until this says otherwise, and the startup card
+     * stands in for it. Two frames after the preferences land: the first
+     * schedules the render that applies them, the second runs once it has been
+     * painted — so what appears is the finished screen in the right theme,
+     * never a white flash of the default one.
+     */
+    void preferences.finally(() =>
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          void ipcInvoke('app:windowReady').catch(() => {})
+        })
+      )
+    )
     // Tag edits that did not finish last time. Picked up here rather than on
     // the organise page, so they carry on whether or not the user goes back to
     // it — and hold themselves until the libraries are up.
@@ -412,7 +426,7 @@ export default function App(): React.JSX.Element {
       )}
 
       <DialogHost />
-      <UpdateNotices />
+      <UpdateNotices onOpenUpdates={() => setPage('about')} />
 
       {closing && (
         <CloseConfirmDialog

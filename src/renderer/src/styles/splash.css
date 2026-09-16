@@ -1,0 +1,116 @@
+/*
+ * The startup card: the whole window is the card, so it carries the page
+ * background and the window drag. Only the tokens from themes.css are used
+ * here — the app's stylesheet is far too heavy for a window whose job is to
+ * be on screen first.
+ */
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family:
+    'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', 'Noto Sans SC', 'Noto Sans JP',
+    sans-serif;
+  color: var(--text-primary);
+  background: var(--bg-page);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.splash {
+  position: relative;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 1.5rem 1.6rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(120% 90% at 8% 0%, color-mix(in srgb, var(--blob-1) 22%, transparent), transparent 60%),
+    radial-gradient(110% 80% at 100% 110%, color-mix(in srgb, var(--blob-3) 18%, transparent), transparent 62%),
+    var(--bg-page);
+  border: 0.5px solid var(--border-secondary);
+  -webkit-app-region: drag;
+}
+
+.splash-name {
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  background: linear-gradient(100deg, var(--grad-a), var(--grad-b));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.splash-version {
+  margin-top: 0.15rem;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.splash-foot {
+  margin-top: auto;
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.splash-step {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.splash-count {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+
+.splash-bar {
+  margin-top: 0.55rem;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+
+.splash-bar span {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--grad-a), var(--grad-b));
+  transition: width 240ms ease-out;
+}
+
+.splash-quit {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+
+.splash-quit:hover {
+  background: var(--bg-sunken);
+  color: var(--text-primary);
+}

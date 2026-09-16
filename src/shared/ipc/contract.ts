@@ -24,6 +24,7 @@ import { QueueItemSchema, QueueSourceSchema, QueueStateSchema } from '../schemas
 import { DownloadJobSchema, DownloadProgressSchema } from '../schemas/download'
 import { BinaryIdSchema, BinaryStatusSchema, InstallProgressSchema } from '../schemas/dependencies'
 import { ScrapedPostSchema } from '../schemas/scraped-post'
+import { StartupStatusSchema } from '../schemas/startup'
 import { ReleaseSummarySchema, StartupNoticesSchema, UpdateStateSchema } from '../schemas/updates'
 import {
   MatchQueueItemSchema,
@@ -76,6 +77,25 @@ export const ipcContract = {
     /** Single-image picker (organise page cover art). */
     input: z.object({ title: z.string().optional() }).default({}),
     output: z.object({ path: z.string().nullable() })
+  },
+
+  'app:startupStatus': {
+    /** Where the startup sequence has got to; asked by the card as it loads. */
+    input: z.void(),
+    output: StartupStatusSchema
+  },
+  'app:startupCancel': {
+    /** The card's close button: leave, whatever startup was in the middle of. */
+    input: z.void(),
+    output: z.void()
+  },
+  'app:windowReady': {
+    /**
+     * The main window has drawn its first screen. Until this arrives the
+     * window is hidden and the startup card is what the user sees.
+     */
+    input: z.void(),
+    output: z.void()
   },
 
   'app:setTitleBarColors': {
@@ -1300,6 +1320,15 @@ export const ipcContract = {
     input: z.void(),
     output: StartupNoticesSchema
   },
+  'updates:takePrompt': {
+    /**
+     * Is there a release to offer as part of the opening screen? True at most
+     * once per run: read here, it is not offered again, so a window opened
+     * later in the session is never interrupted by it.
+     */
+    input: z.void(),
+    output: z.object({ offer: z.boolean() })
+  },
   'updates:dismissWhatsNew': {
     input: z.void(),
     output: z.void()
@@ -1345,6 +1374,8 @@ export const ipcEvents = {
     libraries: LibrariesFileSchema.shape.libraries
   }),
   'event:sync-progress': SyncProgressSchema,
+  /** How far the startup sequence has got; only the startup card listens. */
+  'event:startup': StartupStatusSchema,
   /** The library's index changed; media lists should be re-fetched. */
   'event:media-changed': z.object({ libraryId: z.uuid() }),
   /**

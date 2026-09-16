@@ -9,6 +9,7 @@ import { getSettings } from '../config/config-service'
 import { currentProxy } from '../net/proxy'
 import { listReleases, newestFor, releaseBaseUrl, releasePageUrl, VELOPACK_CHANNEL } from './releases'
 import { rememberWhatsNew } from './notices'
+import { showInstallingCard } from '../startup/splash-window'
 
 /**
  * Replacing the running app with another release.
@@ -25,8 +26,37 @@ import { rememberWhatsNew } from './notices'
 
 export const updateEvents = new EventEmitter()
 
-const AUTO_CHECK_DELAY_MS = 15_000
 const AUTO_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000
+
+/**
+ * Where a check came from, which decides whether its answer may interrupt.
+ * `startup` runs behind the startup card, so what it finds is part of the
+ * first screen; `auto` is the periodic one and only ever updates the badge.
+ */
+type CheckOrigin = 'startup' | 'auto' | 'manual'
+
+/**
+ * True until the main window is handed to the user. Nothing asks for their
+ * attention after that: an offer that arrives mid-task is an interruption,
+ * and it keeps until the next start.
+ */
+let opening = true
+
+/** The window is the user's now; unprompted dialogs stop here. */
+export function endStartupPhase(): void {
+  opening = false
+}
+
+/**
+ * Whether to open the offer, answered once. The window asks as it loads, and
+ * the flag is cleared with the answer: reopening the window later in the
+ * session must not bring the dialog back with it.
+ */
+export function takePrompt(): boolean {
+  const offer = state.prompt
+  if (offer) setState({ prompt: false })
+  return offer
+}
 
 /** What Velopack needs to apply: a checked update, or a package left from last run. */
 type Applicable = UpdateInfo | VelopackAsset
@@ -121,14 +151,16 @@ export function configureAutoCheck(settings: Settings | null): void {
     return
   }
   if (autoTimer) return
-  const schedule = (delay: number): void => {
+  const schedule = (): void => {
     autoTimer = setTimeout(() => {
       void checkForUpdates('auto').finally(() => {
-        if (autoTimer) schedule(AUTO_CHECK_INTERVAL_MS)
+        if (autoTimer) schedule()
       })
-    }, delay)
+    }, AUTO_CHECK_INTERVAL_MS)
   }
-  schedule(AUTO_CHECK_DELAY_MS)
+  // The first check of a run happens behind the startup card; this one only
+  // covers an app left open for hours.
+  schedule()
 }
 
 /** One operation at a time; a second request while one runs gets the first. */
@@ -145,7 +177,7 @@ function busy(): boolean {
 }
 
 /** Look for a newer release on the configured channel. */
-export function checkForUpdates(origin: 'auto' | 'manual'): Promise<void> {
+export function checkForUpdates(origin: CheckOrigin): Promise<void> {
   // A download in progress or waiting to be applied already is the answer.
   if (busy()) return Promise.resolve()
   return exclusive(async () => {
@@ -170,10 +202,12 @@ export function checkForUpdates(origin: 'auto' | 'manual'): Promise<void> {
         phase: 'available',
         release: newest,
         downgrade: false,
-        prompt: origin === 'auto' && settings.updates.skippedVersion !== newest.version
+        // Only the check behind the startup card may put a dialog on screen,
+        // and only if the window has not been handed over while it ran.
+        prompt: origin === 'startup' && opening && settings.updates.skippedVersion !== newest.version
       })
     } catch (e) {
-      failWith(e, 'update_check_failed', origin === 'auto')
+      failWith(e, 'update_check_failed', origin !== 'manual')
     }
   })
 }
@@ -253,8 +287,11 @@ async function download(release: ReleaseSummary, downgrade: boolean): Promise<vo
 }
 
 /** Restart into the downloaded release now. */
-export function restartToUpdate(): void {
+export async function restartToUpdate(): Promise<void> {
   if (state.phase !== 'ready' || !manager || !applicable || applying) return
+  // The app is about to be gone for a few seconds while its files are
+  // replaced. The card says so; without it the screen just empties.
+  await showInstallingCard()
   apply(true)
   app.quit()
 }

@@ -59,6 +59,9 @@ import {
   resolveMainWindowClose,
   showMainWindow
 } from '../services/main-window'
+import * as startup from '../services/startup/startup'
+import { markWindowReady } from '../services/startup/startup'
+import { startupStatus } from '../services/startup/splash-window'
 import {
   listSubtitleTracks,
   loadSubtitleCues,
@@ -182,6 +185,16 @@ export function registerIpcHandlers(): void {
     electron: process.versions.electron ?? 'unknown',
     userDataPath: app.getPath('userData')
   }))
+
+  handle('app:startupStatus', () => startupStatus())
+
+  handle('app:startupCancel', () => {
+    // The card is the only window at this point, but the main window may
+    // already be loading behind it — leaving means leaving both.
+    app.quit()
+  })
+
+  handle('app:windowReady', () => markWindowReady())
 
   handle('dialog:pickDirectory', async (input) => {
     const result = await dialog.showOpenDialog({
@@ -792,6 +805,11 @@ export function registerIpcHandlers(): void {
   })
 
   handle('updates:startupNotices', () => notices.startupNotices())
+
+  handle('updates:takePrompt', async () => {
+    await startup.greetingSettled()
+    return { offer: updater.takePrompt() }
+  })
 
   handle('updates:dismissWhatsNew', () => notices.dismissWhatsNew())
 

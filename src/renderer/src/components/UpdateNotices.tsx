@@ -20,7 +20,12 @@ type Notice =
   | { kind: 'whatsNew'; version: string; notes: string }
   | { kind: 'announcement'; announcement: Announcement }
 
-export default function UpdateNotices(): React.JSX.Element | null {
+export default function UpdateNotices({
+  onOpenUpdates
+}: {
+  /** Take the user to the About page, where the whole story is. */
+  onOpenUpdates: () => void
+}): React.JSX.Element | null {
   const [notices, setNotices] = useState<Notice[]>([])
   const [update, setUpdate] = useState<UpdateState | null>(null)
   const [promptOpen, setPromptOpen] = useState(false)
@@ -34,6 +39,18 @@ export default function UpdateNotices(): React.JSX.Element | null {
         ])
       })
       .catch((e) => console.warn('[updates] notices unavailable:', e))
+
+    /*
+     * A release found while the app was still starting belongs on this screen,
+     * and the answer waits for the check rather than racing it — the window
+     * loads alongside it and can easily be here first.
+     */
+    ipcInvoke('updates:state').then(setUpdate).catch(() => {})
+    ipcInvoke('updates:takePrompt')
+      .then(({ offer }) => {
+        if (offer) setPromptOpen(true)
+      })
+      .catch(() => {})
   }, [])
 
   useEffect(
@@ -72,7 +89,16 @@ export default function UpdateNotices(): React.JSX.Element | null {
   }
 
   if (promptOpen && update?.release) {
-    return <UpdateDialog state={update} onClose={() => setPromptOpen(false)} />
+    return (
+      <UpdateDialog
+        state={update}
+        onOpenUpdates={() => {
+          onOpenUpdates()
+          setPromptOpen(false)
+        }}
+        onClose={() => setPromptOpen(false)}
+      />
+    )
   }
   return null
 }
@@ -128,7 +154,15 @@ function NoticeDialog({
 }
 
 /** A newer release: its notes, and download → restart without leaving the dialog. */
-function UpdateDialog({ state, onClose }: { state: UpdateState; onClose: () => void }): React.JSX.Element {
+function UpdateDialog({
+  state,
+  onOpenUpdates,
+  onClose
+}: {
+  state: UpdateState
+  onOpenUpdates: () => void
+  onClose: () => void
+}): React.JSX.Element {
   const { t } = useTranslation()
   const toMessage = useErrorMessage()
   const [failed, setFailed] = useState<string | null>(null)
@@ -181,9 +215,10 @@ function UpdateDialog({ state, onClose }: { state: UpdateState; onClose: () => v
                 {t('updates.download')}
               </button>
             ) : (
-              // Opens in the system browser, like every link in the app.
-              <button className="primary" autoFocus onClick={() => window.open(release.url, '_blank')}>
-                {t('updates.openRelease')}
+              // A copy that cannot replace itself still has somewhere to go:
+              // the About page says why and offers the download.
+              <button className="primary" autoFocus onClick={onOpenUpdates}>
+                {t('updates.goToUpdates')}
               </button>
             ))}
           {state.phase === 'ready' && (

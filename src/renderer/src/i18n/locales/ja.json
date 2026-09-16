@@ -884,7 +884,8 @@
   },
   "topbar": {
     "toggleTheme": "テーマを切り替え",
-    "sessionTitle": "EroScripts セッション"
+    "sessionTitle": "EroScripts セッション",
+    "scanning": "ライブラリをスキャンしています…"
   },
   "common": {
     "remove": "削除",
@@ -1267,12 +1268,14 @@
     "download": "アップデートをダウンロード",
     "restart": "今すぐ再起動",
     "openRelease": "リリースページを開く",
+    "goToUpdates": "更新を表示",
     "notSupported": "ここから更新するには、GitHub のリリースからアプリをインストールしてください。",
     "notes": "更新内容",
     "otherVersions": "別のバージョンをインストール",
     "noReleases": "リリースはまだありません",
     "installed": "インストール済み",
     "install": "インストール",
+    "installBusy": "別の更新を実行中です。",
     "confirmOlder": "バージョン {{version}} に戻しますか？新しいバージョンで保存した内容は開けない場合があります。",
     "confirmInstall": "バージョン {{version}} をインストールしますか？",
     "availableTitle": "バージョン {{version}} があります",

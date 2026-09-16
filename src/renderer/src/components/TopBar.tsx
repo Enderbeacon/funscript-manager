@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { ArrowUpCircle, Languages, LogIn, MonitorPlay, Moon, RadioTower, Sun, User } from 'lucide-react'
 import type { IpcOutput } from '@shared/ipc/contract'
 import type { Settings } from '@shared/schemas/app-config'
+import type { SyncProgress } from '@shared/schemas/media-index'
 import type { UpdateState } from '@shared/schemas/updates'
 import { applyLanguageSetting, type LanguageSetting } from '../i18n'
 import { applyThemeSetting, currentTheme, onThemeChange, type ResolvedTheme } from '../theme'
@@ -71,6 +72,29 @@ export default function TopBar({
   const [langOpen, setLangOpen] = useState(false)
   const [sources, setSources] = useState<SourceStatus[]>([])
   const [update, setUpdate] = useState<UpdateState | null>(null)
+  /** Libraries still being scanned, by id; empty means nothing is running. */
+  const [scans, setScans] = useState<Record<string, SyncProgress>>({})
+
+  /*
+   * A library scan that outlived the startup card. The window is fully usable
+   * while it runs, so all this owes the user is a sign that the app is still
+   * working — on whichever page they are on, not only the media one.
+   */
+  useEffect(
+    () =>
+      ipcOn('event:sync-progress', (p) =>
+        setScans((current) => {
+          if (p.phase === 'done') {
+            if (!(p.libraryId in current)) return current
+            const rest = { ...current }
+            delete rest[p.libraryId]
+            return rest
+          }
+          return { ...current, [p.libraryId]: p }
+        })
+      ),
+    []
+  )
 
   useEffect(() => {
     ipcInvoke('settings:get').then(setSettings).catch(() => {})
@@ -115,6 +139,11 @@ export default function TopBar({
 
   const current = sources.find((source) => source.current)
   const currentLive = current?.state === 'connected'
+
+  const running = Object.values(scans)
+  const scanned = running.reduce((sum, p) => sum + p.processed, 0)
+  const scanTotal = running.reduce((sum, p) => sum + p.total, 0)
+  const scanPercent = scanTotal > 0 ? Math.round((scanned / scanTotal) * 100) : 0
 
   return (
     <header className="topbar">
@@ -213,6 +242,18 @@ export default function TopBar({
 
         <TourButton />
       </div>
+
+      {running.length > 0 && (
+        <div
+          className="topbar-sync"
+          title={t('topbar.scanning')}
+          role="progressbar"
+          aria-label={t('topbar.scanning')}
+          aria-valuenow={scanPercent}
+        >
+          <span style={{ width: `${scanPercent}%` }} />
+        </div>
+      )}
     </header>
   )
 }
