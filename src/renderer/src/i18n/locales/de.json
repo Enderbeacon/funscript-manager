@@ -1332,6 +1332,7 @@
     "download": "Update herunterladen",
     "restart": "Jetzt neu starten",
     "openRelease": "Release-Seite öffnen",
+    "openReleaseShort": "Öffnen",
     "goToUpdates": "Updates ansehen",
     "notSupported": "Um hier zu aktualisieren, installiere die App aus einem GitHub-Release.",
     "notes": "Neuigkeiten",

@@ -7083,6 +7083,65 @@ button.sp-connect-button.connected:hover:not(:disabled) {
 .release-version { font-variant-numeric: tabular-nums; }
 .release-date { font-size: 12px; color: var(--text-tertiary); }
 
+/*
+ * With the room for it, the status and its controls take three fifths of the
+ * card and the release notes and version list sit beside them; narrower, the
+ * two stack as one column.
+ */
+.updates-card { container: updates / inline-size; }
+
+@container updates (min-width: 600px) {
+  .updates-split {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    column-gap: 1.25rem;
+  }
+
+  /*
+   * The side column never sets the card's height: size containment leaves the
+   * row as tall as the status column, and this one stretches to match. Opening
+   * either section hands it the space the column has left, and its content
+   * scrolls there instead of pushing the card taller. With both open they
+   * share it.
+   */
+  .updates-side {
+    contain: size;
+    display: flex;
+    flex-direction: column;
+    border-left: 0.5px solid var(--border-tertiary);
+    padding-left: 1.25rem;
+  }
+
+  .updates-side > .mfp-alt {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .updates-side > .mfp-alt[open] { flex: 1 1 0; }
+
+  /* The gap keeps buttons and text clear of the scrollbar. */
+  .updates-side > .mfp-alt::details-content {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 0.4rem;
+  }
+
+  .updates-side .release-list {
+    max-height: none;
+    overflow: visible;
+  }
+
+  /* The column rule already separates it from the status. */
+  .updates-side > .mfp-alt:first-child {
+    margin-top: 0;
+    border-top: none;
+    padding-top: 0;
+  }
+}
+
 /* Release notes and notices: Markdown kept to the app's own text sizes. */
 .markdown { font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; }
 .markdown > :first-child { margin-top: 0; }
@@ -7182,6 +7241,11 @@ button.sp-connect-button.connected:hover:not(:disabled) {
   gap: 0.4rem;
   margin-top: 0.9rem;
 }
+.about-links button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
 
 /* The top bar says an update is waiting; the button opens the About page. */
 .topbar-btn.update-ready {
@@ -7220,11 +7284,6 @@ button.sp-connect-button.connected:hover:not(:disabled) {
   height: 4px;
   display: flex;
   align-items: flex-end;
-}
-.about-links button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
 }
 
 .topbar-sync span {

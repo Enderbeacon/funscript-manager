@@ -1312,6 +1312,7 @@
     "download": "下载更新",
     "restart": "立即重启",
     "openRelease": "打开发布页面",
+    "openReleaseShort": "打开",
     "goToUpdates": "查看更新",
     "notSupported": "要在这里更新，请从 GitHub Release 安装软件。",
     "notes": "更新内容",

@@ -1312,6 +1312,7 @@
     "download": "アップデートをダウンロード",
     "restart": "今すぐ再起動",
     "openRelease": "リリースページを開く",
+    "openReleaseShort": "開く",
     "goToUpdates": "更新を表示",
     "notSupported": "ここから更新するには、GitHub のリリースからアプリをインストールしてください。",
     "notes": "更新内容",

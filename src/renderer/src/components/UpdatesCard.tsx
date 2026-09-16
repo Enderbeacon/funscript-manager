@@ -87,122 +87,133 @@ export default function UpdatesCard(): React.JSX.Element {
     <div className="card updates-card">
       <h2 className="settings-section-title">{t('updates.title')}</h2>
 
-      <div className="update-current">
-        <span>{t('updates.current', { version: state.currentVersion })}</span>
-        {state.currentVersion.includes('-') && <span className="badge accent">{t('updates.channelBeta')}</span>}
-      </div>
+      <div className="updates-split">
+        <div className="updates-main">
+          <div className="update-current">
+            <span>{t('updates.current', { version: state.currentVersion })}</span>
+            {state.currentVersion.includes('-') && <span className="badge accent">{t('updates.channelBeta')}</span>}
+          </div>
 
-      <div className="settings-field">
-        <span className="settings-label">{t('updates.channel')}</span>
-        <Select<UpdateChannel>
-          className="block"
-          value={settings.updates.channel}
-          onChange={(channel) => void onPatch({ updates: { channel } })}
-          options={[
-            { value: 'stable', label: t('updates.channelStable') },
-            { value: 'beta', label: t('updates.channelBeta') }
-          ]}
-        />
-      </div>
+          <div className="settings-field">
+            <span className="settings-label">{t('updates.channel')}</span>
+            <Select<UpdateChannel>
+              className="block"
+              value={settings.updates.channel}
+              onChange={(channel) => void onPatch({ updates: { channel } })}
+              options={[
+                { value: 'stable', label: t('updates.channelStable') },
+                { value: 'beta', label: t('updates.channelBeta') }
+              ]}
+            />
+          </div>
 
-      <label className="close-remember">
-        <input
-          type="checkbox"
-          checked={settings.updates.autoCheck}
-          onChange={(e) => void onPatch({ updates: { autoCheck: e.target.checked } })}
-        />
-        {t('updates.autoCheck')}
-      </label>
+          <label className="close-remember">
+            <input
+              type="checkbox"
+              checked={settings.updates.autoCheck}
+              onChange={(e) => void onPatch({ updates: { autoCheck: e.target.checked } })}
+            />
+            {t('updates.autoCheck')}
+          </label>
 
-      <div className="update-status">
-        <span className="grow">
-          {state.phase === 'checking' && t('updates.checking')}
-          {state.phase === 'upToDate' && t('updates.upToDate')}
-          {state.phase === 'available' && release && t('updates.available', { version: release.version })}
-          {state.phase === 'ready' && release && t('updates.ready', { version: release.version })}
-          {state.phase === 'error' && state.error && (
-            <span className="settings-error">{t(`errors.${state.error}`)}</span>
-          )}
-        </span>
-        {(state.phase === 'idle' || state.phase === 'upToDate' || state.phase === 'error' || state.phase === 'checking') && (
-          <button className="ghost" disabled={busy} onClick={() => run(() => ipcInvoke('updates:check'))}>
-            {t('updates.check')}
-          </button>
-        )}
-        {state.phase === 'available' && release &&
-          (state.supported ? (
-            <button className="primary" onClick={() => run(() => ipcInvoke('updates:download'))}>
-              {t('updates.download')}
-            </button>
-          ) : (
-            <button className="primary" onClick={() => window.open(release.url, '_blank')}>
-              {t('updates.openRelease')}
-            </button>
-          ))}
-        {state.phase === 'ready' && (
-          <button className="primary" onClick={() => run(() => ipcInvoke('updates:restart'))}>
-            {t('updates.restart')}
-          </button>
-        )}
-      </div>
-      {state.phase === 'downloading' && <DownloadBar progress={state.progress} />}
-      {state.phase === 'ready' && <p className="settings-hint">{t('updates.readyHint')}</p>}
-      {!state.supported && <p className="settings-hint">{t('updates.notSupported')}</p>}
-      {failed && <p className="mfp-install-error">{failed}</p>}
+          <div className="update-status">
+            <span className="grow">
+              {state.phase === 'checking' && t('updates.checking')}
+              {state.phase === 'upToDate' && t('updates.upToDate')}
+              {state.phase === 'available' && release && t('updates.available', { version: release.version })}
+              {state.phase === 'ready' && release && t('updates.ready', { version: release.version })}
+              {state.phase === 'error' && state.error && (
+                <span className="settings-error">{t(`errors.${state.error}`)}</span>
+              )}
+            </span>
+            {(state.phase === 'idle' || state.phase === 'upToDate' || state.phase === 'error' || state.phase === 'checking') && (
+              <button className="ghost" disabled={busy} onClick={() => run(() => ipcInvoke('updates:check'))}>
+                {t('updates.check')}
+              </button>
+            )}
+            {state.phase === 'available' && release &&
+              (state.supported ? (
+                <button className="primary" onClick={() => run(() => ipcInvoke('updates:download'))}>
+                  {t('updates.download')}
+                </button>
+              ) : (
+                <button className="primary" onClick={() => window.open(release.url, '_blank')}>
+                  {t('updates.openRelease')}
+                </button>
+              ))}
+            {state.phase === 'ready' && (
+              <button className="primary" onClick={() => run(() => ipcInvoke('updates:restart'))}>
+                {t('updates.restart')}
+              </button>
+            )}
+          </div>
+          {state.phase === 'downloading' && <DownloadBar progress={state.progress} />}
+          {state.phase === 'ready' && <p className="settings-hint">{t('updates.readyHint')}</p>}
+          {!state.supported && <p className="settings-hint">{t('updates.notSupported')}</p>}
+          {failed && <p className="mfp-install-error">{failed}</p>}
+        </div>
 
-      {(state.phase === 'available' || state.phase === 'downloading' || state.phase === 'ready') &&
-        release?.notes.trim() && (
-          <details className="mfp-alt">
-            <summary>{t('updates.notes')}</summary>
-            <Markdown source={release.notes} />
+        {/* What to read and where else to go: beside the status, not below it. */}
+        <div className="updates-side">
+          {(state.phase === 'available' || state.phase === 'downloading' || state.phase === 'ready') &&
+            release?.notes.trim() && (
+              <details className="mfp-alt">
+                <summary>{t('updates.notes')}</summary>
+                <Markdown source={release.notes} />
+              </details>
+            )}
+
+          <details
+            className="mfp-alt"
+            // Only a failed load is tried again on opening; a loaded list refreshes itself.
+            onToggle={(e) => e.currentTarget.open && releasesError && loadReleases()}
+          >
+            <summary>{t('updates.otherVersions')}</summary>
+            {releasesError && <p className="mfp-install-error">{releasesError}</p>}
+            {!releases && !releasesError && <p className="settings-hint">{t('updates.releasesLoading')}</p>}
+            {releases && releases.length === 0 && <p className="settings-hint">{t('updates.noReleases')}</p>}
+            {releases && releases.length > 0 && (
+              <ul className="release-list">
+                {releases.map((r) => {
+                  const current = r.version === state.currentVersion
+                  return (
+                    <li key={r.tag} className="release-row">
+                      <span className="release-version">{r.version}</span>
+                      {r.channel === 'beta' && <span className="badge accent">{t('updates.channelBeta')}</span>}
+                      {r.publishedAt && (
+                        <span className="release-date">{new Date(r.publishedAt).toLocaleDateString()}</span>
+                      )}
+                      <span className="grow" />
+                      {current && <span className="badge">{t('updates.installed')}</span>}
+                      {/* Without the updater there is nothing to install with, so the
+                          row offers the download page instead of a dead button. */}
+                      {!current && !state.supported && (
+                        <button
+                          className="ghost"
+                          title={t('updates.openRelease')}
+                          onClick={() => window.open(r.url, '_blank')}
+                        >
+                          {t('updates.openReleaseShort')}
+                        </button>
+                      )}
+                      {!current && state.supported && (
+                        <button
+                          className="ghost"
+                          disabled={busy || state.phase === 'ready'}
+                          title={busy || state.phase === 'ready' ? t('updates.installBusy') : undefined}
+                          onClick={() => void install(r)}
+                        >
+                          {t('updates.install')}
+                        </button>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
           </details>
-        )}
-
-      <details
-        className="mfp-alt"
-        // Only a failed load is tried again on opening; a loaded list refreshes itself.
-        onToggle={(e) => e.currentTarget.open && releasesError && loadReleases()}
-      >
-        <summary>{t('updates.otherVersions')}</summary>
-        {releasesError && <p className="mfp-install-error">{releasesError}</p>}
-        {!releases && !releasesError && <p className="settings-hint">{t('updates.releasesLoading')}</p>}
-        {releases && releases.length === 0 && <p className="settings-hint">{t('updates.noReleases')}</p>}
-        {releases && releases.length > 0 && (
-          <ul className="release-list">
-            {releases.map((r) => {
-              const current = r.version === state.currentVersion
-              return (
-                <li key={r.tag} className="release-row">
-                  <span className="release-version">{r.version}</span>
-                  {r.channel === 'beta' && <span className="badge accent">{t('updates.channelBeta')}</span>}
-                  {r.publishedAt && (
-                    <span className="release-date">{new Date(r.publishedAt).toLocaleDateString()}</span>
-                  )}
-                  <span className="grow" />
-                  {current && <span className="badge">{t('updates.installed')}</span>}
-                  {/* Without the updater there is nothing to install with, so the
-                      row offers the download page instead of a dead button. */}
-                  {!current && !state.supported && (
-                    <button className="ghost" onClick={() => window.open(r.url, '_blank')}>
-                      {t('updates.openRelease')}
-                    </button>
-                  )}
-                  {!current && state.supported && (
-                    <button
-                      className="ghost"
-                      disabled={busy || state.phase === 'ready'}
-                      title={busy || state.phase === 'ready' ? t('updates.installBusy') : undefined}
-                      onClick={() => void install(r)}
-                    >
-                      {t('updates.install')}
-                    </button>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </details>
+        </div>
+      </div>
     </div>
   )
 }

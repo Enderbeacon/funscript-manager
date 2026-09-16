@@ -1332,6 +1332,7 @@
     "download": "Télécharger la mise à jour",
     "restart": "Redémarrer maintenant",
     "openRelease": "Ouvrir la page de la version",
+    "openReleaseShort": "Ouvrir",
     "goToUpdates": "Voir les mises à jour",
     "notSupported": "Pour mettre à jour d’ici, installez l’application depuis une version GitHub.",
     "notes": "Nouveautés",

@@ -1331,6 +1331,7 @@
     "download": "Download update",
     "restart": "Restart now",
     "openRelease": "Open release page",
+    "openReleaseShort": "Open",
     "goToUpdates": "See updates",
     "notSupported": "To update from here, install the app from a GitHub release.",
     "notes": "What's new",
