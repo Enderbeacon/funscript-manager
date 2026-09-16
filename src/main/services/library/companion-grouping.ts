@@ -245,9 +245,28 @@ function trailingAxis(core: string): { core: string; axis: FunscriptAxis } | nul
   return AXIS_SET.has(tail) ? { core: core.slice(0, dot), axis: tail as FunscriptAxis } : null
 }
 
-/** The leftover as a version label: separators trimmed off either end. */
+const BRACKET_PAIRS: Record<string, string> = { ')': '(', ']': '[', '}': '{', '】': '【', '）': '（', '〕': '〔' }
+
+/**
+ * The leftover as a version label: separators trimmed off either end.
+ *
+ * An opening bracket is trimmed along with the leading separators, so its
+ * partner at the end has to go too — otherwise `clip (Soft)` is labelled
+ * `Soft)`. Only a closer left without its opener is dropped: `Remix (Soft)`
+ * keeps both brackets.
+ */
 function labelOf(leftover: string): string {
-  return leftover.replace(/^[._\-\s([{【（〔]+/, '').replace(/[\s._-]+$/, '')
+  let label = leftover.replace(/^[._\-\s([{【（〔]+/, '').replace(/[\s._-]+$/, '')
+  for (;;) {
+    const closer = label.at(-1) ?? ''
+    const opener = BRACKET_PAIRS[closer]
+    if (!opener || count(label, closer) <= count(label, opener)) return label
+    label = label.slice(0, -1).replace(/[\s._-]+$/, '')
+  }
+}
+
+function count(text: string, char: string): number {
+  return text.split(char).length - 1
 }
 
 /**
@@ -268,7 +287,9 @@ function splitAxis(leftover: string): { versionKey: string; axis: FunscriptAxis 
       break
     }
   }
-  return { versionKey: segments.join('.'), axis }
+  // Trimmed again once the axis is out: in `(Soft).roll` the closing bracket
+  // only reaches the end of the label after `.roll` is gone.
+  return { versionKey: labelOf(segments.join('.')), axis }
 }
 
 /**
