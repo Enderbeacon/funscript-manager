@@ -47,7 +47,7 @@ const DEAD_REASONS = new Set([
  * something different of the user: check the connection, wait, or wait for an
  * app update.
  */
-export type LinkIssue = 'unreachable' | 'rate_limited' | 'site_changed'
+export type LinkIssue = 'unreachable' | 'rate_limited' | 'site_changed' | 'verification_required'
 
 interface Verdict {
   status: LinkStatus
@@ -146,6 +146,8 @@ function verdict(e: unknown): Verdict {
   if (e instanceof RateLimitedError) return { status: 'unknown', issue: 'rate_limited' }
   if (e instanceof PermanentError) {
     if (DEAD_REASONS.has(e.reason)) return { status: 'gone' }
+    // A check stands in front of it; a person passing it is the next step.
+    if (e.reason === 'verification_required') return { status: 'unknown', issue: 'verification_required' }
     return CHANGED_REASONS.has(e.reason)
       ? { status: 'unknown', issue: 'site_changed' }
       : { status: 'unknown' }

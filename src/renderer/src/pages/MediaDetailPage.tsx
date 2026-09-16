@@ -675,7 +675,7 @@ export default function MediaDetailPage({
         {error && <div className="error-banner">{error}</div>}
         {notice && <div className="detail-notice">{notice}</div>}
 
-        <div className="detail-preview">
+        <div className="detail-preview sfw">
           {thumb ? (
             <img className="detail-thumb" src={thumb} alt="" />
           ) : (

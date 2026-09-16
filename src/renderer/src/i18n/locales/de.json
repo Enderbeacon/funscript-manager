@@ -884,7 +884,8 @@
       "link_broken": "Dieser Link lässt sich nicht laden",
       "network_failed": "Keine Verbindung zur Quelle",
       "download_no_plugin": "Kein Downloader kann diesen Link verarbeiten",
-      "unknown": "Download fehlgeschlagen"
+      "unknown": "Download fehlgeschlagen",
+      "verification_required": "Die Seite verlangt eine kurze Prüfung, dass du ein Mensch bist"
     },
     "openSource": "Im Browser öffnen",
     "resumeNow": "Jetzt erneut",
@@ -900,7 +901,12 @@
       "problem": "Fehler",
       "done": "Fertig"
     },
-    "busyCooling": "{{hoster}} ist ausgelastet, neuer Versuch um {{time}}"
+    "busyCooling": "{{hoster}} ist ausgelastet, neuer Versuch um {{time}}",
+    "verify": "Prüfen",
+    "verifyHint": {
+      "access": "Schließe die Prüfung auf dieser Seite ab. Das Fenster schließt sich von selbst und der Download läuft weiter.",
+      "file": "Klicke auf dieser Seite auf „Download“ und schließe die Prüfung ab. Die Datei landet direkt in deiner Bibliothek."
+    }
   },
   "posts": {
     "subtitle": "Einen EroScripts-Beitrag auswerten und auswählen, was geladen wird",
@@ -940,7 +946,8 @@
     "linkIssue": {
       "unreachable": "{{host}} nicht erreichbar",
       "rate_limited": "{{host}} ist ausgelastet — später erneut versuchen",
-      "site_changed": "{{host}} hat sich geändert — App-Update nötig"
+      "site_changed": "{{host}} hat sich geändert — App-Update nötig",
+      "verification_required": "{{host}} verlangt eine Prüfung"
     }
   },
   "wanted": {
@@ -974,7 +981,9 @@
   "topbar": {
     "toggleTheme": "Thema wechseln",
     "sessionTitle": "EroScripts-Sitzung",
-    "scanning": "Bibliotheken werden durchsucht…"
+    "scanning": "Bibliotheken werden durchsucht…",
+    "sfwOff": "Bilder unscharf machen",
+    "sfwOn": "Bilder wieder scharf zeigen"
   },
   "common": {
     "remove": "Entfernen",

@@ -12,6 +12,7 @@ export const HOSTER_IDS = [
   'eporner',
   'hanime1',
   'hanimetv',
+  'iwara',
   'pornhub',
   'rule34video',
   'spankbang',

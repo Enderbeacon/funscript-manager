@@ -10,6 +10,7 @@ import {
   Pause,
   Play,
   RotateCw,
+  ShieldCheck,
   Trash2,
   TriangleAlert,
   X
@@ -19,6 +20,7 @@ import HosterBadge, { hosterName } from '../components/HosterBadge'
 import { ScriptPairingPrompt } from '../components/ScriptPairing'
 import { ipcInvoke, ipcOn } from '../ipc'
 import { useErrorMessage } from '../useErrorMessage'
+import { verifyDownload } from '../verifyDownload'
 import { formatBytes, formatClock, formatEta } from '../format'
 import { useRemoteImage } from '../useRemoteImage'
 import { useSurface } from '../surfaces'
@@ -216,7 +218,7 @@ function JobRow({
 
   return (
     <div className={`job ${job.state}`}>
-      <div className="job-thumb">
+      <div className="job-thumb sfw">
         {thumb ? <img src={thumb} alt="" loading="lazy" /> : <ImageIcon size={15} />}
       </div>
 
@@ -306,6 +308,13 @@ function JobRow({
             title={job.state === 'cooling' ? t('downloads.resumeNow') : t('downloads.resume')}
           >
             {job.state === 'cooling' ? <RotateCw size={15} /> : <Play size={15} />}
+          </button>
+        )}
+        {/* A check only a person can pass: retrying alone would stop at it again. */}
+        {job.state === 'failed' && job.error === 'verification_required' && (
+          <button className="ghost sm job-verify" onClick={() => verifyDownload(job.id, t)}>
+            <ShieldCheck size={14} />
+            {t('downloads.verify')}
           </button>
         )}
         {job.state === 'failed' && (

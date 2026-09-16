@@ -69,8 +69,10 @@ window.addEventListener('pagehide', () => {
 // A library frame is credited to its video in the corner, and the credit only
 // changes once the next frame is actually showing.
 const creditEl = document.getElementById('credit')!
-void ipcInvoke('app:startupArtwork', { purpose: 'startup' }).then(({ images, rotate, intervalSeconds, presentation }) => {
+void ipcInvoke('app:startupArtwork', { purpose: 'startup' }).then(({ images, rotate, intervalSeconds, presentation, blur }) => {
   if (disposed) return
+  // Library frames under the safe-for-work view: blurred until pointed at.
+  document.getElementById('photos')!.closest('.splash-artwork')?.classList.toggle('sfw', blur)
   const captions = new Map(images.map(({ src, caption }) => [src, caption]))
   stopArtwork = startArtworkSlideshow(
     document.getElementById('photos')!,

@@ -31,6 +31,7 @@ const HOSTERS: { host: RegExp; hoster: ScrapedLink['hoster'] }[] = [
   { host: /(^|\.)eporner\.com$/i, hoster: 'eporner' },
   { host: /(^|\.)hanime1\.me$/i, hoster: 'hanime1' },
   { host: /(^|\.)hanime\.tv$/i, hoster: 'hanimetv' },
+  { host: /(^|\.)iwara\.tv$/i, hoster: 'iwara' },
   { host: /(^|\.)pornhub\.com$/i, hoster: 'pornhub' },
   { host: /(^|\.)rule34video\.com$/i, hoster: 'rule34video' },
   { host: /(^|\.)spankbang\.(com|party)$/i, hoster: 'spankbang' },

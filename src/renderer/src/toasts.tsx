@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { TriangleAlert, X } from 'lucide-react'
 import { ipcInvoke, ipcOn } from './ipc'
+import { verifyDownload } from './verifyDownload'
 
 /**
  * Short notices at the top centre of the window, for things that go wrong away
@@ -147,7 +148,11 @@ export function useDownloadFailureToasts(onOpenQueue: () => void, queueOpen: boo
                   })
                 })
               : tr('toasts.downloadsFailed', { count: fresh.length }),
-            action: { label: tr('toasts.openQueue'), run: () => openQueue.current() }
+            // One download stuck behind a check: the useful move is the check.
+            action:
+              only?.error === 'verification_required'
+                ? { label: tr('downloads.verify'), run: () => verifyDownload(only.id, tr) }
+                : { label: tr('toasts.openQueue'), run: () => openQueue.current() }
           })
         })
         .catch(() => {})

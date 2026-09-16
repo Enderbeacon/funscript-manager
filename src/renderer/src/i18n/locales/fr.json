@@ -884,7 +884,8 @@
       "link_broken": "Ce lien ne peut pas être téléchargé",
       "network_failed": "Impossible de joindre le site source",
       "download_no_plugin": "Aucun téléchargeur ne gère ce lien",
-      "unknown": "Échec du téléchargement"
+      "unknown": "Échec du téléchargement",
+      "verification_required": "Le site demande une vérification rapide que vous êtes humain"
     },
     "openSource": "Ouvrir dans le navigateur",
     "resumeNow": "Réessayer",
@@ -899,7 +900,12 @@
       "problem": "Échecs",
       "done": "Terminés"
     },
-    "busyCooling": "{{hoster}} est saturé, nouvel essai à {{time}}"
+    "busyCooling": "{{hoster}} est saturé, nouvel essai à {{time}}",
+    "verify": "Vérifier",
+    "verifyHint": {
+      "access": "Terminez la vérification sur cette page. La fenêtre se ferme toute seule et le téléchargement reprend.",
+      "file": "Cliquez sur « Download » sur cette page et terminez la vérification. Le fichier va directement dans votre bibliothèque."
+    }
   },
   "posts": {
     "subtitle": "Analyser une publication EroScripts et choisir quoi télécharger",
@@ -938,7 +944,8 @@
     "linkIssue": {
       "unreachable": "Impossible de joindre {{host}}",
       "rate_limited": "{{host}} est saturé — réessayez plus tard",
-      "site_changed": "{{host}} a changé — mise à jour de l’app nécessaire"
+      "site_changed": "{{host}} a changé — mise à jour de l’app nécessaire",
+      "verification_required": "{{host}} demande une vérification"
     }
   },
   "wanted": {
@@ -972,7 +979,9 @@
   "topbar": {
     "toggleTheme": "Changer de thème",
     "sessionTitle": "Session EroScripts",
-    "scanning": "Analyse des bibliothèques…"
+    "scanning": "Analyse des bibliothèques…",
+    "sfwOff": "Flouter les images",
+    "sfwOn": "Ne plus flouter les images"
   },
   "common": {
     "remove": "Retirer",

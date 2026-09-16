@@ -572,7 +572,7 @@ export default function PlaylistPanel({
                 </span>
                 {/* Same row as the queue's, so the two tabs read as one thing. */}
                 <button
-                  className="qart"
+                  className="qart sfw"
                   aria-label={t('playlist.playFrom')}
                   onClick={(e) => {
                     e.stopPropagation()

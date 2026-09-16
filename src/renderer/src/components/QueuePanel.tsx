@@ -270,7 +270,7 @@ export default function QueuePanel({
               {/* The frame is the play button: a row of numbered boxes told
                   the user nothing about what they were queuing. */}
               <button
-                className="qart"
+                className="qart sfw"
                 aria-label={t('playlist.playFrom')}
                 onClick={(e) => {
                   e.stopPropagation()

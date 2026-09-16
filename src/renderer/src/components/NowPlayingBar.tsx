@@ -287,7 +287,7 @@ export default function NowPlayingBar({
   return (
     <div className={`nowbar glass${idle ? ' idle' : ''}${variant === 'detached' ? ' detached' : ''}`}>
       <button
-        className="np-art"
+        className="np-art sfw"
         title={idle ? '' : t(onArtwork ? 'player.showPicture' : 'nowplaying.openDetail')}
         disabled={idle || (!onArtwork && !onOpenMedia)}
         onClick={() => {

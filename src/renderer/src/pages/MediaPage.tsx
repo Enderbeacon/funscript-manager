@@ -1580,7 +1580,7 @@ const MediaCard = memo(function MediaCard({
       >
         <Heart size={14} fill={item.favorite ? 'currentColor' : 'none'} />
       </button>
-      <div className="media-thumb">
+      <div className="media-thumb sfw">
         <span className="media-ext">{item.fileName.split('.').pop()?.toUpperCase()}</span>
         {!item.missing && (
           <CachedIpcImage

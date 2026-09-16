@@ -884,7 +884,8 @@
       "link_broken": "This link cannot be downloaded",
       "network_failed": "Cannot reach the source site",
       "download_no_plugin": "No downloader handles this link",
-      "unknown": "Download failed"
+      "unknown": "Download failed",
+      "verification_required": "The site wants a quick check that you're human"
     },
     "openSource": "Open in browser",
     "resumeNow": "Retry now",
@@ -899,7 +900,12 @@
       "problem": "Problems",
       "done": "Finished"
     },
-    "busyCooling": "{{hoster}} is busy, retry at {{time}}"
+    "busyCooling": "{{hoster}} is busy, retry at {{time}}",
+    "verify": "Verify",
+    "verifyHint": {
+      "access": "Complete the check on this page. This window closes by itself and the download carries on.",
+      "file": "Press Download on this page and complete the check. The file goes straight to your library."
+    }
   },
   "posts": {
     "subtitle": "Parse an EroScripts post and choose what to download",
@@ -938,7 +944,8 @@
     "linkIssue": {
       "unreachable": "Can't reach {{host}}",
       "rate_limited": "{{host}} is busy — try later",
-      "site_changed": "{{host}} changed — needs an app update"
+      "site_changed": "{{host}} changed — needs an app update",
+      "verification_required": "{{host}} needs a human check"
     }
   },
   "wanted": {
@@ -972,7 +979,9 @@
   "topbar": {
     "toggleTheme": "Switch theme",
     "sessionTitle": "EroScripts session",
-    "scanning": "Scanning libraries…"
+    "scanning": "Scanning libraries…",
+    "sfwOff": "Blur pictures",
+    "sfwOn": "Stop blurring pictures"
   },
   "common": {
     "remove": "Remove",

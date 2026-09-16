@@ -152,6 +152,13 @@ body {
   object-fit: cover;
 }
 
+/* Safe-for-work view: a frame from the library stays blurred until pointed at. */
+.splash-artwork.sfw img {
+  filter: blur(22px) saturate(0.75);
+  transition: filter 140ms ease;
+}
+.splash-artwork.sfw:hover img { filter: none; }
+
 /*
  * A focused portrait crop sits over a deliberately soft copy of the same
  * frame. Prepared artwork makes the foreground sharp; ordinary thumbnails

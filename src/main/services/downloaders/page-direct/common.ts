@@ -3,6 +3,7 @@ import { byPreference, type QualityPreference } from '@shared/quality'
 import { getSettings } from '../../config/config-service'
 import { httpDownloadToFile } from '../http'
 import { headStatus } from '../link-check'
+import { fetchViaWindow, fetchWithClearance, isChallengePage } from './challenge-window'
 import {
   HttpStatusError,
   PermanentError,
@@ -93,19 +94,39 @@ export function siteFetch(url: string, init?: Parameters<typeof net.fetch>[1]): 
   return net.fetch(url, init)
 }
 
+/** A hidden window's try at a check before a person is asked for. */
+const QUICK_WINDOW_MS = 12_000
+
+/**
+ * Read a page. When the site answers with a bot check instead, the partition a
+ * person may already have passed it in is tried, then a hidden window in case
+ * the check solves itself; only then does it fail with `verification_required`,
+ * which the queue turns into an offer to pass the check by hand.
+ */
 export async function fetchPage(url: string, headers: Record<string, string> = {}): Promise<string> {
-  const res = await siteFetch(url, {
-    headers: {
-      'User-Agent': BROWSER_UA,
-      'Accept-Language': 'en-US,en;q=0.9',
-      Accept: 'text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8',
-      ...headers
-    },
-    redirect: 'follow'
-  })
-  if (!res.ok) throw new PageParseError(`page_http_${res.status}`)
-  return res.text()
+  const sent = {
+    'User-Agent': BROWSER_UA,
+    'Accept-Language': 'en-US,en;q=0.9',
+    Accept: 'text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8',
+    ...headers
+  }
+  const res = await siteFetch(url, { headers: sent, redirect: 'follow' })
+  if (res.ok) return res.text()
+  const body = await res.text().catch(() => '')
+  const challenged =
+    res.headers.get('cf-mitigated') === 'challenge' ||
+    ((res.status === 403 || res.status === 503 || res.status === 429) && isChallengePage(body))
+  if (!challenged) throw new PageParseError(`page_http_${res.status}`)
+
+  const cleared = await fetchWithClearance(url, sent)
+  if (cleared) return cleared
+  const viaWindow = await fetchViaWindow(url, BROWSER_UA, QUICK_WINDOW_MS).catch(() => null)
+  if (viaWindow) return viaWindow
+  throw new PageParseError(VERIFICATION_REQUIRED)
 }
+
+/** The failure code for a page only a person can get past. */
+export const VERIFICATION_REQUIRED = 'verification_required'
 
 /**
  * Pick a resolution for the user's preference. The preference is a ceiling, not
@@ -201,12 +222,17 @@ export function pageDirectPlugin(opts: PageDirectOptions): DownloaderPlugin {
       try {
         await plugin.resolve(url)
         return 'alive'
-      } catch {
+      } catch (e) {
+        // A check only a person can pass is worth saying as such.
+        if (e instanceof PermanentError && e.reason === VERIFICATION_REQUIRED) throw e
         // Parsed nothing and the page is still there: a wall, a redesign, or a
         // bot check. None of that means the video is gone.
         return 'unknown'
       }
     },
+
+    /** The page itself: a check passed there lets the next read through. */
+    verification: { pageUrl: (url: string) => url, delivers: 'access' },
 
     async resolve(url) {
       try {
@@ -220,6 +246,11 @@ export function pageDirectPlugin(opts: PageDirectOptions): DownloaderPlugin {
         }
       } catch (e) {
         if (!(e instanceof PageParseError)) throw e
+        // A check in front of the page stops the fallback just the same; only a
+        // person passing it helps.
+        if (e.reason === VERIFICATION_REQUIRED || e.reason === 'challenge_unsolved') {
+          throw new PermanentError(VERIFICATION_REQUIRED)
+        }
         // A server-side wobble is worth the queue's normal backoff; a changed
         // page is not, and neither is a wall.
         const status = Number(/^page_http_(\d{3})$/.exec(e.reason)?.[1] ?? 0)

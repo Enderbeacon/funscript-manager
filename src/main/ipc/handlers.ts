@@ -223,7 +223,10 @@ export function registerIpcHandlers(): void {
   handle('app:startupArtwork', async ({ purpose }) => {
     const { ui } = await config.getSettings()
     const libraries = ui.startupArtwork.mode === 'library' ? await config.listLibraries() : []
-    return loadStartupArtwork(ui, libraries, purpose)
+    return {
+      ...(await loadStartupArtwork(ui, libraries, purpose)),
+      blur: ui.sfw && ui.startupArtwork.mode === 'library'
+    }
   })
 
   handle('app:startupArtworkCacheStatus', async () => {
@@ -850,6 +853,10 @@ export function registerIpcHandlers(): void {
   handle('download:cancel', (input) => downloads.cancelJob(input.id))
 
   handle('download:clearFinished', () => downloads.clearFinished())
+
+  handle('download:verify', ({ id, hints }) => {
+    void downloads.verifyJob(id, hints).catch((e) => console.error('[downloads] verify failed:', e))
+  })
 
   handle('download:pairings', () => ({ requests: pairingRequests() }))
 

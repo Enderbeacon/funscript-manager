@@ -352,6 +352,12 @@ export const SettingsSchema = z.object({
       mediaSort: z
         .enum(['path', 'title', 'addedAt', 'updatedAt', 'size', 'rating', 'scriptCount'])
         .default('path'),
+      /**
+       * Safe-for-work view: covers, thumbnails and post pictures stay blurred
+       * until the pointer rests on one. Flipped from the top bar, since it is
+       * something switched on the moment someone walks in.
+       */
+      sfw: z.boolean().default(false),
       /** Last library chosen as the destination on the Posts page. */
       postDownloadLibraryId: z.union([z.uuid(), z.literal('')]).default(''),
       /**

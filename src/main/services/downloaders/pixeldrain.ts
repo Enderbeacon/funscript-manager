@@ -1,6 +1,7 @@
 import { httpDownloadToFile } from './http'
 import {
   HttpStatusError,
+  PermanentError,
   type DownloadInfo,
   type DownloaderPlugin,
   type DownloadResult,
@@ -46,6 +47,12 @@ interface FileInfo {
   name?: string
   size?: number
   mime_type?: string
+  /**
+   * Empty when the file can simply be fetched. `…_captcha_required` values mean
+   * pixeldrain wants a captcha first — its hotlink protection, or a per-address
+   * limit — and the plain API request is refused with 403 until then.
+   */
+  availability?: string
 }
 
 interface ShareNode {
@@ -82,6 +89,11 @@ function encodePath(path: string): string {
 
 function siteOrigin(url: string): string {
   return new URL(url).origin
+}
+
+/** Where a person opens the file, pointed at a stub server when the API is. */
+function pageOrigin(url: string): string {
+  return API_BASE_OVERRIDE ? new URL(API_BASE_OVERRIDE).origin : siteOrigin(url)
 }
 
 /** Use the hostname the author shared, so an alternate domain keeps bypassing a local block. */
@@ -174,6 +186,20 @@ export const pixeldrainPlugin: DownloaderPlugin = {
   /** `/info` or `?stat` is one API call, and a removed file is a clean 404. */
   checkCost: 'cheap',
 
+  /**
+   * A captcha-protected file is fetched from pixeldrain's own page: the person
+   * presses Download there and solves the captcha, and the page requests the
+   * file with the captcha's answer — which only works once, so that request is
+   * the download.
+   */
+  verification: {
+    pageUrl: (url: string) => {
+      const id = FILE_URL.exec(url)?.[1]
+      return id ? `${pageOrigin(url)}/u/${id}` : url
+    },
+    delivers: 'file'
+  },
+
   async resolve(url) {
     const share = sharePath(url)
     if (share) {
@@ -193,6 +219,10 @@ export const pixeldrainPlugin: DownloaderPlugin = {
     if (!match) throw new Error(`not a pixeldrain file url: ${url}`)
     const id = match[1]!
     const info = await getJson<FileInfo>(`${apiBase(url)}/file/${id}/info`)
+    // Asking for the file would only earn a 403 that reads like a refusal.
+    if (info.availability?.endsWith('_captcha_required')) {
+      throw new PermanentError('verification_required')
+    }
     return {
       url: `${apiBase(url)}/file/${id}`,
       filename: info.name || id,

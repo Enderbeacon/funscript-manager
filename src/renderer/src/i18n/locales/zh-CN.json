@@ -875,7 +875,8 @@
       "link_broken": "这个链接下不了",
       "network_failed": "连不上来源站点",
       "download_no_plugin": "没有下载器能处理这个链接",
-      "unknown": "下载失败"
+      "unknown": "下载失败",
+      "verification_required": "网站要求先完成人机验证"
     },
     "openSource": "在浏览器打开",
     "resumeNow": "立即重试",
@@ -890,7 +891,12 @@
       "problem": "失败",
       "done": "已完成"
     },
-    "busyCooling": "{{hoster}} 正忙，{{time}} 后重试"
+    "busyCooling": "{{hoster}} 正忙，{{time}} 后重试",
+    "verify": "去验证",
+    "verifyHint": {
+      "access": "在这个页面完成验证。窗口会自动关闭，下载随后继续。",
+      "file": "在这个页面点“下载”并完成验证。文件会直接进入媒体库。"
+    }
   },
   "posts": {
     "subtitle": "解析 EroScripts 帖子，选择需要下载的资源",
@@ -926,7 +932,8 @@
     "linkIssue": {
       "unreachable": "连不上 {{host}}",
       "rate_limited": "{{host}} 正忙，稍后再试",
-      "site_changed": "{{host}} 有变动，需要更新软件"
+      "site_changed": "{{host}} 有变动，需要更新软件",
+      "verification_required": "{{host}} 需要人机验证"
     }
   },
   "wanted": {
@@ -959,7 +966,9 @@
   "topbar": {
     "toggleTheme": "切换主题",
     "sessionTitle": "EroScripts 会话",
-    "scanning": "正在扫描库…"
+    "scanning": "正在扫描库…",
+    "sfwOff": "模糊图片",
+    "sfwOn": "取消模糊图片"
   },
   "common": {
     "remove": "移除",

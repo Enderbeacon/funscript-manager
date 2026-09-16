@@ -29,7 +29,7 @@ import { useRemoteImage } from '../useRemoteImage'
 /** What a liveness check found; `unchecked` means nobody has looked yet. */
 type LinkStatus = 'alive' | 'gone' | 'unknown' | 'unchecked'
 /** Why a check could not decide, when the host gave that much away. */
-type LinkIssue = 'unreachable' | 'rate_limited' | 'site_changed'
+type LinkIssue = 'unreachable' | 'rate_limited' | 'site_changed' | 'verification_required'
 
 /**
  * One parsed post: what it is, and one card per source with everything needed
@@ -155,7 +155,7 @@ function LinkCard({
   const body = (
     <>
       {!link.isScript && (
-        <div className="lk-thumb">
+        <div className="lk-thumb sfw">
           {thumb ? <img src={thumb} alt="" loading="lazy" /> : <ImageIcon size={15} />}
         </div>
       )}
@@ -432,7 +432,7 @@ export default function PostCard({
   return (
     <article className="post" data-tour="post-card">
       <div className="post-head">
-        <div className="post-thumb">
+        <div className="post-thumb sfw">
           {poster ? (
             <img src={poster} alt="" loading="lazy" />
           ) : (

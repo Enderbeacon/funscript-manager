@@ -875,7 +875,8 @@
       "link_broken": "このリンクはダウンロードできません",
       "network_failed": "配布元に接続できません",
       "download_no_plugin": "このリンクに対応するダウンローダーがありません",
-      "unknown": "ダウンロードに失敗しました"
+      "unknown": "ダウンロードに失敗しました",
+      "verification_required": "サイトが人間かどうかの確認を求めています"
     },
     "openSource": "ブラウザで開く",
     "resumeNow": "今すぐ再試行",
@@ -890,7 +891,12 @@
       "problem": "失敗",
       "done": "完了"
     },
-    "busyCooling": "{{hoster}} が混み合っています。{{time}} に再試行"
+    "busyCooling": "{{hoster}} が混み合っています。{{time}} に再試行",
+    "verify": "確認する",
+    "verifyHint": {
+      "access": "このページで確認を済ませてください。ウィンドウは自動で閉じ、ダウンロードが続きます。",
+      "file": "このページで「ダウンロード」を押して確認を済ませてください。ファイルはそのままライブラリに入ります。"
+    }
   },
   "posts": {
     "subtitle": "EroScripts の投稿を解析し、ダウンロードするものを選びます",
@@ -926,7 +932,8 @@
     "linkIssue": {
       "unreachable": "{{host}} に接続できません",
       "rate_limited": "{{host}} が混み合っています。しばらくしてから再試行",
-      "site_changed": "{{host}} の仕様が変わりました。アプリの更新が必要です"
+      "site_changed": "{{host}} の仕様が変わりました。アプリの更新が必要です",
+      "verification_required": "{{host}} で人間の確認が必要です"
     }
   },
   "wanted": {
@@ -959,7 +966,9 @@
   "topbar": {
     "toggleTheme": "テーマを切り替え",
     "sessionTitle": "EroScripts セッション",
-    "scanning": "ライブラリをスキャンしています…"
+    "scanning": "ライブラリをスキャンしています…",
+    "sfwOff": "画像をぼかす",
+    "sfwOn": "画像のぼかしを解除"
   },
   "common": {
     "remove": "削除",

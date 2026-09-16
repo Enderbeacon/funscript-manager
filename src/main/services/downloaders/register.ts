@@ -6,6 +6,7 @@ import { mediafirePlugin } from './clouds/mediafire'
 import { directPlugin } from './direct'
 import { gofilePlugin } from './gofile'
 import { hanimetvPlugin } from './hanimetv'
+import { iwaraPlugin } from './iwara'
 import { megaPlugin } from './mega'
 import { epornerPlugin } from './page-direct/eporner'
 import { hanime1Plugin } from './page-direct/hanime1'
@@ -41,6 +42,7 @@ export function registerDownloaderPlugins(): void {
   registerPlugin(gdrivePlugin)
   registerPlugin(dropboxPlugin)
   registerPlugin(mediafirePlugin)
+  registerPlugin(iwaraPlugin)
   registerPlugin(ytdlpPlugin)
   registerPlugin(directPlugin)
 }

@@ -152,7 +152,10 @@ export default function StartupArtworkSettings({
         ))}
       </fieldset>
       <div className="startup-artwork-settings">
-        <div className={`startup-artwork-preview ${presentation === 'framed' ? 'framed' : ''}`}>
+        {/* Only a frame from the library is the library's picture to hide. */}
+        <div
+          className={`startup-artwork-preview ${presentation === 'framed' ? 'framed' : ''}${value.mode === 'library' ? ' sfw' : ''}`}
+        >
           {presentation === 'framed' && (
             <img className="startup-artwork-preview-backdrop" src={preview} alt="" />
           )}

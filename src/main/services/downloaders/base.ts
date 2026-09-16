@@ -49,6 +49,23 @@ export interface DownloaderPlugin {
    */
   check?(url: string): Promise<LinkStatus>
 
+  /**
+   * How a person gets a link past a check this host puts in front of it — a
+   * bot challenge, a captcha. A job the check stops fails with
+   * `verification_required`, and the queue offers to open `pageUrl` in a real
+   * window for the person to pass it.
+   *
+   * - `access`: passing it is all it takes; the job is retried afterwards,
+   *   reading the page through the session the check was passed in.
+   * - `file`: the page hands the file over itself once passed (a captcha token
+   *   good for one request), so the download started in that window is the
+   *   job's download.
+   */
+  readonly verification?: {
+    pageUrl(url: string): string
+    delivers: 'access' | 'file'
+  }
+
   /** Resolve a URL into download metadata (just-in-time, at job start). */
   resolve(url: string): Promise<DownloadInfo>
 

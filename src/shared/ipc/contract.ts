@@ -109,7 +109,9 @@ export const ipcContract = {
       images: z.array(z.object({ src: z.string(), caption: z.string().nullable() })),
       rotate: z.boolean(),
       intervalSeconds: z.number().int().min(1).max(60),
-      presentation: z.enum(['cover', 'framed'])
+      presentation: z.enum(['cover', 'framed']),
+      /** Frames from the library while the safe-for-work view is on. */
+      blur: z.boolean()
     })
   },
   'app:startupArtworkCacheStatus': {
@@ -1200,6 +1202,18 @@ export const ipcContract = {
     input: z.void(),
     output: z.void()
   },
+  'download:verify': {
+    /**
+     * Open the check a failed job is stuck behind, in a window for the user.
+     * Returns at once; the job moves on through the usual events. `hints` are
+     * the line shown in that window — a page to pass, or a file to fetch.
+     */
+    input: z.object({
+      id: z.uuid(),
+      hints: z.object({ access: z.string(), file: z.string() })
+    }),
+    output: z.void()
+  },
   'download:pairings': {
     /** Downloaded scripts waiting for the user to say which video each goes with. */
     input: z.void(),
@@ -1236,7 +1250,10 @@ export const ipcContract = {
     output: z.object({
       statuses: z.record(z.string(), z.enum(['alive', 'gone', 'unknown', 'unchecked'])),
       /** Why an `unknown` link could not be checked, when that is known. */
-      issues: z.record(z.string(), z.enum(['unreachable', 'rate_limited', 'site_changed']))
+      issues: z.record(
+        z.string(),
+        z.enum(['unreachable', 'rate_limited', 'site_changed', 'verification_required'])
+      )
     })
   },
   'deps:status': {

@@ -489,7 +489,7 @@ function CoverPicker({ kind, name }: { kind: EntityKind; name: string }): React.
   return (
     <div className="cover-picker">
       {error && <div className="error-banner">{error}</div>}
-      <div className={`cover-frame${dataUrl ? '' : ' empty'}`}>
+      <div className={`cover-frame sfw${dataUrl ? '' : ' empty'}`}>
         {dataUrl ? <img src={dataUrl} alt="" /> : <span>{t('organise.coverNone')}</span>}
       </div>
       <div className="row">

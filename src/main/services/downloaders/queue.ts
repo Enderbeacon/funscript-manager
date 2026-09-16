@@ -10,6 +10,7 @@ import type { ScrapedLink, ScrapedPost } from '@shared/schemas/scraped-post'
 import { getSettings, listLibraries } from '../config/config-service'
 import { isMediaFile } from '../library/companion-grouping'
 import { attachScriptsToMedia, fillWantedFromDownload } from '../library/library-manager'
+import type { DownloadItem } from 'electron'
 import { refreshSystemProxy } from '../net/proxy'
 import { setActiveDownloads } from '../net/throttle'
 import {
@@ -23,7 +24,9 @@ import {
   type ProgressEvent
 } from './base'
 import { fileNameFromUrl } from './direct'
+import { VERIFICATION_REQUIRED } from './page-direct/common'
 import { batchSettled, finalizeBatch } from './post-ingest'
+import { openVerification } from './verify-window'
 import * as store from './store'
 
 /**
@@ -414,6 +417,116 @@ export async function retryJob(id: string): Promise<void> {
   await pump()
 }
 
+/** The one line shown in a verification window, per kind; in the user's language. */
+export interface VerifyHints {
+  access: string
+  file: string
+}
+
+/**
+ * Open the check a job is stuck behind, for the user to pass.
+ *
+ * For a page check, passing it lets every download from that site that was
+ * stuck on the same thing through, so they are all retried. For a captcha in
+ * front of a file, the download the page starts is this job's download.
+ */
+export async function verifyJob(id: string, hints: VerifyHints): Promise<void> {
+  const job = store.get(id)
+  if (!job || job.state !== 'failed' || job.error !== VERIFICATION_REQUIRED) return
+  const how = findPlugin(job.sourceUrl)?.verification
+  if (!how) return
+  const page = how.pageUrl(job.sourceUrl)
+
+  if (how.delivers === 'access') {
+    const outcome = await openVerification(page, { delivers: 'access', hint: hints.access })
+    if (outcome.kind !== 'cleared') return
+    const stuck = store
+      .list()
+      .filter((j) => j.state === 'failed' && j.error === VERIFICATION_REQUIRED && j.hoster === job.hoster)
+    for (const other of stuck) await retryJob(other.id)
+    return
+  }
+
+  // The browser cannot append to a partial file, and a captcha answer starts
+  // the transfer over anyway.
+  await rm(job.partPath, { force: true }).catch(() => {})
+  await mkdir(dirname(job.partPath), { recursive: true })
+  const outcome = await openVerification(page, {
+    delivers: 'file',
+    hint: hints.file,
+    savePath: job.partPath
+  })
+  if (outcome.kind === 'file') runCaptured(id, outcome.item)
+}
+
+/**
+ * A download the browser is doing on the job's behalf, run as the job: the
+ * same row, progress, pause and cancel, and the same finish into the library
+ * and the post's batch.
+ */
+function runCaptured(id: string, item: DownloadItem): void {
+  const job = store.get(id)
+  if (!job) {
+    item.cancel()
+    return
+  }
+  const entry: RunningJob = { controller: new AbortController(), hoster: job.hoster, intent: null }
+  running.set(id, entry)
+  setActiveDownloads(running.size)
+  entry.controller.signal.addEventListener('abort', () => item.cancel())
+
+  const offered = item.getFilename()
+  store.update(id, {
+    state: 'running',
+    error: null,
+    bytesDownloaded: 0,
+    ...(item.getTotalBytes() > 0 ? { totalBytes: item.getTotalBytes() } : {}),
+    ...(!job.namePinned && offered ? { fileName: safeFileName(offered) } : {})
+  })
+  notifyChanged()
+
+  const report = progressReporter(id)
+  let window = { at: Date.now(), bytes: 0 }
+  item.on('updated', () => {
+    const received = item.getReceivedBytes()
+    const total = item.getTotalBytes()
+    const elapsed = (Date.now() - window.at) / 1000
+    const speed = elapsed > 0 ? (received - window.bytes) / elapsed : 0
+    if (elapsed >= 1) window = { at: Date.now(), bytes: received }
+    report({
+      bytesDownloaded: received,
+      ...(total > 0 ? { totalBytes: total } : {}),
+      speedBytesPerSec: Math.max(0, speed),
+      ...(total > 0 && speed > 0 ? { etaSec: (total - received) / speed } : {})
+    })
+  })
+
+  item.once('done', (_event, state) => {
+    void (async () => {
+      try {
+        if (state === 'completed') await finish(id)
+        else if (entry.intent) settleAborted(job, entry)
+        else {
+          console.error(`[downloads] job ${id}: the page's download ended as ${state}`)
+          store.update(id, { state: 'failed', error: 'network_failed' })
+          notifyChanged()
+        }
+      } catch (e) {
+        console.error(`[downloads] job ${id} could not be filed:`, e)
+        store.update(id, { state: 'failed', error: 'network_failed' })
+        notifyChanged()
+      } finally {
+        running.delete(id)
+        setActiveDownloads(running.size)
+        progressBuf.delete(id)
+        lastPersist.delete(id)
+        void settleBatch(job.batchId)
+        void pump()
+      }
+    })()
+  })
+}
+
 export async function cancelJob(id: string): Promise<void> {
   const active = running.get(id)
   if (active) {
@@ -519,6 +632,28 @@ function startJob(job: store.JobRecord): void {
     })
 }
 
+/** Live progress for a job: batched to the renderer, written to the row now and then. */
+function progressReporter(id: string): (p: ProgressEvent) => void {
+  return (p) => {
+    progressBuf.set(id, {
+      id,
+      bytesDownloaded: bytes(p.bytesDownloaded),
+      totalBytes: p.totalBytes !== undefined ? bytes(p.totalBytes) : null,
+      speedBytesPerSec: Math.max(0, p.speedBytesPerSec ?? 0),
+      etaSec: p.etaSec !== undefined ? Math.max(0, p.etaSec) : null
+    })
+    scheduleProgress()
+    const now = Date.now()
+    if (now - (lastPersist.get(id) ?? 0) >= PERSIST_INTERVAL_MS) {
+      lastPersist.set(id, now)
+      store.update(id, {
+        bytesDownloaded: bytes(p.bytesDownloaded),
+        ...(p.totalBytes !== undefined ? { totalBytes: bytes(p.totalBytes) } : {})
+      })
+    }
+  }
+}
+
 async function runJob(
   job: store.JobRecord,
   plugin: DownloaderPlugin,
@@ -529,24 +664,7 @@ async function runJob(
   let serverRetries = 0
   let expiryReResolves = 0
 
-  const onProgress = (p: ProgressEvent): void => {
-    progressBuf.set(job.id, {
-      id: job.id,
-      bytesDownloaded: bytes(p.bytesDownloaded),
-      totalBytes: p.totalBytes !== undefined ? bytes(p.totalBytes) : null,
-      speedBytesPerSec: Math.max(0, p.speedBytesPerSec ?? 0),
-      etaSec: p.etaSec !== undefined ? Math.max(0, p.etaSec) : null
-    })
-    scheduleProgress()
-    const now = Date.now()
-    if (now - (lastPersist.get(job.id) ?? 0) >= PERSIST_INTERVAL_MS) {
-      lastPersist.set(job.id, now)
-      store.update(job.id, {
-        bytesDownloaded: bytes(p.bytesDownloaded),
-        ...(p.totalBytes !== undefined ? { totalBytes: bytes(p.totalBytes) } : {})
-      })
-    }
-  }
+  const onProgress = progressReporter(job.id)
 
   /**
    * `error` is always a code the renderer translates — never raw text. A status

@@ -2381,6 +2381,18 @@ button.lk-check:hover { color: var(--text-primary); border-color: var(--accent);
 .post-bar-actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .post-bar-actions button { padding: 0.35rem 0.8rem; font-size: 13px; display: inline-flex; align-items: center; gap: 0.35rem; }
 
+/*
+ * Safe-for-work view. Library pictures — covers, thumbnails, post previews —
+ * stay blurred until the pointer rests on the one it wants to see. The
+ * containers marked `sfw` already clip their contents, so the blur keeps to
+ * the picture's own box. Heatmaps are the script's shape, not the scene.
+ */
+:root[data-sfw] .sfw :is(img, video):not(.media-heatmap, .np-heat) {
+  filter: blur(16px) saturate(0.75);
+  transition: filter 140ms ease;
+}
+:root[data-sfw] .sfw:hover :is(img, video) { filter: none; }
+
 /* Notices at the top centre of the window; above dialogs, below nothing. */
 .toast-stack {
   position: fixed;
@@ -2446,6 +2458,9 @@ button.lk-check:hover { color: var(--text-primary); border-color: var(--accent);
   border-top: 0.5px solid var(--border-tertiary);
   background: color-mix(in srgb, var(--danger) 10%, transparent);
 }
+
+/* The one action a download stuck behind a site's check needs. */
+.job-verify { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 
 /* Scripts waiting for the user to pick their video. */
 .pair-prompt {
@@ -2918,6 +2933,8 @@ button.lk-check:hover { color: var(--text-primary); border-color: var(--accent);
 
 .topbar-btn:hover { background: var(--border-tertiary); color: var(--text-primary); }
 .topbar-btn.warn { color: var(--warn); }
+/* A switch that is on says so without being opened. */
+.topbar-btn.active { color: var(--accent); background: var(--accent-soft); }
 
 .topbar-btn.script-player-entry {
   box-sizing: border-box;

@@ -1,6 +1,18 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowUpCircle, ChevronDown, Globe, LogIn, MonitorPlay, Moon, RadioTower, Sun, User } from 'lucide-react'
+import {
+  ArrowUpCircle,
+  ChevronDown,
+  Eye,
+  EyeOff,
+  Globe,
+  LogIn,
+  MonitorPlay,
+  Moon,
+  RadioTower,
+  Sun,
+  User
+} from 'lucide-react'
 import type { IpcOutput } from '@shared/ipc/contract'
 import type { Settings } from '@shared/schemas/app-config'
 import type { SyncProgress } from '@shared/schemas/media-index'
@@ -125,6 +137,23 @@ export default function TopBar({
     void ipcInvoke('settings:update', { ui: { theme: next } }).catch(() => {})
   }
 
+  const sfw = settings?.ui.sfw ?? false
+
+  /*
+   * The marker the stylesheet blurs on. Set here, where the setting is read
+   * and flipped, and at start from the saved value — a window that opened
+   * sharp for a moment would defeat the point.
+   */
+  useEffect(() => {
+    if (sfw) document.documentElement.dataset['sfw'] = ''
+    else delete document.documentElement.dataset['sfw']
+  }, [sfw])
+
+  const setSfw = (next: boolean): void => {
+    setSettings((cur) => (cur ? { ...cur, ui: { ...cur.ui, sfw: next } } : cur))
+    void ipcInvoke('settings:update', { ui: { sfw: next } }).catch(() => {})
+  }
+
   const setLanguage = (next: LanguageSetting): void => {
     setSettings((cur) => (cur ? { ...cur, ui: { ...cur.ui, language: next } } : cur))
     applyLanguageSetting(next)
@@ -209,6 +238,16 @@ export default function TopBar({
             {signedIn ? t('posts.signedIn') : '—'}
           </span>
         )}
+
+        <button
+          className={`topbar-btn${sfw ? ' active' : ''}`}
+          onClick={() => setSfw(!sfw)}
+          aria-pressed={sfw}
+          title={sfw ? t('topbar.sfwOn') : t('topbar.sfwOff')}
+          aria-label={sfw ? t('topbar.sfwOn') : t('topbar.sfwOff')}
+        >
+          {sfw ? <EyeOff size={15} /> : <Eye size={15} />}
+        </button>
 
         <button
           className="topbar-btn"
