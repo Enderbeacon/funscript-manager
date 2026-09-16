@@ -1341,7 +1341,10 @@ export const ipcContract = {
     output: UpdateStateSchema
   },
   'updates:releases': {
-    /** Every installable release, newest first. */
+    /**
+     * Every installable release, newest first. Answers from the last known list
+     * when there is one; a refresh of it follows as `event:releases`.
+     */
     input: z.void(),
     output: z.array(ReleaseSummarySchema)
   },
@@ -1456,6 +1459,8 @@ export const ipcEvents = {
   'event:dep-progress': InstallProgressSchema,
   /** The updater moved: checking, found a release, download progress, ready. */
   'event:update-state': UpdateStateSchema,
+  /** A fresh release list came back from GitHub. */
+  'event:releases': z.array(ReleaseSummarySchema),
 
   /** How the library-wide post match is getting on. */
   'event:match-progress': MatchScanStatusSchema,

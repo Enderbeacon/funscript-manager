@@ -1336,6 +1336,7 @@
     "notes": "What's new",
     "otherVersions": "Install another version",
     "noReleases": "No releases yet",
+    "releasesLoading": "Loading versions…",
     "installed": "Installed",
     "install": "Install",
     "installBusy": "Another update is already in progress.",

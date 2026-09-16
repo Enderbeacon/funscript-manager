@@ -1317,6 +1317,7 @@
     "notes": "更新内容",
     "otherVersions": "別のバージョンをインストール",
     "noReleases": "リリースはまだありません",
+    "releasesLoading": "バージョンを読み込み中…",
     "installed": "インストール済み",
     "install": "インストール",
     "installBusy": "別の更新を実行中です。",

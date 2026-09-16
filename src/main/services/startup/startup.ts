@@ -10,6 +10,7 @@ import {
 import { createMainWindow, revealMainWindow } from '../main-window'
 import { applyProxySettings } from '../net/proxy'
 import { abandonPrefetch, justUpdatedTo, prefetchNotices } from '../updates/notices'
+import { listReleases } from '../updates/releases'
 import { checkForUpdates, endStartupPhase, initUpdates } from '../updates/updater'
 import { closeCard, openCard, setStartupStatus } from './splash-window'
 import {
@@ -137,9 +138,13 @@ export async function runStartup(settings: Settings | null): Promise<void> {
 
   // Releases and notices together, under one deadline. A card that opened on
   // `updated` keeps saying so — the run right after an install has its own news.
+  // The release list is fetched outright, not only through the check: a check
+  // skipped because an update is already downloaded would leave the version
+  // list in the updates card empty until it was opened. The two share a request.
   setStartupStatus({ step: updated ? 'updated' : 'updates', progress: along(BAND.updates, 0) })
   await withDeadline(
     Promise.allSettled([
+      listReleases(),
       checkForUpdates('startup'),
       prefetchNotices().catch((e) => console.warn('[updates] notices unavailable:', e))
     ]),

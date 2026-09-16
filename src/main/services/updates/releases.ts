@@ -1,3 +1,4 @@
+import { EventEmitter } from 'node:events'
 import { app, net } from 'electron'
 import { AppError } from '@shared/errors'
 import { compareVersions, isValidVersion } from '@shared/semver'
@@ -48,7 +49,12 @@ interface GithubRelease {
   assets: { name: string }[]
 }
 
+/** Emits `changed` with the list whenever a fetch brings back a new one. */
+export const releaseEvents = new EventEmitter()
+
+/** The last list GitHub gave; kept past its freshness so a window never waits on it twice. */
 let cache: { at: number; releases: ReleaseSummary[] } | null = null
+let inflight: Promise<ReleaseSummary[]> | null = null
 
 export function releasePageUrl(tag: string): string {
   return `https://github.com/${REPOSITORY}/releases/tag/${encodeURIComponent(tag)}`
@@ -62,7 +68,30 @@ export function releaseBaseUrl(release: ReleaseSummary): string {
 /** Every installable release, newest first. */
 export async function listReleases(force = false): Promise<ReleaseSummary[]> {
   if (!force && cache && Date.now() - cache.at < CACHE_TTL_MS) return cache.releases
+  // The startup check and a window opening at the same moment share one request.
+  inflight ??= fetchReleases().finally(() => {
+    inflight = null
+  })
+  return inflight
+}
 
+/**
+ * The list for showing on screen: whatever is already known, straight away.
+ * A list past its freshness is still returned and refreshed behind it, and the
+ * new one arrives through `releaseEvents`. Only with nothing known yet does
+ * this wait on GitHub.
+ */
+export async function knownReleases(): Promise<ReleaseSummary[]> {
+  if (!cache) return listReleases()
+  if (Date.now() - cache.at >= CACHE_TTL_MS) {
+    listReleases().catch(() => {
+      // Already logged; the list on screen stays as it was.
+    })
+  }
+  return cache.releases
+}
+
+async function fetchReleases(): Promise<ReleaseSummary[]> {
   let res: Response
   try {
     // Chromium's stack, so the app's proxy (or the system's) applies.
@@ -100,6 +129,7 @@ export async function listReleases(force = false): Promise<ReleaseSummary[]> {
     .filter((r): r is ReleaseSummary => r !== null)
     .sort((a, b) => compareVersions(b.version, a.version))
   cache = { at: Date.now(), releases }
+  releaseEvents.emit('changed', releases)
   return releases
 }
 

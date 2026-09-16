@@ -19,7 +19,7 @@ import * as deps from '../services/deps/binaries'
 import { depsEvents } from '../services/deps/binaries'
 import * as updater from '../services/updates/updater'
 import { updateEvents } from '../services/updates/updater'
-import { listReleases } from '../services/updates/releases'
+import { knownReleases, releaseEvents } from '../services/updates/releases'
 import * as notices from '../services/updates/notices'
 import * as scraper from '../services/scraper/discourse'
 import { findPostForMedia } from '../services/matcher/match-service'
@@ -841,7 +841,7 @@ export function registerIpcHandlers(): void {
     return updater.updateState()
   })
 
-  handle('updates:releases', () => listReleases())
+  handle('updates:releases', () => knownReleases())
 
   handle('updates:install', async ({ version }) => {
     await updater.installRelease(version)
@@ -1050,5 +1050,6 @@ export function registerIpcHandlers(): void {
   downloadEvents.on('progress', (jobs) => broadcast('event:download-progress', { jobs }))
   depsEvents.on('progress', (p) => broadcast('event:dep-progress', p))
   updateEvents.on('state', (s) => broadcast('event:update-state', s))
+  releaseEvents.on('changed', (releases) => broadcast('event:releases', releases))
   scanEvents.on('progress', (p) => broadcast('event:match-progress', p))
 }

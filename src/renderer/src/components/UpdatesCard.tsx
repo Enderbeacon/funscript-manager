@@ -24,10 +24,30 @@ export default function UpdatesCard(): React.JSX.Element {
   const [releases, setReleases] = useState<ReleaseSummary[] | null>(null)
   const [releasesError, setReleasesError] = useState<string | null>(null)
 
+  // The release list is fetched at startup, so asking for it here is normally
+  // instant; loading it with the card rather than on expanding keeps the list
+  // ready by the time anyone opens it.
+  const loadReleases = (): void => {
+    setReleasesError(null)
+    ipcInvoke('updates:releases')
+      .then(setReleases)
+      .catch((e) => setReleasesError(toMessage(e)))
+  }
+
   useEffect(() => {
     ipcInvoke('settings:get').then(setSettings).catch(() => {})
     ipcInvoke('updates:state').then(setState).catch(() => {})
-    return ipcOn('event:update-state', setState)
+    loadReleases()
+    const offState = ipcOn('event:update-state', setState)
+    const offReleases = ipcOn('event:releases', (list) => {
+      setReleases(list)
+      setReleasesError(null)
+    })
+    return () => {
+      offState()
+      offReleases()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const onPatch = async (patch: Record<string, unknown>): Promise<void> => {
@@ -37,14 +57,6 @@ export default function UpdatesCard(): React.JSX.Element {
   const run = (action: () => Promise<unknown>): void => {
     setFailed(null)
     action().catch((e) => setFailed(toMessage(e)))
-  }
-
-  const loadReleases = (): void => {
-    if (releases) return
-    setReleasesError(null)
-    ipcInvoke('updates:releases')
-      .then(setReleases)
-      .catch((e) => setReleasesError(toMessage(e)))
   }
 
   const install = async (release: ReleaseSummary): Promise<void> => {
@@ -146,9 +158,14 @@ export default function UpdatesCard(): React.JSX.Element {
           </details>
         )}
 
-      <details className="mfp-alt" onToggle={(e) => e.currentTarget.open && loadReleases()}>
+      <details
+        className="mfp-alt"
+        // Only a failed load is tried again on opening; a loaded list refreshes itself.
+        onToggle={(e) => e.currentTarget.open && releasesError && loadReleases()}
+      >
         <summary>{t('updates.otherVersions')}</summary>
         {releasesError && <p className="mfp-install-error">{releasesError}</p>}
+        {!releases && !releasesError && <p className="settings-hint">{t('updates.releasesLoading')}</p>}
         {releases && releases.length === 0 && <p className="settings-hint">{t('updates.noReleases')}</p>}
         {releases && releases.length > 0 && (
           <ul className="release-list">
