@@ -794,7 +794,8 @@
     "update_rate_limited": "GitHub begrenzt Anfragen aus diesem Netzwerk. Versuche es in einer Stunde erneut.",
     "update_download_failed": "Das Update konnte nicht heruntergeladen werden. Versuche es erneut.",
     "update_not_supported": "Diese Kopie kann sich nicht selbst aktualisieren.",
-    "update_release_not_found": "Diese Version lässt sich nicht installieren."
+    "update_release_not_found": "Diese Version lässt sich nicht installieren.",
+    "license_unavailable": "Die Lizenzdatei ließ sich nicht öffnen."
   },
   "downloads": {
     "empty": "Noch keine Downloads.",
@@ -1338,6 +1339,11 @@
     "dataFolder": "Datenordner",
     "repository": "Repository",
     "releases": "Alle Releases",
-    "issues": "Problem melden"
+    "issues": "Problem melden",
+    "licenses": "Lizenzen",
+    "licenseSummary": "Veröffentlicht unter der GNU AGPL v3.0 oder neuer, ohne jede Gewährleistung. Die verwendeten Open-Source-Komponenten stehen unter ihren eigenen Lizenzen.",
+    "documentation": "Dokumentation",
+    "licenseText": "Lizenz",
+    "thirdPartyLicenses": "Lizenzen von Drittanbietern"
   }
 }

@@ -6,6 +6,15 @@ directories:
 files:
   - out/**
   - "!out/types-*/**"
+  # Shipped beside the executable instead (extraFiles), readable without the app.
+  - "!out/main/THIRD_PARTY_LICENSES.txt"
+# Next to Electron's own LICENSE.electron.txt and LICENSES.chromium.html, so
+# every license that comes with the app is in one folder.
+extraFiles:
+  - from: LICENSE
+    to: LICENSE.txt
+  - from: out/main/THIRD_PARTY_LICENSES.txt
+    to: THIRD_PARTY_LICENSES.txt
 asarUnpack:
   - resources/bin/**
 extraResources:

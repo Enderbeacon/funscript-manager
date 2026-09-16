@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { writeFile } from 'node:fs/promises'
+import { readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { app, BrowserWindow, dialog, shell } from 'electron'
 import { AppError } from '@shared/errors'
@@ -193,6 +193,23 @@ export function registerIpcHandlers(): void {
     electron: process.versions.electron ?? 'unknown',
     userDataPath: app.getPath('userData')
   }))
+
+  handle('app:readLicense', async ({ which }) => {
+    // A packaged copy has both beside the executable, where they stay readable
+    // without the app. A development run has the license at the project root
+    // and the generated list beside the main bundle.
+    const path = app.isPackaged
+      ? join(dirname(process.execPath), which === 'app' ? 'LICENSE.txt' : 'THIRD_PARTY_LICENSES.txt')
+      : which === 'app'
+        ? join(app.getAppPath(), 'LICENSE')
+        : join(__dirname, 'THIRD_PARTY_LICENSES.txt')
+    try {
+      return { text: await readFile(path, 'utf8') }
+    } catch (e) {
+      console.warn('[about] license file unreadable:', path, e)
+      throw new AppError('license_unavailable')
+    }
+  })
 
   handle('app:startupStatus', () => startupStatus())
 

@@ -794,7 +794,8 @@
     "update_rate_limited": "このネットワークからのリクエストが GitHub に制限されています。1 時間後にもう一度お試しください。",
     "update_download_failed": "アップデートをダウンロードできませんでした。もう一度お試しください。",
     "update_not_supported": "このコピーは自動で更新できません。",
-    "update_release_not_found": "このバージョンはインストールできません。"
+    "update_release_not_found": "このバージョンはインストールできません。",
+    "license_unavailable": "ライセンスファイルを開けませんでした。"
   },
   "downloads": {
     "empty": "ダウンロードはまだありません。",
@@ -1338,6 +1339,11 @@
     "dataFolder": "データフォルダー",
     "repository": "リポジトリ",
     "releases": "すべてのリリース",
-    "issues": "問題を報告"
+    "issues": "問題を報告",
+    "licenses": "ライセンス",
+    "licenseSummary": "GNU AGPL v3.0 以降のもとで公開しており、いかなる保証もありません。使用しているオープンソースコンポーネントには、それぞれのライセンスが適用されます。",
+    "documentation": "ドキュメント",
+    "licenseText": "ライセンス",
+    "thirdPartyLicenses": "サードパーティのライセンス"
   }
 }

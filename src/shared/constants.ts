@@ -46,3 +46,9 @@ export type FunscriptAxis = (typeof FUNSCRIPT_AXES)[number] | 'main'
 export const COMPANION_MATCH_LEVELS = ['exact', 'separators', 'affixes', 'loose'] as const
 export type CompanionMatchLevel = (typeof COMPANION_MATCH_LEVELS)[number]
 export const DEFAULT_COMPANION_MATCH: CompanionMatchLevel = 'affixes'
+
+/**
+ * The copyright line, shown on the startup card and the About page. A legal
+ * notice, so it is the same in every language.
+ */
+export const COPYRIGHT_NOTICE = 'Copyright © 2026 Enderbeacon'

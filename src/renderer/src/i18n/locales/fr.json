@@ -794,7 +794,8 @@
     "update_rate_limited": "GitHub limite les requêtes depuis ce réseau. Réessayez dans une heure.",
     "update_download_failed": "La mise à jour n’a pas pu être téléchargée. Réessayez.",
     "update_not_supported": "Cette copie ne peut pas se mettre à jour.",
-    "update_release_not_found": "Cette version ne peut pas être installée."
+    "update_release_not_found": "Cette version ne peut pas être installée.",
+    "license_unavailable": "Impossible d’ouvrir le fichier de licence."
   },
   "downloads": {
     "empty": "Aucun téléchargement pour l’instant.",
@@ -1338,6 +1339,11 @@
     "dataFolder": "Dossier de données",
     "repository": "Dépôt",
     "releases": "Toutes les versions",
-    "issues": "Signaler un problème"
+    "issues": "Signaler un problème",
+    "licenses": "Licences",
+    "licenseSummary": "Publié sous licence GNU AGPL v3.0 ou ultérieure, sans aucune garantie. Les composants open source utilisés restent sous leur propre licence.",
+    "documentation": "Documentation",
+    "licenseText": "Licence",
+    "thirdPartyLicenses": "Licences tierces"
   }
 }

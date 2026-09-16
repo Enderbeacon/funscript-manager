@@ -1,8 +1,15 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
+import { BookOpen } from 'lucide-react'
+import { siGithub } from 'simple-icons'
+import { COPYRIGHT_NOTICE } from '@shared/constants'
 import type { IpcOutput } from '@shared/ipc/contract'
 import { ipcInvoke } from '../ipc'
+import { useErrorMessage } from '../useErrorMessage'
+import { useDialogEscape } from '../components/ConfirmDialog'
 import UpdatesCard from '../components/UpdatesCard'
+import brandWordmark from '../assets/brand/wordmark.svg?raw'
 
 /**
  * What this build is, and how to move to another one.
@@ -54,7 +61,126 @@ export default function AboutPage(): React.JSX.Element {
             </button>
           </div>
         </div>
+
+        {/* In the grid, so each row is a pair with one gap across and down. */}
+        <ProjectCard />
+        <LicensesCard />
       </div>
     </div>
+  )
+}
+
+/**
+ * A personal word from the author, deliberately in English in every language.
+ * When a supporter page exists, add its link below and say so here.
+ */
+const AUTHOR_NOTE =
+  "Hi, thanks for using Funscript Manager! It's a personal project I build and maintain in my " +
+  'free time. If you find it useful, consider giving it a star on GitHub or reporting any bugs ' +
+  'you run into. Thank you!'
+
+/** The project itself: its name, where to find it, and a note from the author. */
+function ProjectCard(): React.JSX.Element {
+  const { t } = useTranslation()
+  return (
+    <div className="card about-project">
+      {/* Inline rather than an <img>: the lettering takes its colors from the
+          theme, which an image cannot see. The markup is our own asset. */}
+      <div
+        className="about-wordmark"
+        role="img"
+        aria-label={t('app.title')}
+        dangerouslySetInnerHTML={{ __html: brandWordmark }}
+      />
+      <div className="about-links">
+        <button className="ghost" onClick={() => window.open(REPOSITORY, '_blank')}>
+          <svg className="about-brand-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d={siGithub.path} />
+          </svg>
+          GitHub
+        </button>
+        <button className="ghost" onClick={() => window.open(`${REPOSITORY}#readme`, '_blank')}>
+          <BookOpen size={14} />
+          {t('about.documentation')}
+        </button>
+      </div>
+      <p className="about-note">
+        {AUTHOR_NOTE}
+        <span className="about-signature">— Enderbeacon</span>
+      </p>
+    </div>
+  )
+}
+
+type LicenseId = 'app' | 'thirdParty'
+
+/** The app's own license and every third-party one it carries. */
+function LicensesCard(): React.JSX.Element {
+  const { t } = useTranslation()
+  const toMessage = useErrorMessage()
+  const [failed, setFailed] = useState<string | null>(null)
+  const [shown, setShown] = useState<{ which: LicenseId; text: string } | null>(null)
+
+  const open = (which: LicenseId): void => {
+    setFailed(null)
+    ipcInvoke('app:readLicense', { which })
+      .then(({ text }) => setShown({ which, text }))
+      .catch((e) => setFailed(toMessage(e)))
+  }
+
+  return (
+    <div className="card">
+      <h2 className="settings-section-title">{t('about.licenses')}</h2>
+      <p className="about-copyright">{COPYRIGHT_NOTICE}</p>
+      <p className="settings-hint">{t('about.licenseSummary')}</p>
+      <div className="about-links">
+        <button className="ghost" onClick={() => open('app')}>
+          {t('about.licenseText')}
+        </button>
+        <button className="ghost" onClick={() => open('thirdParty')}>
+          {t('about.thirdPartyLicenses')}
+        </button>
+      </div>
+      {failed && <p className="mfp-install-error">{failed}</p>}
+      {shown && (
+        <LicenseDialog
+          title={t(shown.which === 'app' ? 'about.licenseText' : 'about.thirdPartyLicenses')}
+          text={shown.text}
+          onClose={() => setShown(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+function LicenseDialog({
+  title,
+  text,
+  onClose
+}: {
+  title: string
+  text: string
+  onClose: () => void
+}): React.JSX.Element {
+  const { t } = useTranslation()
+  useDialogEscape(onClose)
+  return createPortal(
+    <div className="modal-scrim">
+      <div className="modal license-modal">
+        <div className="modal-head">
+          <span className="grow">{title}</span>
+        </div>
+        <div className="modal-body">
+          <pre className="license-text">{text}</pre>
+        </div>
+        <div className="modal-foot">
+          <div className="grow" />
+          <button className="primary" autoFocus onClick={onClose}>
+            {t('common.close')}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
   )
 }

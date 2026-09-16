@@ -794,7 +794,8 @@
     "update_rate_limited": "GitHub 暂时限制了当前网络的请求，请一小时后再试。",
     "update_download_failed": "更新下载失败，请重试。",
     "update_not_supported": "当前这份软件无法自动更新。",
-    "update_release_not_found": "这个版本无法安装。"
+    "update_release_not_found": "这个版本无法安装。",
+    "license_unavailable": "无法打开许可证文件。"
   },
   "downloads": {
     "empty": "还没有下载任务。",
@@ -1338,6 +1339,11 @@
     "dataFolder": "数据目录",
     "repository": "项目仓库",
     "releases": "全部版本",
-    "issues": "反馈问题"
+    "issues": "反馈问题",
+    "licenses": "开源许可",
+    "licenseSummary": "本软件以 GNU AGPL v3.0 或更高版本发布，不提供任何担保。所用开源组件各自遵循其许可证。",
+    "documentation": "使用文档",
+    "licenseText": "许可证",
+    "thirdPartyLicenses": "第三方许可"
   }
 }

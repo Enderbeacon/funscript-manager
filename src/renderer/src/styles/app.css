@@ -7116,9 +7116,12 @@ button.sp-connect-button.connected:hover:not(:disabled) {
   color: var(--text-secondary);
 }
 
-/* The About page: updates on the left, what this build is on the right.
-   Both cards take the height of the taller one — side by side and unequal,
-   the shorter one read as unfinished. */
+/* The About page: updates on the left, what this build is on the right, and
+   licenses under updates. Cards in a row take the height of the taller one —
+   side by side and unequal, the shorter one read as unfinished. The grid gap
+   is the only spacing between them, across and down alike, so a card's own
+   bottom margin is dropped: added to a full-height card it spills into the
+   gap below instead. */
 .about-cols {
   display: grid;
   gap: 0.75rem;
@@ -7126,7 +7129,35 @@ button.sp-connect-button.connected:hover:not(:disabled) {
   align-items: stretch;
 }
 
-.about-cols > .card { height: 100%; }
+.about-cols > .card { height: 100%; margin-bottom: 0; }
+
+.about-project { display: flex; flex-direction: column; gap: 0.9rem; }
+.about-project .about-links { margin-top: 0; }
+.about-wordmark { width: 180px; max-width: 100%; line-height: 0; }
+.about-wordmark svg { display: block; width: 100%; height: auto; }
+.about-brand-icon { width: 14px; height: 14px; fill: currentColor; flex: none; }
+.about-note {
+  margin: auto 0 0;
+  padding-top: 0.9rem;
+  border-top: 0.5px solid var(--border-tertiary);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.about-signature { display: block; margin-top: 0.35rem; color: var(--text-tertiary); }
+.about-copyright { margin: 0 0 0.3rem; font-size: 13px; color: var(--text-secondary); }
+
+.license-modal { width: min(820px, 92vw); }
+.license-text {
+  margin: 0;
+  font-family: ui-monospace, Consolas, 'Cascadia Mono', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text-secondary);
+  user-select: text;
+}
 
 @container settings (min-width: 760px) {
   .about-cols { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }

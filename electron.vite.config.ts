@@ -1,10 +1,11 @@
 import { resolve } from 'node:path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
+import { thirdPartyLicensesPlugin } from './scripts/third-party-licenses'
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin(), thirdPartyLicensesPlugin(resolve('.'))],
     resolve: {
       alias: {
         '@shared': resolve('src/shared'),

@@ -19,6 +19,7 @@
   },
   "include": [
     "electron.vite.config.ts",
+    "scripts/third-party-licenses.ts",
     "src/main/**/*.ts",
     "src/preload/**/*.ts",
     "src/shared/**/*.ts",

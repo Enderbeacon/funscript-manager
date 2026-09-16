@@ -58,6 +58,11 @@ export const ipcContract = {
       userDataPath: z.string()
     })
   },
+  'app:readLicense': {
+    /** The app's own license, or the third-party license list, as text. */
+    input: z.object({ which: z.enum(['app', 'thirdParty']) }),
+    output: z.object({ text: z.string() })
+  },
 
   'dialog:pickDirectory': {
     input: z.object({ title: z.string().optional() }).default({}),
