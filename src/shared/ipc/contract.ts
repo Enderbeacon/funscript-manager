@@ -257,6 +257,21 @@ export const ipcContract = {
     }),
     output: MediaDetailSchema.nullable()
   },
+  'library:previewMerge': {
+    /** What `library:mergeWanted` would leave behind, without doing it. */
+    input: z.object({
+      libraryId: z.uuid(),
+      targetId: z.uuid(),
+      sourceIds: z.array(z.uuid()).min(1)
+    }),
+    output: z.object({
+      /** The merged entry's video; null while it is still waiting for one. */
+      fileName: z.string().nullable(),
+      title: z.string().nullable(),
+      tags: z.number().int().nonnegative(),
+      scriptVersions: z.number().int().nonnegative()
+    })
+  },
   'library:dismissWantedMatch': {
     /** Not that file; stop offering it. */
     input: z.object({ libraryId: z.uuid(), mediaId: z.uuid(), candidateId: z.uuid() }),
@@ -1219,7 +1234,9 @@ export const ipcContract = {
       force: z.boolean().optional()
     }),
     output: z.object({
-      statuses: z.record(z.string(), z.enum(['alive', 'gone', 'unknown', 'unchecked']))
+      statuses: z.record(z.string(), z.enum(['alive', 'gone', 'unknown', 'unchecked'])),
+      /** Why an `unknown` link could not be checked, when that is known. */
+      issues: z.record(z.string(), z.enum(['unreachable', 'rate_limited', 'site_changed']))
     })
   },
   'deps:status': {

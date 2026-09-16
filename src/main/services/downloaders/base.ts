@@ -154,6 +154,23 @@ export class QuotaExceededError extends Error {
   }
 }
 
+/**
+ * The host is turning requests away for a while — too many from this address.
+ *
+ * Handled like a quota — the job parks and comes back on its own, because a
+ * retry within seconds only extends the ban — but it is not one: a quota says
+ * the file is there and rationed, this says nothing about the file at all. A
+ * link check that hits it has no answer, not a live link.
+ */
+export class RateLimitedError extends Error {
+  readonly retryAt: Date
+  constructor(waitSeconds: number) {
+    super(`rate limited, retry in ${waitSeconds}s`)
+    this.name = 'RateLimitedError'
+    this.retryAt = new Date(Date.now() + Math.max(1, waitSeconds) * 1000)
+  }
+}
+
 const plugins: DownloaderPlugin[] = []
 
 /**

@@ -246,9 +246,17 @@
       "pickTarget": "把「{{from}}」合并到",
       "searchPlaceholder": "搜索条目",
       "noCandidates": "没有匹配的条目。",
-      "keepWhich": "保留哪个条目",
-      "note": "脚本与元数据归到保留的条目；同名不同轴的脚本会合成一个版本。不移动、不重命名任何文件。",
-      "apply": "合并"
+      "apply": "合并",
+      "together": "这些条目会合成一个",
+      "mergeInto": "合并到",
+      "result": "合并后",
+      "video": "视频",
+      "noVideo": "仍然缺少",
+      "titleField": "标题",
+      "untitled": "无标题",
+      "tagsField": "标签",
+      "versionsField": "脚本版本",
+      "note": "所有条目的标签、链接和脚本都会保留。不移动、不重命名任何文件。"
     },
     "menu": {
       "play": "播放",
@@ -258,7 +266,8 @@
       "playView": "播放当前视图",
       "newPlaylist": "新建播放列表…",
       "openDetail": "打开详情",
-      "onlyThisFolder": "只看这个文件夹"
+      "onlyThisFolder": "只看这个文件夹",
+      "removeFromLibrary": "从媒体库移除"
     }
   },
   "detail": {
@@ -880,7 +889,8 @@
       "waiting": "等待",
       "problem": "失败",
       "done": "已完成"
-    }
+    },
+    "busyCooling": "{{hoster}} 正忙，{{time}} 后重试"
   },
   "posts": {
     "subtitle": "解析 EroScripts 帖子，选择需要下载的资源",
@@ -912,7 +922,12 @@
     "railSummary": "{{count}} 个进行中",
     "addLink": "添加链接",
     "addLinkPlaceholder": "粘贴下载链接",
-    "addLinkConfirm": "添加"
+    "addLinkConfirm": "添加",
+    "linkIssue": {
+      "unreachable": "连不上 {{host}}",
+      "rate_limited": "{{host}} 正忙，稍后再试",
+      "site_changed": "{{host}} 有变动，需要更新软件"
+    }
   },
   "wanted": {
     "title": "缺少视频文件",
@@ -935,6 +950,11 @@
     "ownEntry": "单独成为一个条目",
     "later": "稍后",
     "apply": "应用"
+  },
+  "toasts": {
+    "downloadFailed": "下载失败：{{file}} — {{reason}}",
+    "downloadsFailed": "{{count}} 个下载失败",
+    "openQueue": "查看"
   },
   "topbar": {
     "toggleTheme": "切换主题",

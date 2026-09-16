@@ -10,12 +10,14 @@ import type { ScrapedLink, ScrapedPost } from '@shared/schemas/scraped-post'
 import { getSettings, listLibraries } from '../config/config-service'
 import { isMediaFile } from '../library/companion-grouping'
 import { attachScriptsToMedia, fillWantedFromDownload } from '../library/library-manager'
+import { refreshSystemProxy } from '../net/proxy'
 import { setActiveDownloads } from '../net/throttle'
 import {
   DirectLinkExpiredError,
   HttpStatusError,
   PermanentError,
   QuotaExceededError,
+  RateLimitedError,
   findPlugin,
   type DownloaderPlugin,
   type ProgressEvent
@@ -562,6 +564,9 @@ async function runJob(
   for (;;) {
     if (signal.aborted) return settleAborted(job, entry)
     try {
+      // A proxy client switched on or off since the last attempt decides
+      // whether this one can connect at all.
+      await refreshSystemProxy()
       // Just-in-time resolve: never persisted, re-done on every resume and
       // retry so an expiring signature is always fresh.
       const info = await plugin.resolve(job.sourceUrl)
@@ -598,6 +603,8 @@ async function runJob(
       // The host told us how long to wait. Park until then and pick up from
       // the bytes already on disk; this must not eat the retry budget.
       if (e instanceof QuotaExceededError) return cool(job.id, e.retryAt)
+      // Turned away for asking too often: same wait, but said as what it is.
+      if (e instanceof RateLimitedError) return cool(job.id, e.retryAt, 'host_busy')
 
       if (e instanceof DirectLinkExpiredError) {
         // Not a normal retry: re-resolve and continue from the offset. Only a
@@ -652,8 +659,9 @@ const coolTimers = new Map<string, NodeJS.Timeout>()
  * in memory *and* the deadline is stored, so a restart in the middle of a long
  * cooldown does not strand the job (init re-arms it).
  */
-function cool(id: string, retryAt: Date): void {
-  store.update(id, { state: 'cooling', cooldownUntil: retryAt.toISOString(), error: null })
+/** Park a job until `retryAt`. `reason` says why when it is not a quota. */
+function cool(id: string, retryAt: Date, reason: string | null = null): void {
+  store.update(id, { state: 'cooling', cooldownUntil: retryAt.toISOString(), error: reason })
   notifyChanged()
   armCooldown(id, retryAt)
 }

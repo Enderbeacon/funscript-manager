@@ -20,7 +20,7 @@ import {
   X
 } from 'lucide-react'
 import type { ScrapedLink, ScrapedPost } from '@shared/schemas/scraped-post'
-import HosterBadge from './HosterBadge'
+import HosterBadge, { hosterName } from './HosterBadge'
 import { formatDate } from '../format'
 import { ipcInvoke } from '../ipc'
 import { useErrorMessage } from '../useErrorMessage'
@@ -28,6 +28,8 @@ import { useRemoteImage } from '../useRemoteImage'
 
 /** What a liveness check found; `unchecked` means nobody has looked yet. */
 type LinkStatus = 'alive' | 'gone' | 'unknown' | 'unchecked'
+/** Why a check could not decide, when the host gave that much away. */
+type LinkIssue = 'unreachable' | 'rate_limited' | 'site_changed'
 
 /**
  * One parsed post: what it is, and one card per source with everything needed
@@ -81,6 +83,7 @@ function LinkCard({
   checked,
   disabled,
   status,
+  issue,
   checking,
   onCheck,
   onToggle
@@ -91,6 +94,8 @@ function LinkCard({
   disabled: boolean
   /** Liveness verdict, when one has been reached for this link. */
   status?: LinkStatus
+  /** Why an `unknown` verdict is one. */
+  issue?: LinkIssue
   checking: boolean
   onCheck?: () => void
   onToggle: () => void
@@ -133,7 +138,15 @@ function LinkCard({
   ) : status === 'alive' ? (
     recheck(t('posts.linkAlive'), <CircleCheck size={12} />, 'lk-alive')
   ) : status === 'unknown' ? (
-    recheck(t('posts.linkUnsure'), <CircleHelp size={12} />, 'lk-unsure')
+    // Said as the reason when there is one: "could not tell" reads as the app
+    // failing, where "can't reach gofile" tells the user what to look at.
+    recheck(
+      issue
+        ? t(`posts.linkIssue.${issue}`, { host: hosterName(link.hoster) })
+        : t('posts.linkUnsure'),
+      <CircleHelp size={12} />,
+      'lk-unsure'
+    )
   ) : onCheck ? (
     // Nothing has looked at this one. It reads as the offer it is.
     recheck(t('posts.checkLink'), <Radio size={12} />, 'lk-check')
@@ -292,14 +305,20 @@ export default function PostCard({
     })
 
   const [status, setStatus] = useState<Record<string, LinkStatus>>({})
+  const [issues, setIssues] = useState<Record<string, LinkIssue>>({})
   const [checking, setChecking] = useState<string[]>([])
 
   const runCheck = async (urls: string[], force: boolean): Promise<Record<string, LinkStatus>> => {
     if (urls.length === 0) return {}
     setChecking((cur) => [...cur, ...urls])
     try {
-      const { statuses } = await ipcInvoke('download:checkLinks', { urls, force })
+      const { statuses, issues: found } = await ipcInvoke('download:checkLinks', { urls, force })
       setStatus((cur) => ({ ...cur, ...statuses }))
+      setIssues((cur) => {
+        const next = { ...cur }
+        for (const url of urls) delete next[url]
+        return { ...next, ...found }
+      })
       return statuses
     } catch {
       // A check that cannot run leaves every link exactly as unproven as it was.
@@ -401,6 +420,7 @@ export default function PostCard({
       checked={picked.has(link.url)}
       disabled={disabled}
       {...(status[link.url] ? { status: status[link.url] } : {})}
+      {...(issues[link.url] ? { issue: issues[link.url] } : {})}
       checking={checking.includes(link.url)}
       // Only a video link is worth checking: a script is a few kilobytes the
       // download itself settles faster than a check would.

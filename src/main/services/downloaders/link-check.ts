@@ -4,9 +4,11 @@ import {
   HttpStatusError,
   PermanentError,
   QuotaExceededError,
+  RateLimitedError,
   findPlugin,
   type LinkStatus
 } from './base'
+import { refreshSystemProxy } from '../net/proxy'
 
 /**
  * "Is this link still good?" — asked of a post's links before the user picks
@@ -40,6 +42,54 @@ const DEAD_REASONS = new Set([
   'ytdlp_unavailable'
 ])
 
+/**
+ * Why a check came back `unknown`, when that much can be said. Each asks
+ * something different of the user: check the connection, wait, or wait for an
+ * app update.
+ */
+export type LinkIssue = 'unreachable' | 'rate_limited' | 'site_changed'
+
+interface Verdict {
+  status: LinkStatus
+  issue?: LinkIssue
+}
+
+/** The host still answers, but no longer the way the app reads it. */
+const CHANGED_REASONS = new Set(['gofile_token_rejected'])
+
+/** Error codes for a connection that never got an answer. */
+const UNREACHABLE_CODES = new Set([
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'ECONNABORTED',
+  'ETIMEDOUT',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'EPIPE',
+  'UND_ERR_CONNECT_TIMEOUT',
+  'UND_ERR_HEADERS_TIMEOUT',
+  'UND_ERR_BODY_TIMEOUT',
+  'UND_ERR_SOCKET'
+])
+
+/**
+ * Did this fail before the host said anything? Node's fetch wraps the cause
+ * (`fetch failed`, with the socket error underneath); Chromium's names it
+ * `net::ERR_…`. Either way it is the connection, not the link.
+ */
+function isUnreachable(e: unknown): boolean {
+  for (let at = e, depth = 0; at && depth < 5; depth++) {
+    const err = at as { code?: unknown; message?: unknown; cause?: unknown }
+    if (typeof err.code === 'string' && UNREACHABLE_CODES.has(err.code)) return true
+    const message = typeof err.message === 'string' ? err.message : ''
+    if (/net::ERR_|fetch failed/i.test(message)) return true
+    at = err.cause
+  }
+  return false
+}
+
 /** How long an answer stays good. Long enough for a browsing session. */
 const TTL_MS = 10 * 60 * 1000
 /** Hosts are asked a few at a time; a post can carry a dozen links. */
@@ -57,11 +107,11 @@ function cached(url: string): LinkStatus | null {
   return hit.status
 }
 
-async function probe(url: string): Promise<LinkStatus> {
+async function probe(url: string): Promise<Verdict> {
   const plugin = findPlugin(url)
-  if (!plugin) return 'unknown'
+  if (!plugin) return { status: 'unknown' }
   try {
-    if (plugin.check) return await plugin.check(url)
+    if (plugin.check) return { status: await plugin.check(url) }
     // A folder link is not a file, and `resolve` is entitled to refuse one —
     // mega's says `mega_bad_link` for a directory, which read as "this link is
     // dead" and marked every mega folder in every post as gone. What a download
@@ -69,7 +119,7 @@ async function probe(url: string): Promise<LinkStatus> {
     // about one has to do too. Listing its contents is the existence proof.
     if (plugin.expand) {
       const inside = await plugin.expand(url)
-      if (inside.length > 0 && !(inside.length === 1 && inside[0] === url)) return 'alive'
+      if (inside.length > 0 && !(inside.length === 1 && inside[0] === url)) return { status: 'alive' }
       // `[url]` back means the plugin could not expand it (an empty or
       // unreadable folder, or a plain file link). Fall through and ask about
       // the URL itself, which is the right question in both cases.
@@ -82,21 +132,32 @@ async function probe(url: string): Promise<LinkStatus> {
   }
   try {
     await plugin.resolve(url)
-    return 'alive'
+    return { status: 'alive' }
   } catch (e) {
     return verdict(e)
   }
 }
 
 /** What a thrown error says about the file behind the link. */
-function verdict(e: unknown): LinkStatus {
+function verdict(e: unknown): Verdict {
   // The file is there; the host is rationing it. Not a dead link.
-  if (e instanceof QuotaExceededError) return 'alive'
-  if (e instanceof PermanentError) return DEAD_REASONS.has(e.reason) ? 'gone' : 'unknown'
-  if (e instanceof HttpStatusError) return e.status === 404 || e.status === 410 ? 'gone' : 'unknown'
+  if (e instanceof QuotaExceededError) return { status: 'alive' }
+  // Turned away before the file was asked about: no answer either way.
+  if (e instanceof RateLimitedError) return { status: 'unknown', issue: 'rate_limited' }
+  if (e instanceof PermanentError) {
+    if (DEAD_REASONS.has(e.reason)) return { status: 'gone' }
+    return CHANGED_REASONS.has(e.reason)
+      ? { status: 'unknown', issue: 'site_changed' }
+      : { status: 'unknown' }
+  }
+  if (e instanceof HttpStatusError) {
+    if (e.status === 404 || e.status === 410) return { status: 'gone' }
+    return e.status === 429 ? { status: 'unknown', issue: 'rate_limited' } : { status: 'unknown' }
+  }
   // A signed link that timed out says nothing about the file behind it.
-  if (e instanceof DirectLinkExpiredError) return 'unknown'
-  return 'unknown'
+  if (e instanceof DirectLinkExpiredError) return { status: 'unknown' }
+  if (isUnreachable(e)) return { status: 'unknown', issue: 'unreachable' }
+  return { status: 'unknown' }
 }
 
 /**
@@ -107,9 +168,9 @@ function verdict(e: unknown): LinkStatus {
  * link could read alive and then flip to dead on a transient hiccup, with the
  * dead answer cached for the next ten minutes. One question, one answer.
  */
-const inFlight = new Map<string, Promise<LinkStatus>>()
+const inFlight = new Map<string, Promise<Verdict>>()
 
-function probeOnce(url: string): Promise<LinkStatus> {
+function probeOnce(url: string): Promise<Verdict> {
   const running = inFlight.get(url)
   if (running) return running
   const task = probe(url).finally(() => inFlight.delete(url))
@@ -190,9 +251,11 @@ async function checkedUnasked(url: string): Promise<boolean> {
 export async function checkLinks(
   urls: string[],
   options: CheckOptions = {}
-): Promise<Record<string, LinkStatus>> {
+): Promise<{ statuses: Record<string, LinkStatus>; issues: Record<string, LinkIssue> }> {
   const result: Record<string, LinkStatus> = {}
+  const issues: Record<string, LinkIssue> = {}
   const todo: string[] = []
+  await refreshSystemProxy()
 
   for (const url of urls) {
     const hit = cached(url)
@@ -211,16 +274,17 @@ export async function checkLinks(
   const worker = async (): Promise<void> => {
     for (let i = next++; i < todo.length; i = next++) {
       const url = todo[i]!
-      const status = await probeOnce(url)
+      const { status, issue } = await probeOnce(url)
       // An `unknown` is not an answer worth remembering: the next attempt,
       // possibly a forced one, should ask again rather than repeat a shrug.
       if (status === 'alive' || status === 'gone') cache.set(url, { at: Date.now(), status })
       result[url] = status
+      if (issue) issues[url] = issue
     }
   }
   await Promise.all(Array.from({ length: Math.min(CONCURRENCY, todo.length) }, worker))
 
-  return result
+  return { statuses: result, issues }
 }
 
 /** Test seam, and the way a retry stops seeing a stale "gone". */

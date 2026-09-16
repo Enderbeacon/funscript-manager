@@ -46,17 +46,20 @@ function mergePlans(plans: DeletePlan[]): DeletePlan {
 
 export default function DeleteMediaDialog({
   targets,
+  initialMode = null,
   onClose,
   onDone
 }: {
   targets: DeleteTarget[]
+  /** Already chosen by how the dialog was opened; still changeable here. */
+  initialMode?: DeleteMode | null
   onClose: () => void
   /** Fired after a successful delete, with the number of entries removed. */
   onDone: (removed: number) => void
 }): React.JSX.Element {
   const { t } = useTranslation()
   const toMessage = useErrorMessage()
-  const [mode, setMode] = useState<DeleteMode | null>(null)
+  const [mode, setMode] = useState<DeleteMode | null>(initialMode)
   const [plan, setPlan] = useState<DeletePlan | null>(null)
   const [keepScripts, setKeepScripts] = useState(false)
   const [busy, setBusy] = useState(false)

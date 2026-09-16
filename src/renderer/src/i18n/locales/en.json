@@ -249,9 +249,17 @@
       "pickTarget": "Merge “{{from}}” into",
       "searchPlaceholder": "Search items",
       "noCandidates": "No matching items.",
-      "keepWhich": "Keep which item",
-      "note": "Scripts and metadata move to the item you keep; same-name scripts on different axes become one version. No files are moved or renamed.",
-      "apply": "Merge"
+      "apply": "Merge",
+      "together": "These become one item",
+      "mergeInto": "Merge into",
+      "result": "After merging",
+      "video": "Video",
+      "noVideo": "Still missing",
+      "titleField": "Title",
+      "untitled": "No title",
+      "tagsField": "Tags",
+      "versionsField": "Script versions",
+      "note": "Tags, links and scripts from every item are kept. No files are moved or renamed."
     },
     "menu": {
       "play": "Play",
@@ -261,7 +269,8 @@
       "playView": "Play everything here",
       "newPlaylist": "New playlist…",
       "openDetail": "Open",
-      "onlyThisFolder": "Only this folder"
+      "onlyThisFolder": "Only this folder",
+      "removeFromLibrary": "Remove from library"
     }
   },
   "detail": {
@@ -889,7 +898,8 @@
       "waiting": "Waiting",
       "problem": "Problems",
       "done": "Finished"
-    }
+    },
+    "busyCooling": "{{hoster}} is busy, retry at {{time}}"
   },
   "posts": {
     "subtitle": "Parse an EroScripts post and choose what to download",
@@ -924,7 +934,12 @@
     "railSummary": "{{count}} in progress",
     "addLink": "Add a link",
     "addLinkPlaceholder": "Paste a download link",
-    "addLinkConfirm": "Add"
+    "addLinkConfirm": "Add",
+    "linkIssue": {
+      "unreachable": "Can't reach {{host}}",
+      "rate_limited": "{{host}} is busy — try later",
+      "site_changed": "{{host}} changed — needs an app update"
+    }
   },
   "wanted": {
     "title": "Video file missing",
@@ -948,6 +963,11 @@
     "ownEntry": "Separate item",
     "later": "Later",
     "apply": "Apply"
+  },
+  "toasts": {
+    "downloadFailed": "Download failed: {{file}} — {{reason}}",
+    "downloadsFailed": "{{count}} downloads failed",
+    "openQueue": "View"
   },
   "topbar": {
     "toggleTheme": "Switch theme",

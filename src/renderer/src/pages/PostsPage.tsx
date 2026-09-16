@@ -7,6 +7,7 @@ import PostCard from '../components/PostCard'
 import DownloadRail from '../components/DownloadRail'
 import Select from '../components/Select'
 import { ipcInvoke, ipcOn } from '../ipc'
+import { showToast } from '../toasts'
 import { useErrorMessage } from '../useErrorMessage'
 
 /**
@@ -50,7 +51,6 @@ export default function PostsPage({
   const [libraryId, setLibraryId] = useState('')
   const [pending, setPending] = useState<Pending[]>([])
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [signedIn, setSignedIn] = useState<boolean | null>(null)
   /** Which card the scrape-progress event belongs to: parsing is sequential. */
   const parsingUrl = useRef<string | null>(null)
@@ -101,7 +101,6 @@ export default function PostsPage({
     const urls = [...new Set(input.split(/[\r\n]+/).map((l) => l.trim()).filter(Boolean))]
     if (urls.length === 0 || !libraryId) return
     setBusy(true)
-    setError(null)
 
     const fresh = urls.filter((u) => !pending.some((p) => p.url === u))
     setPending((cur) => [...cur, ...fresh.map((url): Pending => ({ url, state: 'parsing' }))])
@@ -135,7 +134,8 @@ export default function PostsPage({
       setSignedIn(loggedIn)
       if (loggedIn) setPending((cur) => cur.filter((c) => c.state !== 'error'))
     } catch (e) {
-      setError(toMessage(e))
+      // The sign-in window has closed by now; nothing on the page is its place.
+      showToast({ message: toMessage(e) })
     }
   }, [toMessage])
 
@@ -164,12 +164,12 @@ export default function PostsPage({
 
   /** Nothing here can be fetched: keep the metadata so the file has a home later. */
   const saveForLater = useCallback(
-    async (post: ScrapedPost) => {
+    async (entryUrl: string, post: ScrapedPost) => {
       try {
         await ipcInvoke('library:addWanted', { libraryId, post })
         setPending((cur) => cur.filter((c) => c.post?.postId !== post.postId))
       } catch (e) {
-        setError(toMessage(e))
+        update(entryUrl, { downloadError: toMessage(e) })
       }
     },
     [libraryId, toMessage]
@@ -187,7 +187,6 @@ export default function PostsPage({
 
       <div className="posts-layout">
         <div className="posts-main">
-          {error && <div className="error-banner">{error}</div>}
 
         <form
           className="intake"
@@ -256,7 +255,7 @@ export default function PostsPage({
                 error={entry.downloadError ?? null}
                 onRemove={() => setPending((cur) => cur.filter((c) => c.url !== entry.url))}
                 onDownload={(post, links) => void download(entry.url, post, links)}
-                onSaveForLater={() => void saveForLater(entry.post!)}
+                onSaveForLater={() => void saveForLater(entry.url, entry.post!)}
               />
             ) : (
               <article key={entry.url} className="post post-thin">

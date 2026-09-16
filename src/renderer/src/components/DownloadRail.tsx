@@ -95,7 +95,7 @@ export default function DownloadRail({
               <div className="mini-sub">
                 {job.state === 'cooling' && job.cooldownUntil ? (
                   <span className="warn-text">
-                    {t('downloads.quotaCooling', {
+                    {t(job.error === 'host_busy' ? 'downloads.busyCooling' : 'downloads.quotaCooling', {
                       hoster: hosterName(job.hoster),
                       time: formatClock(job.cooldownUntil)
                     })}

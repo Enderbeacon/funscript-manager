@@ -251,11 +251,16 @@ function dedupeNames(names: string[]): string[] {
  * from a forum post landed beside the canonical name instead of on it.
  */
 export async function normaliseNames(kind: EntityKind, names: string[]): Promise<string[]> {
-  assertKind(kind)
-  const canonical = await Promise.all(dedupeNames(names).map((n) => canonicalName(kind, n)))
-  const final = dedupeNames(canonical)
+  const final = await canonicalNames(kind, names)
   await ensureEntities(kind, final)
   return final
+}
+
+/** What `normaliseNames` would write, without registering anything. */
+export async function canonicalNames(kind: EntityKind, names: string[]): Promise<string[]> {
+  assertKind(kind)
+  const canonical = await Promise.all(dedupeNames(names).map((n) => canonicalName(kind, n)))
+  return dedupeNames(canonical)
 }
 
 export interface EntityPatch {

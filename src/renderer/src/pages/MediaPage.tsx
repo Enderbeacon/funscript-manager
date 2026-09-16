@@ -149,6 +149,8 @@ export default function MediaPage({
   const [selected, setSelected] = useState<Map<string, string>>(() => new Map())
   const [batchBusy, setBatchBusy] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  /** Entries the context menu asked to take out of the library. */
+  const [removing, setRemoving] = useState<{ libraryId: string; mediaId: string }[] | null>(null)
   const [merging, setMerging] = useState(false)
 
   /*
@@ -678,6 +680,13 @@ export default function MediaPage({
         label: t('media.menu.openDetail'),
         disabled: count !== 1,
         onPick: () => targets[0] && openDetail(targets[0])
+      },
+      {
+        // Last, and only ever the gentle one: deleting files stays behind the
+        // dialog's own choice, never one misplaced click in a menu.
+        key: 'remove',
+        label: t('media.menu.removeFromLibrary'),
+        onPick: () => setRemoving(targets)
       }
     ]
   }, [menu, taxonomy, t, playNow, playView, enqueue, addToPlaylist, openDetail, setSidebar])
@@ -1277,6 +1286,23 @@ export default function MediaPage({
           onDone={() => {
             setDeleting(false)
             setSelected(new Map())
+            void refreshLoaded()
+          }}
+        />
+      )}
+
+      {removing && (
+        <DeleteMediaDialog
+          targets={removing}
+          initialMode="library"
+          onClose={() => setRemoving(null)}
+          onDone={() => {
+            setSelected((cur) => {
+              const next = new Map(cur)
+              for (const target of removing) next.delete(target.mediaId)
+              return next
+            })
+            setRemoving(null)
             void refreshLoaded()
           }}
         />

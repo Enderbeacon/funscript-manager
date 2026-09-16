@@ -743,9 +743,17 @@
       "pickTarget": "„{{from}}“ zusammenführen mit",
       "searchPlaceholder": "Einträge suchen",
       "noCandidates": "Keine passenden Einträge.",
-      "keepWhich": "Welchen Eintrag behalten",
-      "note": "Skripte und Metadaten wandern zum behaltenen Eintrag; namensgleiche Skripte auf verschiedenen Achsen werden eine Version. Dateien werden weder verschoben noch umbenannt.",
-      "apply": "Zusammenführen"
+      "apply": "Zusammenführen",
+      "together": "Diese werden ein Eintrag",
+      "mergeInto": "Zusammenführen mit",
+      "result": "Nach dem Zusammenführen",
+      "video": "Video",
+      "noVideo": "Fehlt noch",
+      "titleField": "Titel",
+      "untitled": "Kein Titel",
+      "tagsField": "Tags",
+      "versionsField": "Skriptversionen",
+      "note": "Tags, Links und Skripte aller Einträge bleiben erhalten. Dateien werden weder verschoben noch umbenannt."
     },
     "menu": {
       "play": "Abspielen",
@@ -755,7 +763,8 @@
       "playView": "Alles hier abspielen",
       "newPlaylist": "Neue Playlist…",
       "openDetail": "Öffnen",
-      "onlyThisFolder": "Nur dieser Ordner"
+      "onlyThisFolder": "Nur dieser Ordner",
+      "removeFromLibrary": "Aus Bibliothek entfernen"
     }
   },
   "libraries": {
@@ -890,7 +899,8 @@
       "waiting": "Wartet",
       "problem": "Fehler",
       "done": "Fertig"
-    }
+    },
+    "busyCooling": "{{hoster}} ist ausgelastet, neuer Versuch um {{time}}"
   },
   "posts": {
     "subtitle": "Einen EroScripts-Beitrag auswerten und auswählen, was geladen wird",
@@ -926,7 +936,12 @@
     "railSummary_one": "{{count}} läuft",
     "addLink": "Link hinzufügen",
     "addLinkPlaceholder": "Download-Link einfügen",
-    "addLinkConfirm": "Hinzufügen"
+    "addLinkConfirm": "Hinzufügen",
+    "linkIssue": {
+      "unreachable": "{{host}} nicht erreichbar",
+      "rate_limited": "{{host}} ist ausgelastet — später erneut versuchen",
+      "site_changed": "{{host}} hat sich geändert — App-Update nötig"
+    }
   },
   "wanted": {
     "title": "Videodatei fehlt",
@@ -950,6 +965,11 @@
     "ownEntry": "Eigener Eintrag",
     "later": "Später",
     "apply": "Übernehmen"
+  },
+  "toasts": {
+    "downloadFailed": "Download fehlgeschlagen: {{file}} — {{reason}}",
+    "downloadsFailed": "{{count}} Downloads fehlgeschlagen",
+    "openQueue": "Anzeigen"
   },
   "topbar": {
     "toggleTheme": "Thema wechseln",

@@ -43,7 +43,7 @@ import {
   repairMisgroupedAxes
 } from './script-axes'
 import { disposeFingerprintPool } from './fingerprint'
-import { normaliseNames } from '../taxonomy/taxonomy-service'
+import { canonicalNames, normaliseNames } from '../taxonomy/taxonomy-service'
 import { IgnoreList } from './ignore-list'
 import { scriptAuthorsUpdate } from './script-authors'
 import { syncLibrary, type SyncSummary } from './scanner'
@@ -1982,6 +1982,69 @@ export async function mergeWantedInto(
 ): Promise<MediaDetail | null> {
   const handle = handles.get(libraryId)
   if (!handle) return null
+  const merge = await buildMerge(libraryId, targetId, sourceIds, normaliseNames)
+  const { target, sources } = merge
+  if (sources.length === 0) {
+    return toDetail(
+      libraryId,
+      target.relPath,
+      target.mediaAbs,
+      target.meta,
+      target.handle.db.fileAddedAt(target.meta.id)
+    )
+  }
+
+  const detail = await commitSidecar(target, merge.meta)
+
+  // The placeholders have served their purpose; leaving them would show the
+  // library the same scene several times over.
+  for (const source of sources) {
+    await rm(sidecarPathFor(source.mediaAbs), { force: true })
+    handle.db.remove(source.id)
+  }
+  libraryEvents.emit('media-changed', { libraryId })
+  return detail
+}
+
+export interface MergePreview {
+  /** The video the merged entry plays; null when it is still waiting for one. */
+  fileName: string | null
+  title: string | null
+  tags: number
+  scriptVersions: number
+}
+
+/**
+ * What a merge would leave behind, worked out by the same code the merge runs
+ * and written nowhere. The dialog shows this instead of asking which entry to
+ * "keep": the answer is always the entry with the file, and everything the
+ * others carried comes along — which a choice of one row made look otherwise.
+ */
+export async function previewMerge(
+  libraryId: string,
+  targetId: string,
+  sourceIds: string[]
+): Promise<MergePreview> {
+  const { target, meta } = await buildMerge(libraryId, targetId, sourceIds, canonicalNames)
+  return {
+    fileName: meta.wanted ? null : basename(target.mediaAbs),
+    title: meta.title ?? null,
+    tags: meta.tags.length,
+    scriptVersions: meta.scriptVersions.length
+  }
+}
+
+/** The survivor's sidecar as the merge would write it. */
+async function buildMerge(
+  libraryId: string,
+  targetId: string,
+  sourceIds: string[],
+  foldNames: (field: NameField, names: string[]) => Promise<string[]>
+): Promise<{
+  target: EditTarget
+  sources: (EditTarget & { id: string })[]
+  meta: MediaMeta
+}> {
   const target = await openForEdit(libraryId, targetId)
   const sources = await Promise.all(
     sourceIds
@@ -1994,15 +2057,7 @@ export async function mergeWantedInto(
         return { id, ...source }
       })
   )
-  if (sources.length === 0) {
-    return toDetail(
-      libraryId,
-      target.relPath,
-      target.mediaAbs,
-      target.meta,
-      target.handle.db.fileAddedAt(target.meta.id)
-    )
-  }
+  if (sources.length === 0) return { target, sources, meta: target.meta }
 
   const targetDir = dirname(target.mediaAbs)
   const held = new Set(
@@ -2044,7 +2099,7 @@ export async function mergeWantedInto(
 
   const names = {} as Record<NameField, string[]>
   for (const field of NAME_FIELDS) {
-    names[field] = await normaliseNames(field, [
+    names[field] = await foldNames(field, [
       ...target.meta[field],
       ...sources.flatMap((s) => s.meta[field])
     ])
@@ -2096,7 +2151,7 @@ export async function mergeWantedInto(
   })?.meta.title
   const title = target.meta.title || carriedTitle
 
-  const detail = await commitSidecar(target, {
+  const meta: MediaMeta = {
     ...target.meta,
     // An existing title is the user's; only fill a blank one.
     ...(title ? { title } : {}),
@@ -2107,16 +2162,8 @@ export async function mergeWantedInto(
     subtitles,
     scriptVersions: combineAxes([...target.meta.scriptVersions, ...moved]),
     updatedAt: new Date().toISOString()
-  })
-
-  // The placeholders have served their purpose; leaving them would show the
-  // library the same scene several times over.
-  for (const source of sources) {
-    await rm(sidecarPathFor(source.mediaAbs), { force: true })
-    handle.db.remove(source.id)
   }
-  libraryEvents.emit('media-changed', { libraryId })
-  return detail
+  return { target, sources, meta }
 }
 
 /** The candidate IS the file: fold this one placeholder into it. */

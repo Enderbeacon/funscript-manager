@@ -2381,6 +2381,52 @@ button.lk-check:hover { color: var(--text-primary); border-color: var(--accent);
 .post-bar-actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .post-bar-actions button { padding: 0.35rem 0.8rem; font-size: 13px; display: inline-flex; align-items: center; gap: 0.35rem; }
 
+/* Notices at the top centre of the window; above dialogs, below nothing. */
+.toast-stack {
+  position: fixed;
+  top: 0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  width: min(560px, calc(100vw - 2rem));
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 100%;
+  padding: 0.5rem 0.55rem 0.5rem 0.75rem;
+  border: 0.5px solid color-mix(in srgb, var(--danger) 45%, var(--glass-edge));
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(color-mix(in srgb, var(--danger) 10%, transparent), color-mix(in srgb, var(--danger) 10%, transparent)),
+    color-mix(in srgb, var(--bg-page) 94%, transparent);
+  backdrop-filter: blur(24px) saturate(160%);
+  box-shadow: 0 10px 30px color-mix(in srgb, #000000 35%, transparent);
+  font-size: 12.5px;
+  color: var(--text-primary);
+}
+.toast-icon { flex: none; color: var(--danger); }
+.toast-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.toast-action {
+  flex: none;
+  padding: 2px 10px;
+  border: 0.5px solid var(--border-secondary);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--bg-muted);
+  color: var(--text-primary);
+  font-size: 12px;
+}
+.toast-action:hover { border-color: var(--accent); }
+.toast-close { all: unset; cursor: pointer; display: inline-flex; padding: 2px; color: var(--text-tertiary); }
+.toast-close:hover { color: var(--text-primary); }
+
 /* A link the user pastes into a post, and what went wrong with a card. */
 .post-add { display: flex; gap: 0.4rem; margin-top: 0.45rem; }
 .post-add input { flex: 1; min-width: 0; }
@@ -4465,6 +4511,13 @@ button.lk-check:hover { color: var(--text-primary); border-color: var(--accent);
 .merge-row:hover { color: var(--accent); }
 .merge-row.on { color: var(--accent); }
 .merge-row:disabled { cursor: default; opacity: 0.5; }
+/* Listed, not chosen: with a file among them there is nothing to pick. */
+.merge-row.static:disabled { opacity: 1; }
+.merge-result { display: flex; flex-direction: column; gap: 0.25rem; }
+.merge-fact { display: flex; gap: 0.75rem; font-size: 12px; color: var(--text-secondary); }
+.merge-fact > span { flex: 0 0 7.5rem; }
+.merge-fact > b { flex: 1; min-width: 0; font-weight: 500; color: var(--text-primary); overflow-wrap: anywhere; }
+.merge-fact > b.muted { color: var(--text-tertiary); font-weight: 400; }
 .merge-row-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .merge-row-flag {
   flex: none;

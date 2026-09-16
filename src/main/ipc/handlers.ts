@@ -372,6 +372,10 @@ export function registerIpcHandlers(): void {
     libraryManager.mergeWantedInto(libraryId, targetId, sourceIds)
   )
 
+  handle('library:previewMerge', ({ libraryId, targetId, sourceIds }) =>
+    libraryManager.previewMerge(libraryId, targetId, sourceIds)
+  )
+
   handle('library:dismissWantedMatch', ({ libraryId, mediaId, candidateId }) =>
     libraryManager.dismissWantedMatch(libraryId, mediaId, candidateId)
   )
@@ -854,9 +858,7 @@ export function registerIpcHandlers(): void {
     downloadEvents.emit('jobs-changed')
   })
 
-  handle('download:checkLinks', async (input) => ({
-    statuses: await checkLinks(input.urls, { force: input.force ?? false })
-  }))
+  handle('download:checkLinks', (input) => checkLinks(input.urls, { force: input.force ?? false }))
 
   handle('deps:status', async () => ({ binaries: await deps.status() }))
 

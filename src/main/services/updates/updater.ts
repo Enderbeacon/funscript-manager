@@ -1,12 +1,12 @@
 import { EventEmitter } from 'node:events'
-import { app, session } from 'electron'
+import { app } from 'electron'
 import { HttpSource, UpdateManager, VelopackApp, type UpdateInfo, type VelopackAsset } from 'velopack'
 import { AppError } from '@shared/errors'
 import { compareVersions } from '@shared/semver'
 import type { Settings } from '@shared/schemas/app-config'
 import type { ReleaseSummary, UpdateState } from '@shared/schemas/updates'
 import { getSettings } from '../config/config-service'
-import { currentProxy } from '../net/proxy'
+import { proxyForUrl } from '../net/proxy'
 import { listReleases, newestFor, releaseBaseUrl, releasePageUrl, VELOPACK_CHANNEL } from './releases'
 import { rememberWhatsNew } from './notices'
 import { showInstallingCard } from '../startup/splash-window'
@@ -356,15 +356,5 @@ async function withProxy<T>(request: () => Promise<T>): Promise<T> {
 }
 
 async function proxyForUpdates(): Promise<string | null> {
-  const configured = currentProxy()
-  if (configured) return configured
-  try {
-    // "DIRECT", or "PROXY host:port; DIRECT", or "HTTPS host:port".
-    const rule = (await session.defaultSession.resolveProxy('https://github.com/')).split(';')[0]?.trim() ?? ''
-    const m = /^(PROXY|HTTPS)\s+(\S+)$/i.exec(rule)
-    if (!m) return null
-    return `${m[1]!.toUpperCase() === 'HTTPS' ? 'https' : 'http'}://${m[2]}`
-  } catch {
-    return null
-  }
+  return (await proxyForUrl('https://github.com/')) || null
 }

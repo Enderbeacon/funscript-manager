@@ -743,9 +743,17 @@
       "pickTarget": "Fusionner « {{from}} » avec",
       "searchPlaceholder": "Rechercher des éléments",
       "noCandidates": "Aucun élément correspondant.",
-      "keepWhich": "Élément à conserver",
-      "note": "Les scripts et métadonnées passent à l’élément conservé ; les scripts de même nom sur des axes différents deviennent une seule version. Aucun fichier n’est déplacé ni renommé.",
-      "apply": "Fusionner"
+      "apply": "Fusionner",
+      "together": "Ces éléments n’en feront qu’un",
+      "mergeInto": "Fusionner avec",
+      "result": "Après la fusion",
+      "video": "Vidéo",
+      "noVideo": "Toujours manquante",
+      "titleField": "Titre",
+      "untitled": "Sans titre",
+      "tagsField": "Tags",
+      "versionsField": "Versions de script",
+      "note": "Les tags, liens et scripts de tous les éléments sont conservés. Aucun fichier n’est déplacé ni renommé."
     },
     "menu": {
       "play": "Lire",
@@ -755,7 +763,8 @@
       "playView": "Lire toute la vue",
       "newPlaylist": "Nouvelle liste…",
       "openDetail": "Ouvrir",
-      "onlyThisFolder": "Seulement ce dossier"
+      "onlyThisFolder": "Seulement ce dossier",
+      "removeFromLibrary": "Retirer de la bibliothèque"
     }
   },
   "libraries": {
@@ -889,7 +898,8 @@
       "waiting": "En attente",
       "problem": "Échecs",
       "done": "Terminés"
-    }
+    },
+    "busyCooling": "{{hoster}} est saturé, nouvel essai à {{time}}"
   },
   "posts": {
     "subtitle": "Analyser une publication EroScripts et choisir quoi télécharger",
@@ -924,7 +934,12 @@
     "railSummary": "{{count}} en cours",
     "addLink": "Ajouter un lien",
     "addLinkPlaceholder": "Coller un lien de téléchargement",
-    "addLinkConfirm": "Ajouter"
+    "addLinkConfirm": "Ajouter",
+    "linkIssue": {
+      "unreachable": "Impossible de joindre {{host}}",
+      "rate_limited": "{{host}} est saturé — réessayez plus tard",
+      "site_changed": "{{host}} a changé — mise à jour de l’app nécessaire"
+    }
   },
   "wanted": {
     "title": "Fichier vidéo manquant",
@@ -948,6 +963,11 @@
     "ownEntry": "Élément séparé",
     "later": "Plus tard",
     "apply": "Appliquer"
+  },
+  "toasts": {
+    "downloadFailed": "Échec du téléchargement : {{file}} — {{reason}}",
+    "downloadsFailed": "{{count}} téléchargements ont échoué",
+    "openQueue": "Voir"
   },
   "topbar": {
     "toggleTheme": "Changer de thème",

@@ -17,6 +17,7 @@ import NowPlayingBar from './components/NowPlayingBar'
 import PlaybackDrawer, { type DrawerTab } from './components/PlaybackDrawer'
 import TopBar from './components/TopBar'
 import DownloadsPage from './pages/DownloadsPage'
+import { ToastHost, useDownloadFailureToasts } from './toasts'
 import PostsPage from './pages/PostsPage'
 import MediaPage from './pages/MediaPage'
 import TagLibrariesPage from './pages/TagLibrariesPage'
@@ -315,6 +316,8 @@ export default function App(): React.JSX.Element {
     return ipcOn('event:downloads-changed', count)
   }, [])
 
+  useDownloadFailureToasts(() => setDownloadsOpen(true), downloadsOpen)
+
   useEffect(() => {
     ipcInvoke('playback:status').then((s) => setPlayingId(s.mediaId)).catch(() => {})
     return ipcOn('event:playback-changed', ({ mediaId }) => setPlayingId(mediaId))
@@ -445,6 +448,7 @@ export default function App(): React.JSX.Element {
       )}
 
       <DialogHost />
+      <ToastHost />
       <UpdateNotices onOpenUpdates={() => setPage('about')} />
 
       {closing && (

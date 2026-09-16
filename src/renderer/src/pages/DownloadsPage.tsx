@@ -257,7 +257,7 @@ function JobRow({
           {job.state === 'cooling' && job.cooldownUntil && (
             <span className="warn-text">
               <Clock size={12} />
-              {t('downloads.quotaCooling', {
+              {t(job.error === 'host_busy' ? 'downloads.busyCooling' : 'downloads.quotaCooling', {
                 hoster: hosterName(job.hoster),
                 time: formatClock(job.cooldownUntil)
               })}

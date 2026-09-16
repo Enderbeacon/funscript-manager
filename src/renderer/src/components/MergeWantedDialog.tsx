@@ -17,7 +17,14 @@ import { useEscape } from '../useEscape'
  *
  * Two ways in, one dialog. From a placeholder's own panel there is one entry to
  * fold and the target has to be searched for; from the grid the rows are
- * already chosen and the only question is which of them stays.
+ * already chosen.
+ *
+ * It shows what the merge will leave behind — which video, what title, how many
+ * tags and script versions — rather than asking which entry to keep. When one
+ * of the rows has a file there is nothing to choose, and "keep this one" read as
+ * "lose what the others carried": a post's title and tags on a placeholder
+ * looked as if they would be thrown away, when they are what gets merged in.
+ * Only a merge of placeholders alone asks which one the rest go into.
  */
 
 const CANDIDATE_LIMIT = 60
@@ -90,6 +97,27 @@ export default function MergeWantedDialog({
       ? [from.mediaId]
       : []
 
+  const [preview, setPreview] = useState<{
+    fileName: string | null
+    title: string | null
+    tags: number
+    scriptVersions: number
+  } | null>(null)
+  const sourceKey = sourceIds.join(',')
+
+  useEffect(() => {
+    setPreview(null)
+    if (!picked || sourceIds.length === 0) return
+    let live = true
+    ipcInvoke('library:previewMerge', { libraryId, targetId: picked, sourceIds })
+      .then((result) => live && setPreview(result))
+      .catch((e) => live && setError(toMessage(e)))
+    return () => {
+      live = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [libraryId, picked, sourceKey, toMessage])
+
   const run = async (): Promise<void> => {
     if (!picked || sourceIds.length === 0) return
     setBusy(true)
@@ -118,16 +146,20 @@ export default function MergeWantedDialog({
 
           {rows ? (
             <>
-              <div className="lab">{t('media.merge.keepWhich')}</div>
+              <div className="lab">
+                {forced ? t('media.merge.together') : t('media.merge.mergeInto')}
+              </div>
               <div className="box merge-list">
                 {rows.map((row) => (
                   <button
                     key={row.mediaId}
-                    className={`merge-row${picked === row.mediaId ? ' on' : ''}`}
-                    disabled={busy || (forced !== null && row.wanted)}
+                    className={`merge-row${forced ? ' static' : picked === row.mediaId ? ' on' : ''}`}
+                    disabled={busy || forced !== null}
                     onClick={() => setPicked(row.mediaId)}
                   >
-                    <span className={`version-radio${picked === row.mediaId ? ' on' : ''}`} />
+                    {!forced && (
+                      <span className={`version-radio${picked === row.mediaId ? ' on' : ''}`} />
+                    )}
                     <span className="merge-row-name" title={row.path}>
                       {row.name}
                     </span>
@@ -176,6 +208,34 @@ export default function MergeWantedDialog({
                     </button>
                   ))
                 )}
+              </div>
+            </>
+          )}
+
+          {preview && (
+            <>
+              <div className="lab">{t('media.merge.result')}</div>
+              <div className="box merge-result">
+                <div className="merge-fact">
+                  <span>{t('media.merge.video')}</span>
+                  <b className={preview.fileName ? '' : 'muted'}>
+                    {preview.fileName ?? t('media.merge.noVideo')}
+                  </b>
+                </div>
+                <div className="merge-fact">
+                  <span>{t('media.merge.titleField')}</span>
+                  <b className={preview.title ? '' : 'muted'}>
+                    {preview.title ?? t('media.merge.untitled')}
+                  </b>
+                </div>
+                <div className="merge-fact">
+                  <span>{t('media.merge.tagsField')}</span>
+                  <b>{preview.tags}</b>
+                </div>
+                <div className="merge-fact">
+                  <span>{t('media.merge.versionsField')}</span>
+                  <b>{preview.scriptVersions}</b>
+                </div>
               </div>
             </>
           )}

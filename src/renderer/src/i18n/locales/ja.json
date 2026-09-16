@@ -736,9 +736,17 @@
       "pickTarget": "「{{from}}」の統合先",
       "searchPlaceholder": "項目を検索",
       "noCandidates": "該当する項目がありません。",
-      "keepWhich": "残す項目",
-      "note": "スクリプトとメタデータは残す項目に移ります。同名で軸の異なるスクリプトは 1 つのバージョンにまとまります。ファイルの移動・改名は行いません。",
-      "apply": "統合"
+      "apply": "統合",
+      "together": "これらが 1 つの項目になります",
+      "mergeInto": "統合先",
+      "result": "統合後",
+      "video": "動画",
+      "noVideo": "まだありません",
+      "titleField": "タイトル",
+      "untitled": "タイトルなし",
+      "tagsField": "タグ",
+      "versionsField": "スクリプトのバージョン",
+      "note": "すべての項目のタグ・リンク・スクリプトが残ります。ファイルの移動・改名は行いません。"
     },
     "menu": {
       "play": "再生",
@@ -748,7 +756,8 @@
       "playView": "この一覧を再生",
       "newPlaylist": "新しいプレイリスト…",
       "openDetail": "詳細を開く",
-      "onlyThisFolder": "このフォルダーだけ表示"
+      "onlyThisFolder": "このフォルダーだけ表示",
+      "removeFromLibrary": "ライブラリから外す"
     }
   },
   "libraries": {
@@ -880,7 +889,8 @@
       "waiting": "待機",
       "problem": "失敗",
       "done": "完了"
-    }
+    },
+    "busyCooling": "{{hoster}} が混み合っています。{{time}} に再試行"
   },
   "posts": {
     "subtitle": "EroScripts の投稿を解析し、ダウンロードするものを選びます",
@@ -912,7 +922,12 @@
     "railSummary": "{{count}} 件進行中",
     "addLink": "リンクを追加",
     "addLinkPlaceholder": "ダウンロードリンクを貼り付け",
-    "addLinkConfirm": "追加"
+    "addLinkConfirm": "追加",
+    "linkIssue": {
+      "unreachable": "{{host}} に接続できません",
+      "rate_limited": "{{host}} が混み合っています。しばらくしてから再試行",
+      "site_changed": "{{host}} の仕様が変わりました。アプリの更新が必要です"
+    }
   },
   "wanted": {
     "title": "動画ファイルがありません",
@@ -935,6 +950,11 @@
     "ownEntry": "別の項目にする",
     "later": "あとで",
     "apply": "適用"
+  },
+  "toasts": {
+    "downloadFailed": "ダウンロード失敗: {{file}} — {{reason}}",
+    "downloadsFailed": "{{count}} 件のダウンロードが失敗しました",
+    "openQueue": "表示"
   },
   "topbar": {
     "toggleTheme": "テーマを切り替え",
