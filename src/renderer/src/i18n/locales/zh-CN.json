@@ -1229,7 +1229,7 @@
         },
         "addOutput": {
           "title": "添加输出",
-          "body": "选设备怎么连：Buttplug、串口，或 The Handy。"
+          "body": "选设备怎么连：串口、网络，或 The Handy。"
         },
         "connect": {
           "title": "连接",

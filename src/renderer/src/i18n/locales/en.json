@@ -1249,7 +1249,7 @@
         },
         "addOutput": {
           "title": "Add an output",
-          "body": "Choose how the device is reached: Buttplug, a serial port, or The Handy."
+          "body": "Choose how the device is reached: a serial port, the network, or The Handy."
         },
         "connect": {
           "title": "Connect",

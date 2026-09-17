@@ -1250,7 +1250,7 @@
         },
         "addOutput": {
           "title": "Ausgang hinzufügen",
-          "body": "Wählen, wie das Gerät erreicht wird: Buttplug, serieller Port oder The Handy."
+          "body": "Wählen, wie das Gerät erreicht wird: serieller Port, Netzwerk oder The Handy."
         },
         "connect": {
           "title": "Verbinden",

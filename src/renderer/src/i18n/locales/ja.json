@@ -1229,7 +1229,7 @@
         },
         "addOutput": {
           "title": "出力を追加",
-          "body": "接続方法を選びます。Buttplug、シリアルポート、The Handy。"
+          "body": "接続方法を選びます。シリアルポート、ネットワーク、The Handy。"
         },
         "connect": {
           "title": "接続",

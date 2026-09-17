@@ -1250,7 +1250,7 @@
         },
         "addOutput": {
           "title": "Ajouter une sortie",
-          "body": "Choisissez le mode de liaison : Buttplug, port série ou The Handy."
+          "body": "Choisissez le mode de liaison : port série, réseau ou The Handy."
         },
         "connect": {
           "title": "Connecter",
