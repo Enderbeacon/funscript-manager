@@ -745,8 +745,8 @@ export function registerIpcHandlers(): void {
   handle('video:release', (_input, sender) => {
     releaseVideoSurface(sender)
   })
-  handle('video:report', (report) => {
-    reportVideoState(report)
+  handle('video:report', (report, sender) => {
+    reportVideoState(report, sender)
   })
   handle('video:close', async () => {
     // The picture *is* the player here, so closing it is letting go of the

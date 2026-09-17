@@ -53,6 +53,30 @@ let holder: WebContents | null = null
 /** Cleans up the `destroyed` listener when the surface is handed on. */
 let dropHolder: (() => void) | null = null
 let losing: NodeJS.Timeout | null = null
+/**
+ * Where the picture is in the file the intent names, as best we know.
+ *
+ * The intent only records where the app last *asked* to be — the start of the
+ * file, or the last seek. A surface rebuilt in another window would start from
+ * there and lose everything played since, so a new holder is sent here instead.
+ */
+let lastSeen: { path: string; positionMs: number } | null = null
+/**
+ * The picture has been sent to `lastSeen` and has not said it got there.
+ *
+ * Until then its reports describe an element still loading or seeking — a
+ * picture fresh in a new window says 0 — and taking them at their word would
+ * make a second quick move start the file over.
+ */
+let settling = false
+
+/** How near the asked position a report must be to count as having got there. */
+const SETTLED_WITHIN_MS = 1000
+
+function expectPosition(path: string | null, positionMs: number): void {
+  lastSeen = path === null ? null : { path, positionMs }
+  settling = lastSeen !== null
+}
 
 /**
  * How long the picture may be nowhere before the player is considered gone.
@@ -91,16 +115,21 @@ export function hasVideoSurface(): boolean {
 /** Change part of the intent and tell the windows. Unchanged fields are kept. */
 export function setVideoIntent(patch: Partial<InternalPlayerIntent>): InternalPlayerIntent {
   intent = { ...intent, ...patch }
+  // A file handed over starts where it is told to, even the same file again.
+  if (patch.media !== undefined) expectPosition(intent.media?.path ?? null, intent.seekMs)
   videoSurfaceEvents.emit('intent', intent)
   return intent
 }
 
 /** Ask for a position. A token rather than a level — see the schema. */
 export function requestVideoSeek(positionMs: number): void {
-  setVideoIntent({ seekToken: intent.seekToken + 1, seekMs: Math.max(0, positionMs) })
+  const seekMs = Math.max(0, positionMs)
+  expectPosition(intent.media?.path ?? null, seekMs)
+  setVideoIntent({ seekToken: intent.seekToken + 1, seekMs })
 }
 
 export function resetVideoIntent(): void {
+  expectPosition(null, 0)
   intent = { ...IDLE_INTENT, seekToken: intent.seekToken }
   videoSurfaceEvents.emit('intent', intent)
 }
@@ -127,6 +156,12 @@ export function claimVideoSurface(contents: WebContents): InternalPlayerIntent {
   }
   contents.once('destroyed', onDestroyed)
   dropHolder = () => contents.off('destroyed', onDestroyed)
+  // Taking over a file that was already playing: carry on from where the old
+  // picture got to. A seek rather than a quiet change to `seekMs`, because the
+  // new element may already hold an intent read before this claim landed, and
+  // only a new token makes it move.
+  const path = intent.media?.path ?? null
+  if (path !== null && lastSeen?.path === path) requestVideoSeek(lastSeen.positionMs)
   return intent
 }
 
@@ -138,7 +173,20 @@ export function releaseVideoSurface(contents: WebContents): void {
   scheduleLoss()
 }
 
-export function reportVideoState(report: InternalPlayerReport): void {
+export function reportVideoState(report: InternalPlayerReport, from: WebContents): void {
+  // Only the holder's word counts, and only once it has reached where it was
+  // sent: before that it is describing a file still loading.
+  if (
+    from === holder &&
+    !report.error &&
+    report.path !== null &&
+    report.path === lastSeen?.path &&
+    report.positionMs !== null &&
+    (!settling || Math.abs(report.positionMs - lastSeen.positionMs) <= SETTLED_WITHIN_MS)
+  ) {
+    lastSeen = { path: report.path, positionMs: report.positionMs }
+    settling = false
+  }
   videoSurfaceEvents.emit('report', report)
 }
 
