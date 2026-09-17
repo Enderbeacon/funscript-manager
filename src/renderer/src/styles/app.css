@@ -2218,8 +2218,25 @@ textarea:disabled { opacity: 0.55; cursor: default; }
   align-items: center;
   justify-content: flex-end;
   align-self: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
 }
 .lk-state > * { margin-top: 0; }
+
+/* Beside "could not tell": the page, for the user to look at. */
+.lk-look {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  font-size: 11px;
+  text-decoration: none;
+  color: var(--text-secondary);
+  background: var(--bg-muted);
+  border: 0.5px solid var(--border-secondary);
+  border-radius: var(--radius-sm);
+}
+.lk-look:hover { color: var(--text-primary); border-color: var(--accent); }
 
 /* Every verdict is also the button that asks again — pressing "dead" to
    re-check is what a user does when a mirror has been reposted since. */
@@ -2439,10 +2456,29 @@ button.lk-check:hover { color: var(--text-primary); border-color: var(--accent);
 .toast-close { all: unset; cursor: pointer; display: inline-flex; padding: 2px; color: var(--text-tertiary); }
 .toast-close:hover { color: var(--text-primary); }
 
-/* A link the user pastes into a post, and what went wrong with a card. */
-.post-add { display: flex; gap: 0.4rem; margin-top: 0.45rem; }
+/* A link the user pastes into a post, and what went wrong with a card. The
+   button leads the card and wears the accent: a found mirror is often the only
+   way a years-old post downloads at all. */
+.post-add { display: flex; gap: 0.4rem; margin-bottom: 0.5rem; }
 .post-add input { flex: 1; min-width: 0; }
 .post-add button { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.8rem; font-size: 13px; }
+.post-add-open {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  margin-bottom: 0.5rem;
+  padding: 0.45rem 0.8rem;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 0.5px dashed color-mix(in srgb, var(--accent) 60%, transparent);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+.post-add-open:hover { border-style: solid; background: color-mix(in srgb, var(--accent) 22%, transparent); }
 .post-fail {
   display: flex;
   align-items: center;

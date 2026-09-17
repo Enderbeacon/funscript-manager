@@ -103,7 +103,9 @@ export default function PostsPage({
     setBusy(true)
 
     const fresh = urls.filter((u) => !pending.some((p) => p.url === u))
-    setPending((cur) => [...cur, ...fresh.map((url): Pending => ({ url, state: 'parsing' }))])
+    // Newest paste on top, where the box it came from is; within one paste the
+    // lines keep their order.
+    setPending((cur) => [...fresh.map((url): Pending => ({ url, state: 'parsing' })), ...cur])
     setInput('')
 
     for (const url of fresh) {

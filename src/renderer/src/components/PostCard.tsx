@@ -152,6 +152,18 @@ function LinkCard({
     recheck(t('posts.checkLink'), <Radio size={12} />, 'lk-check')
   ) : null
 
+  /**
+   * When the check cannot decide, the page itself is the quickest way to find
+   * out: one look in the browser shows a file, a removal notice or a challenge.
+   */
+  const lookYourself =
+    !checking && status === 'unknown' ? (
+      <a className="lk-look" href={link.url} target="_blank" rel="noreferrer">
+        <ExternalLink size={12} />
+        {t('posts.openSite')}
+      </a>
+    ) : null
+
   const body = (
     <>
       {!link.isScript && (
@@ -194,7 +206,12 @@ function LinkCard({
       </div>
       {/* Beside the link while there is room, under it when there is not — a
           row of its own for one short chip made every card taller for nothing. */}
-      {liveness && <div className="lk-state">{liveness}</div>}
+      {liveness && (
+        <div className="lk-state">
+          {liveness}
+          {lookYourself}
+        </div>
+      )}
     </>
   )
 
@@ -409,6 +426,12 @@ export default function PostCard({
     }
   }
 
+  const cancelAdding = (): void => {
+    setAdding(false)
+    setPasted('')
+    setAddError(null)
+  }
+
   const chosen = post.links.filter((l) => l.downloadable && picked.has(l.url))
   const nothingToFetch = post.links.every((l) => !l.downloadable)
 
@@ -468,6 +491,42 @@ export default function PostCard({
       </div>
 
       <div className="post-body">
+        {/* First thing in the card: when the post's own links are dead or
+            unreadable, a link found elsewhere is how the download happens. */}
+        {adding ? (
+          <form
+            className="post-add"
+            onSubmit={(e) => {
+              e.preventDefault()
+              void addLink()
+            }}
+          >
+            <input
+              className="settings-input"
+              autoFocus
+              value={pasted}
+              placeholder={t('posts.addLinkPlaceholder')}
+              onChange={(e) => setPasted(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') cancelAdding()
+              }}
+            />
+            <button className="primary" type="submit" disabled={!pasted.trim()}>
+              <Plus size={14} />
+              {t('posts.addLinkConfirm')}
+            </button>
+            <button className="ghost" type="button" onClick={cancelAdding}>
+              {t('common.cancel')}
+            </button>
+          </form>
+        ) : (
+          <button className="post-add-open" onClick={() => setAdding(true)}>
+            <LinkIcon size={14} />
+            {t('posts.addLink')}
+          </button>
+        )}
+        {addError && <div className="post-fail">{addError}</div>}
+
         {alreadyHave && (
           <div className="post-have">
             <TriangleAlert size={13} />
@@ -514,34 +573,6 @@ export default function PostCard({
             <div className="lk-list">{scripts.map(card)}</div>
           </>
         )}
-
-        {adding ? (
-          <form
-            className="post-add"
-            onSubmit={(e) => {
-              e.preventDefault()
-              void addLink()
-            }}
-          >
-            <input
-              className="settings-input"
-              autoFocus
-              value={pasted}
-              placeholder={t('posts.addLinkPlaceholder')}
-              onChange={(e) => setPasted(e.target.value)}
-            />
-            <button className="primary" type="submit" disabled={!pasted.trim()}>
-              <Plus size={14} />
-              {t('posts.addLinkConfirm')}
-            </button>
-          </form>
-        ) : (
-          <button className="lk-more" onClick={() => setAdding(true)}>
-            <LinkIcon size={13} />
-            {t('posts.addLink')}
-          </button>
-        )}
-        {addError && <div className="post-fail">{addError}</div>}
 
         {others.length > 0 &&
           (showOthers ? (
