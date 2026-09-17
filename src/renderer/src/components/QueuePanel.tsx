@@ -164,7 +164,7 @@ export default function QueuePanel({
         <button
           className="icon-btn"
           title={t('queue.clear')}
-          disabled={items.length === 0}
+          disabled={items.every((item) => item.mediaId === playingId)}
           onClick={() => void run(ipcInvoke('queue:clear'))}
         >
           <Trash2 size={14} />

@@ -4,7 +4,7 @@ import { app } from 'electron'
 import { QueueStateSchema, type QueueItem, type QueueSource, type QueueState } from '@shared/schemas/queue'
 import { atomicWriteJson, readJsonOr } from '../../util/atomic-json'
 import * as libraryManager from '../library/library-manager'
-import { playbackEvents, play } from './playback-service'
+import { playbackEvents, play, status } from './playback-service'
 
 /**
  * What plays after this one.
@@ -339,10 +339,18 @@ export function move(mediaId: string, afterMediaId: string | null): QueueState {
   return snapshot()
 }
 
-/** Empty it. Whatever is playing keeps playing; it just has no next. */
+/**
+ * Empty it — except for what is playing. That one keeps playing, and a list
+ * without it would have nothing to highlight and nowhere for "next" to start
+ * from once something else is added.
+ */
 export function clear(): QueueState {
-  state = { ...EMPTY, shuffle: state.shuffle, repeat: state.repeat }
-  shuffled = []
+  const playingId = status().mediaId
+  const playing = state.items.find((item) => item.mediaId === playingId)
+  state = playing
+    ? { ...EMPTY, items: [playing], index: 0, shuffle: state.shuffle, repeat: state.repeat }
+    : { ...EMPTY, shuffle: state.shuffle, repeat: state.repeat }
+  shuffled = playing ? [playing.mediaId] : []
   announce()
   return snapshot()
 }
