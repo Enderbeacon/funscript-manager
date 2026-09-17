@@ -4,7 +4,7 @@ layout: home
 hero:
   name: Funscript Manager
   text: Your whole funscript setup, in one app.
-  tagline: Manage the library, watch the video and drive your device from the same window. No separate video player, no script loader, no juggling programs.
+  tagline: Manage the library, watch the video and drive your device from the same window. No separate video player, no script loader, no juggling programs. Free and open source.
   actions:
     - theme: brand
       text: Download for Windows
@@ -12,6 +12,9 @@ hero:
     - theme: alt
       text: Read the guide
       link: /guide/
+    - theme: alt
+      text: View on GitHub
+      link: https://github.com/Enderbeacon/funscript-manager
 
 features:
   - title: Manage
