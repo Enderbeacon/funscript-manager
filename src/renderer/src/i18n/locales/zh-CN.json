@@ -886,8 +886,7 @@
     "removeRecord": "移除记录",
     "filter": {
       "all": "全部",
-      "active": "进行中",
-      "waiting": "等待",
+      "downloading": "下载中",
       "problem": "失败",
       "done": "已完成"
     },

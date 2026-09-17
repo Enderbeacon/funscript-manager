@@ -896,8 +896,7 @@
     "removeRecord": "Eintrag entfernen",
     "filter": {
       "all": "Alle",
-      "active": "Läuft",
-      "waiting": "Wartet",
+      "downloading": "Wird geladen",
       "problem": "Fehler",
       "done": "Fertig"
     },

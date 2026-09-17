@@ -2567,7 +2567,9 @@ button.lk-check:hover { color: var(--text-primary); border-color: var(--accent);
 }
 
 .mini-top { display: flex; align-items: center; gap: 0.4rem; min-width: 0; }
-.mini-name { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mini-name { flex: 1; min-width: 0; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mini-tools { display: inline-flex; gap: 3px; flex: none; }
+.mini-tools .icon-btn { width: 20px; height: 20px; }
 
 .mini-bar {
   height: 3px;

@@ -895,9 +895,8 @@
     "removeRecord": "Remove record",
     "filter": {
       "all": "All",
-      "active": "In progress",
-      "waiting": "Waiting",
-      "problem": "Problems",
+      "downloading": "Downloading",
+      "problem": "Failed",
       "done": "Finished"
     },
     "busyCooling": "{{hoster}} is busy, retry at {{time}}",

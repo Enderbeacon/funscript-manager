@@ -886,8 +886,7 @@
     "removeRecord": "記録を削除",
     "filter": {
       "all": "すべて",
-      "active": "進行中",
-      "waiting": "待機",
+      "downloading": "ダウンロード中",
       "problem": "失敗",
       "done": "完了"
     },

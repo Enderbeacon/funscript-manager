@@ -22,6 +22,7 @@ import { ipcInvoke, ipcOn } from '../ipc'
 import { useErrorMessage } from '../useErrorMessage'
 import { showToast } from '../toasts'
 import { verifyDownload } from '../verifyDownload'
+import { UNFINISHED, inQueueOrder } from '../downloadOrder'
 import { formatBytes, formatClock, formatEta } from '../format'
 import { useRemoteImage } from '../useRemoteImage'
 import { useSurface } from '../surfaces'
@@ -36,12 +37,11 @@ import { useSurface } from '../surfaces'
  * that is stuck, not in a settings page the user has to go find.
  */
 
-type Filter = 'all' | 'active' | 'waiting' | 'problem' | 'done'
+type Filter = 'all' | 'downloading' | 'problem' | 'done'
 
 const IN_FILTER: Record<Exclude<Filter, 'all'>, Set<DownloadState>> = {
-  active: new Set<DownloadState>(['running']),
-  waiting: new Set<DownloadState>(['pending', 'paused']),
-  problem: new Set<DownloadState>(['failed', 'cooling']),
+  downloading: UNFINISHED,
+  problem: new Set<DownloadState>(['failed']),
   done: new Set<DownloadState>(['done'])
 }
 
@@ -98,15 +98,15 @@ export default function DownloadsPage({ onClose }: { onClose: () => void }): Rea
   const counts = useMemo(
     () => ({
       all: jobs.length,
-      active: jobs.filter((j) => IN_FILTER.active.has(j.state)).length,
-      waiting: jobs.filter((j) => IN_FILTER.waiting.has(j.state)).length,
+      downloading: jobs.filter((j) => IN_FILTER.downloading.has(j.state)).length,
       problem: jobs.filter((j) => IN_FILTER.problem.has(j.state)).length,
       done: jobs.filter((j) => IN_FILTER.done.has(j.state)).length
     }),
     [jobs]
   )
 
-  const shown = filter === 'all' ? jobs : jobs.filter((j) => IN_FILTER[filter].has(j.state))
+  const ordered = useMemo(() => inQueueOrder(jobs), [jobs])
+  const shown = filter === 'all' ? ordered : ordered.filter((j) => IN_FILTER[filter].has(j.state))
   const running = jobs.filter((j) => j.state === 'running')
   const speed = running.reduce((sum, j) => sum + (live[j.id]?.speedBytesPerSec ?? 0), 0)
 
@@ -146,7 +146,7 @@ export default function DownloadsPage({ onClose }: { onClose: () => void }): Rea
         <div className="download-queue-body">
           <ScriptPairingPrompt />
           <div className="dl-tabs">
-            {(['all', 'active', 'waiting', 'problem', 'done'] as Filter[]).map((key) => (
+            {(['all', 'downloading', 'problem', 'done'] as Filter[]).map((key) => (
               <button
                 key={key}
                 className={`dl-tab${filter === key ? ' on' : ''}`}

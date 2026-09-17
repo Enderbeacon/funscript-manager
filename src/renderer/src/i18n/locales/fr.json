@@ -895,8 +895,7 @@
     "removeRecord": "Supprimer l’entrée",
     "filter": {
       "all": "Tout",
-      "active": "En cours",
-      "waiting": "En attente",
+      "downloading": "En téléchargement",
       "problem": "Échecs",
       "done": "Terminés"
     },

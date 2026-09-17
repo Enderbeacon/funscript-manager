@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Activity, Download, List } from 'lucide-react'
+import { Activity, Download, List, Pause, Play, RotateCw, X } from 'lucide-react'
 import type { DownloadJob, DownloadProgress } from '@shared/schemas/download'
 import HosterBadge, { hosterName } from './HosterBadge'
 import { ScriptPairingPrompt } from './ScriptPairing'
 import { ipcInvoke, ipcOn } from '../ipc'
 import { formatBytes, formatClock } from '../format'
+import { UNFINISHED, inQueueOrder } from '../downloadOrder'
+import { showToast } from '../toasts'
+import { useErrorMessage } from '../useErrorMessage'
 
 /**
  * The queue at a glance, beside the posts page. Deliberately narrow: one row
@@ -16,7 +19,10 @@ import { formatBytes, formatClock } from '../format'
  * plain coloured square failed to say.
  */
 
-const LIVE_STATES = new Set(['running', 'pending', 'paused', 'cooling'])
+/** A glance, not the queue: the full list is one click away. */
+const RAIL_ROWS = 6
+
+type JobAction = 'download:pause' | 'download:resume' | 'download:cancel'
 
 export default function DownloadRail({
   onOpenQueue
@@ -24,6 +30,7 @@ export default function DownloadRail({
   onOpenQueue: () => void
 }): React.JSX.Element {
   const { t } = useTranslation()
+  const toMessage = useErrorMessage()
   const [jobs, setJobs] = useState<DownloadJob[]>([])
   const [live, setLive] = useState<Record<string, DownloadProgress>>({})
 
@@ -49,11 +56,21 @@ export default function DownloadRail({
     }
   }, [load])
 
-  const active = jobs.filter((j) => LIVE_STATES.has(j.state))
-  // A handful of finished ones stay visible: "did that land?" is the question
-  // people ask right after starting something, and an empty rail cannot answer.
-  const recent = jobs.filter((j) => !LIVE_STATES.has(j.state)).slice(0, 4)
-  const shown = [...active, ...recent].slice(0, 12)
+  const act = useCallback(
+    async (channel: JobAction, id: string) => {
+      try {
+        await ipcInvoke(channel, { id })
+      } catch (e) {
+        showToast({ message: toMessage(e) })
+      }
+    },
+    [toMessage]
+  )
+
+  const active = jobs.filter((j) => UNFINISHED.has(j.state))
+  // Rows left over after the unfinished ones go to what just finished: "did
+  // that land?" is the question people ask right after starting something.
+  const shown = inQueueOrder(jobs).slice(0, RAIL_ROWS)
   const speed = active.reduce((sum, j) => sum + (live[j.id]?.speedBytesPerSec ?? 0), 0)
 
   return (
@@ -88,6 +105,37 @@ export default function DownloadRail({
                 <span className="mini-name" title={`${job.fileName} · ${hosterName(job.hoster)}`}>
                   {job.fileName}
                 </span>
+                {UNFINISHED.has(job.state) && (
+                  <span className="mini-tools">
+                    {job.state === 'running' || job.state === 'pending' ? (
+                      <button
+                        className="icon-btn"
+                        type="button"
+                        onClick={() => void act('download:pause', job.id)}
+                        title={t('downloads.pause')}
+                      >
+                        <Pause size={12} />
+                      </button>
+                    ) : (
+                      <button
+                        className="icon-btn"
+                        type="button"
+                        onClick={() => void act('download:resume', job.id)}
+                        title={job.state === 'cooling' ? t('downloads.resumeNow') : t('downloads.resume')}
+                      >
+                        {job.state === 'cooling' ? <RotateCw size={12} /> : <Play size={12} />}
+                      </button>
+                    )}
+                    <button
+                      className="icon-btn"
+                      type="button"
+                      onClick={() => void act('download:cancel', job.id)}
+                      title={t('downloads.cancel')}
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                )}
               </div>
               <div className={`mini-bar ${barClass}`}>
                 <span style={{ width: `${percent ?? (job.state === 'done' ? 100 : 6)}%` }} />
