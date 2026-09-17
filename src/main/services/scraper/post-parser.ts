@@ -293,52 +293,143 @@ function isFetchable(url: string, claimed: (url: string) => boolean): boolean {
   return claimed(url) || FILE_EXT.test(url)
 }
 
-/** Markdown decoration that would otherwise end up quoted back at the user. */
+/** A markdown image, `![alt|690x172](upload://…)`. */
+const MD_IMAGE = /!\[[^\]]*\]\([^)]*\)/g
+/** A markdown link; the text may carry escaped brackets, `[Clip \[4K\]](…)`. */
+const MD_LINK = /\[((?:\\.|[^\]\\])*)\]\(\s*[^)\s]*\s*\)/g
+/** What Discourse appends to an upload's link text: `name|attachment`, `name|video`. */
+const UPLOAD_META = /\|(?:attachment|video|audio)(?=\])/gi
+/** Formatting tags the forum accepts. Only these: `[E]ncore` is somebody's title. */
+const BBCODE =
+  /(?<!\\)\[\/?(?:center|left|right|color|size|font|u|b|i|s|details|summary|spoiler|grid|quote|url|img|wrap|align|highlight|sup|sub)(?:[=\s][^\]]*)?\]/gi
+
+/**
+ * The raw text with every line break that sits inside a link's syntax turned
+ * into a space. Authors wrap links as `[![logo](upload://…)` on one line and
+ * `](https://…)` on the next, and read one line at a time that is two halves
+ * of nothing. Comments are blanked too, since they span lines just the same.
+ *
+ * Offsets are kept: every character is replaced one for one, so a match index
+ * found in the original raw text points at the same place here.
+ */
+function joinedLines(raw: string): string {
+  const flatten = (m: string): string => m.replace(/[\r\n]/g, ' ')
+  return raw
+    .replace(/<!--[\s\S]*?-->/g, (m) => m.replace(/[^\r\n]/g, ' '))
+    .replace(/\]\(\s*[^)\s]*\s*\)/g, flatten)
+    .replace(/\)\s*\]\(/g, flatten)
+}
+
+/** Markdown and forum markup that would otherwise end up quoted back at the user. */
 function plainText(line: string): string {
-  return line
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(urlsIn(), '')
-    // Emoji shortcodes go before the markdown strip, or `_` removal turns
-    // `:slight_smile:` into the word `slightsmile` (same trap as headings).
-    .replace(/:[a-z0-9_+-]+:/g, '')
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
-    .replace(/\[\/?[a-z][^\]]*\]/gi, '') // bbcode the forum still accepts
-    .replace(/[*_`>#]/g, '')
-    .replace(/\s+/g, ' ')
-    .replace(/^[\s:—–-]+|[\s:—–-]+$/g, '')
-    .trim()
+  return (
+    line
+      .replace(/<!--[\s\S]*?-->/g, '')
+      // Inline HTML goes before the URLs do: `<a href="https://…">` with its
+      // address taken out used to be read back as `<a href=""`.
+      .replace(/<\/?[a-z][^<>]*>/gi, '')
+      .replace(UPLOAD_META, '')
+      .replace(MD_IMAGE, '')
+      // `[Clip](…)Rule34` reads as two words once the address is gone.
+      .replace(MD_LINK, (link: string, words: string, at: number, all: string) =>
+        /[\p{L}\p{N}]/u.test(all[at + link.length] ?? '') ? `${words} ` : words
+      )
+      .replace(urlsIn(), '')
+      // What held a bare address: `[https://…]`.
+      .replace(/\[\s*\]|\(\s*\)/g, '')
+      // Emoji shortcodes go after the URLs, or `Iwara:https://…` loses its
+      // `:https:` as if it were one; and before the markdown strip, or `_`
+      // removal turns `:slight_smile:` into the word `slightsmile`.
+      .replace(/:[a-z0-9_+-]+:/g, '')
+      .replace(BBCODE, '')
+      // Emphasis marks, but not an underscore inside a word (`v4_Wicked_Edit`)
+      // and not a character the author escaped to keep.
+      .replace(/(?<!\\)[*`>#]/g, '')
+      .replace(/(?<![\\\p{L}\p{N}])_+|_+(?![\p{L}\p{N}])/gu, '')
+      .replace(/\\([\\`*_{}[\]()#+\-.!~|<>])/g, '$1')
+      .replace(/\s+/g, ' ')
+      .replace(/^[\s:|—–-]+|[\s:|—–-]+$/g, '')
+      .trim()
+  )
+}
+
+/** How many links a line holds, an image-only link or an HTML anchor included. */
+function linkCount(line: string): number {
+  let count = 0
+  const rest = line.replace(MD_IMAGE, '').replace(MD_LINK, () => {
+    count++
+    return ' '
+  })
+  return count + (rest.match(urlsIn()) ?? []).length
+}
+
+/** The words of the markdown link that spans `at` on this line, if it is one. */
+function ownLinkText(line: string, at: number): string {
+  // Images are blanked rather than removed so the offsets still line up.
+  const bare = line.replace(MD_IMAGE, (m) => ' '.repeat(m.length))
+  const re = new RegExp(MD_LINK.source, 'g')
+  for (let m = re.exec(bare); m !== null; m = re.exec(bare)) {
+    if (at >= m.index && at < m.index + m[0].length) return plainText(m[1] ?? '')
+  }
+  return ''
 }
 
 /**
- * What the author wrote about this link. Two shapes both occur in real posts:
- * the sentence runs into the link on one line ("DMM Link (to buy): https://…"),
- * or it sits on the line above it ("…syncs much better imo:" then the URL).
- * Take the same line when it says anything, else the nearest line above.
+ * Is this line a row of links — `[Video](…) | [Mirror](…) | [Script](…) (8 KB)`
+ * — rather than a sentence that happens to hold some? What is left once the
+ * links, markup and file sizes are gone decides.
+ */
+function isLinkRow(line: string): boolean {
+  if (linkCount(line) < 2) return false
+  const rest = plainText(
+    line
+      .replace(MD_IMAGE, ' ')
+      .replace(MD_LINK, ' ')
+      .replace(urlsIn(), ' ')
+      .replace(/\(\s*[\d.,]+\s*[KMGT]?i?B\s*\)/gi, ' ')
+  )
+  return (rest.match(/[\p{L}\p{N}]/gu) ?? []).length < 4
+}
+
+/**
+ * What the author wrote about this link. `text` is the post's raw markdown
+ * after `joinedLines`. Three shapes occur in real posts:
+ *   - the sentence runs into the link on one line ("DMM Link (to buy): https://…");
+ *   - a row of links, where each link's own words are its note and the rest of
+ *     the row belongs to the other links;
+ *   - the sentence sits on a line above ("…syncs much better imo:" then the URL).
  *
  * Headings are not notes — a note under "Video link" would just repeat the
- * group the link is already filed under.
+ * group the link is already filed under. Nor is a line above that carries a
+ * link of its own: its words describe that link.
  */
-function noteAt(raw: string, index: number): string {
-  const before = raw.lastIndexOf('\n', index) + 1
-  const lineEnd = raw.indexOf('\n', index)
-  const line = raw.slice(before, lineEnd === -1 ? raw.length : lineEnd)
-  const own = plainText(line)
-  if (own) return own.slice(0, 300)
+function noteAt(text: string, index: number): string {
+  const before = text.lastIndexOf('\n', index) + 1
+  const lineEnd = text.indexOf('\n', index)
+  const line = text.slice(before, lineEnd === -1 ? text.length : lineEnd)
 
-  const above = raw.slice(0, before).split('\n')
+  if (isLinkRow(line)) {
+    const own = ownLinkText(line, index - before)
+    if (own) return own.slice(0, 300)
+  } else {
+    const whole = plainText(line)
+    if (whole) return whole.slice(0, 300)
+  }
+
+  const above = text.slice(0, before).split('\n')
   for (let i = above.length - 1, looked = 0; i >= 0 && looked < 3; i--, looked++) {
     const candidate = above[i] ?? ''
     if (/^\s*#{1,6}\s/.test(candidate)) return ''
-    const text = plainText(candidate)
-    if (text) return text.slice(0, 300)
+    if (linkCount(candidate) > 0) return ''
+    const words = plainText(candidate)
+    if (words) return words.slice(0, 300)
   }
   return ''
 }
 
 /** The reply's own words, for the quote shown under a replacement link. */
 function replyExcerpt(raw: string): string {
-  const text = raw
+  const text = joinedLines(raw)
     .split('\n')
     .map((line) => plainText(line))
     .filter(Boolean)
@@ -409,6 +500,7 @@ export function extractLinks(
   }
 
   const shadowed = shortenedLabels(raw)
+  const noteText = joinedLines(raw)
   const urlRe = urlsIn()
   for (let m = urlRe.exec(raw); m !== null; m = urlRe.exec(raw)) {
     const found = trimUrl(m[0])
@@ -451,7 +543,7 @@ export function extractLinks(
       manualOnly: MANUAL_ONLY.has(hoster),
       needsManualLink: NEEDS_MANUAL_LINK.has(hoster),
       downloadable: isAttachment || isFetchable(url, downloadable),
-      note: noteAt(raw, m.index),
+      note: noteAt(noteText, m.index),
       fromPost: null
     })
   }
