@@ -15,6 +15,7 @@ import { NAME_FIELDS_UI, type NameFilter, type NamePick } from '../filters'
 import Select from '../components/Select'
 import { ipcInvoke, ipcOn } from '../ipc'
 import { isPreviewable, mediaPreviewUrl } from '../mediaUrl'
+import { showToast } from '../toasts'
 import { useErrorMessage } from '../useErrorMessage'
 
 /**
@@ -118,7 +119,12 @@ export default function MediaDetailPage({
   const [playingVersionId, setPlayingVersionId] = useState<string | null>(null)
   const [positionMs, setPositionMs] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  /** The panel's own content could not be read. */
+  const [loadError, setLoadError] = useState<string | null>(null)
+  /** Reading the linked forum post failed; said beside the post link. */
+  const [postError, setPostError] = useState<string | null>(null)
+  /** Adding script versions failed; said in the form, which stays open. */
+  const [addError, setAddError] = useState<string | null>(null)
   /** Non-error feedback (e.g. "these files were copied next to the media"). */
   const [notice, setNotice] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
@@ -156,9 +162,9 @@ export default function MediaDetailPage({
       setSelectedId((cur) =>
         cur && d.scriptVersions.some((v) => v.id === cur) ? cur : initialVersionId(d)
       )
-      setError(null)
+      setLoadError(null)
     } catch (e) {
-      setError(toMessage(e))
+      setLoadError(toMessage(e))
     }
   }, [libraryId, mediaId, toMessage])
 
@@ -249,9 +255,8 @@ export default function MediaDetailPage({
     setBusy(true)
     try {
       setDetail(await ipcInvoke('media:setNames', { libraryId, mediaId, field, names }))
-      setError(null)
     } catch (e) {
-      setError(toMessage(e))
+      showToast({ message: toMessage(e) })
     } finally {
       setBusy(false)
     }
@@ -265,7 +270,7 @@ export default function MediaDetailPage({
         setDetail(d)
         serverTitle.current = d.title ?? ''
       })
-      .catch((e) => setError(toMessage(e)))
+      .catch((e) => showToast({ message: toMessage(e) }))
       .finally(() => setBusy(false))
   }
 
@@ -273,9 +278,8 @@ export default function MediaDetailPage({
     setBusy(true)
     try {
       setDetail(await ipcInvoke('media:setUserMeta', { libraryId, mediaId, rating }))
-      setError(null)
     } catch (e) {
-      setError(toMessage(e))
+      showToast({ message: toMessage(e) })
     } finally {
       setBusy(false)
     }
@@ -285,9 +289,8 @@ export default function MediaDetailPage({
     setBusy(true)
     try {
       setDetail(await ipcInvoke('media:setSources', { libraryId, mediaId, sources }))
-      setError(null)
     } catch (e) {
-      setError(toMessage(e))
+      showToast({ message: toMessage(e) })
     } finally {
       setBusy(false)
     }
@@ -304,6 +307,7 @@ export default function MediaDetailPage({
   const fetchFromPost = async (url: string, setTitle = false): Promise<void> => {
     setBusy(true)
     setNotice(null)
+    setPostError(null)
     try {
       const result = await ipcInvoke('media:applyPostLink', {
         targets: [{ libraryId, mediaId }],
@@ -311,7 +315,6 @@ export default function MediaDetailPage({
         setTitle
       })
       await loadDetail()
-      setError(null)
       const added =
         result.tagsAdded.length + result.scriptAuthorsAdded.length + result.videoAuthorsAdded.length
       setNotice(
@@ -324,7 +327,7 @@ export default function MediaDetailPage({
             })
       )
     } catch (e) {
-      setError(toMessage(e))
+      setPostError(toMessage(e))
     } finally {
       setBusy(false)
     }
@@ -334,9 +337,8 @@ export default function MediaDetailPage({
     setBusy(true)
     try {
       setDetail(await ipcInvoke('media:setUserMeta', { libraryId, mediaId, favorite }))
-      setError(null)
     } catch (e) {
-      setError(toMessage(e))
+      showToast({ message: toMessage(e) })
     } finally {
       setBusy(false)
     }
@@ -359,9 +361,8 @@ export default function MediaDetailPage({
         })
         setPlayingVersionId(res.scriptVersionId)
         if (res.scriptVersionId) setSelectedId(res.scriptVersionId)
-        setError(null)
       } catch (e) {
-        setError(toMessage(e))
+        showToast({ message: toMessage(e) })
       } finally {
         setBusy(false)
       }
@@ -379,9 +380,8 @@ export default function MediaDetailPage({
           scriptVersionId: versionId
         })
         if (d) setDetail(d)
-        setError(null)
       } catch (e) {
-        setError(toMessage(e))
+        showToast({ message: toMessage(e) })
       } finally {
         setBusy(false)
       }
@@ -400,13 +400,12 @@ export default function MediaDetailPage({
           inherit
         })
         if (d) setDetail(d)
-        setError(null)
         // Applies to the axes being driven right now, so reload in place.
         if (playing && versionId === playingVersionId) {
           await playVersion(versionId, true)
         }
       } catch (e) {
-        setError(toMessage(e))
+        showToast({ message: toMessage(e) })
       } finally {
         setBusy(false)
       }
@@ -425,9 +424,8 @@ export default function MediaDetailPage({
           ...edit
         })
         if (d) setDetail(d)
-        setError(null)
       } catch (e) {
-        setError(toMessage(e))
+        showToast({ message: toMessage(e) })
       } finally {
         setBusy(false)
       }
@@ -454,9 +452,8 @@ export default function MediaDetailPage({
           setDetail(d)
           setSelectedId(targetVersionId)
         }
-        setError(null)
       } catch (e) {
-        setError(toMessage(e))
+        showToast({ message: toMessage(e) })
       } finally {
         setBusy(false)
       }
@@ -483,9 +480,8 @@ export default function MediaDetailPage({
             })
           : t('detail.autoRepairNothing')
       )
-      setError(null)
     } catch (e) {
-      setError(toMessage(e))
+      showToast({ message: toMessage(e) })
     } finally {
       setBusy(false)
     }
@@ -519,7 +515,7 @@ export default function MediaDetailPage({
       } finally {
         setBusy(false)
       }
-      setError(failure)
+      setAddError(failure)
       setNotice(
         copied.length > 0 ? t('detail.addVersionCopied', { files: copied.join(', ') }) : null
       )
@@ -546,13 +542,11 @@ export default function MediaDetailPage({
           )
         }
         // Sidecar entry is gone either way; only the file move can fail.
-        setError(
-          res.failed.length > 0
-            ? t('detail.deleteFilesFailed', { files: res.failed.join(', ') })
-            : null
-        )
+        if (res.failed.length > 0) {
+          showToast({ message: t('detail.deleteFilesFailed', { files: res.failed.join(', ') }) })
+        }
       } catch (e) {
-        setError(toMessage(e))
+        showToast({ message: toMessage(e) })
       } finally {
         setBusy(false)
       }
@@ -586,7 +580,7 @@ export default function MediaDetailPage({
       await ipcInvoke('playback:setPaused', { paused: next })
     } catch (e) {
       setPaused(!next)
-      setError(toMessage(e))
+      showToast({ message: toMessage(e) })
     }
   }, [paused, toMessage])
 
@@ -632,7 +626,7 @@ export default function MediaDetailPage({
       <div className="panel">
         {head('…')}
         <div className="panel-body">
-          {error ? <div className="error-banner">{error}</div> : <div className="empty">…</div>}
+          {loadError ? <div className="error-banner">{loadError}</div> : <div className="empty">…</div>}
         </div>
       </div>
     )
@@ -672,7 +666,7 @@ export default function MediaDetailPage({
       </div>
 
       <div className="panel-body">
-        {error && <div className="error-banner">{error}</div>}
+        {loadError && <div className="error-banner">{loadError}</div>}
         {notice && <div className="detail-notice">{notice}</div>}
 
         <div className="detail-preview sfw">
@@ -737,6 +731,7 @@ export default function MediaDetailPage({
               const paths = droppedScripts(e)
               if (paths.length === 0) return
               setDroppedPaths(paths)
+              setAddError(null)
               setAdding(true)
             }}
           >
@@ -760,6 +755,7 @@ export default function MediaDetailPage({
                   disabled={busy}
                   onClick={() => {
                     setDroppedPaths([])
+                    setAddError(null)
                     setAdding(true)
                   }}
                 >
@@ -773,7 +769,11 @@ export default function MediaDetailPage({
             <AddVersionForm
               disabled={busy}
               initialPaths={droppedPaths}
-              onCancel={() => setAdding(false)}
+              error={addError}
+              onCancel={() => {
+                setAddError(null)
+                setAdding(false)
+              }}
               onSubmit={async (inputs) => {
                 const added = await addVersions(inputs)
                 if (added === inputs.length) setAdding(false)
@@ -951,6 +951,7 @@ export default function MediaDetailPage({
 
           {tab === 'source' && (
             <>
+              {postError && <div className="error-banner">{postError}</div>}
               <SourceList
                 sources={detail.sources}
                 libraryId={libraryId}
@@ -1782,10 +1783,13 @@ function pruneEmpty(draft: Draft): Draft {
 function AddVersionForm({
   disabled,
   initialPaths,
+  error,
   onCancel,
   onSubmit
 }: {
   disabled: boolean
+  /** Why the last submit stopped short. */
+  error: string | null
   /** Files dropped before the form opened; picked up once, on mount. */
   initialPaths: string[]
   onCancel: () => void
@@ -1963,6 +1967,7 @@ function AddVersionForm({
         )
       })}
 
+      {error && <div className="error-banner">{error}</div>}
       <div className="version-actions">
         <button className="primary" type="submit" disabled={disabled || !canSubmit}>
           {draft.versions.length > 1

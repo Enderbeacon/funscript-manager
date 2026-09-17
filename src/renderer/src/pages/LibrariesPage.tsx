@@ -5,6 +5,7 @@ import type { IgnoredEntry } from '@shared/schemas/library-state'
 import { askConfirm } from '../dialogs'
 import { ipcInvoke, ipcOn } from '../ipc'
 import { useErrorMessage } from '../useErrorMessage'
+import { showToast } from '../toasts'
 
 export default function LibrariesPage(): React.JSX.Element {
   const { t } = useTranslation()
@@ -37,11 +38,11 @@ export default function LibrariesPage(): React.JSX.Element {
   }
 
   const removeLibrary = async (id: string): Promise<void> => {
-    setError(null)
     try {
       await ipcInvoke('library:remove', { id })
     } catch (e) {
-      setError(toMessage(e))
+      // The row may be far down the list, out of sight of the page's top.
+      showToast({ message: toMessage(e) })
     }
   }
 

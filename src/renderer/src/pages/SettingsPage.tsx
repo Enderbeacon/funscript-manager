@@ -12,6 +12,7 @@ import StartupArtworkSettings from '../components/StartupArtworkSettings'
 import Select from '../components/Select'
 import { ipcInvoke, ipcOn } from '../ipc'
 import { useErrorMessage } from '../useErrorMessage'
+import { showToast } from '../toasts'
 
 type SessionDir = IpcOutput<'playback:sessionDirs'>[number]
 type PluginStatus = IpcOutput<'playback:mfpPluginStatus'>
@@ -154,9 +155,9 @@ export default function SettingsPage({
     try {
       const s = await ipcInvoke('settings:update', p)
       setSettings(s)
-      setError(null)
     } catch (e) {
-      setError(toMessage(e))
+      // The control that changed can be anywhere down a long page.
+      showToast({ message: toMessage(e) })
     }
   }
 
@@ -197,7 +198,6 @@ export default function SettingsPage({
   return (
     <div className="settings-page">
       <h1 className="page-title">{t('nav.settings')}</h1>
-      {error && <div className="error-banner">{error}</div>}
 
       <div className="settings-tabs">
         {SECTIONS.map((key) => (

@@ -20,6 +20,7 @@ import HosterBadge, { hosterName } from '../components/HosterBadge'
 import { ScriptPairingPrompt } from '../components/ScriptPairing'
 import { ipcInvoke, ipcOn } from '../ipc'
 import { useErrorMessage } from '../useErrorMessage'
+import { showToast } from '../toasts'
 import { verifyDownload } from '../verifyDownload'
 import { formatBytes, formatClock, formatEta } from '../format'
 import { useRemoteImage } from '../useRemoteImage'
@@ -51,14 +52,16 @@ export default function DownloadsPage({ onClose }: { onClose: () => void }): Rea
   const [jobs, setJobs] = useState<DownloadJob[]>([])
   const [live, setLive] = useState<Record<string, DownloadProgress>>({})
   const [filter, setFilter] = useState<Filter>('all')
-  const [error, setError] = useState<string | null>(null)
+  /** The queue itself could not be read. */
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const loadJobs = useCallback(async () => {
     try {
       const { jobs: list } = await ipcInvoke('download:list')
       setJobs(list)
+      setLoadError(null)
     } catch (e) {
-      setError(toMessage(e))
+      setLoadError(toMessage(e))
     }
   }, [toMessage])
 
@@ -85,9 +88,8 @@ export default function DownloadsPage({ onClose }: { onClose: () => void }): Rea
     ) => {
       try {
         await ipcInvoke(channel, { id })
-        setError(null)
       } catch (e) {
-        setError(toMessage(e))
+        showToast({ message: toMessage(e) })
       }
     },
     [toMessage]
@@ -139,7 +141,7 @@ export default function DownloadsPage({ onClose }: { onClose: () => void }): Rea
           </button>
         </header>
 
-        {error && <div className="error-banner download-queue-error">{error}</div>}
+        {loadError && <div className="error-banner download-queue-error">{loadError}</div>}
 
         <div className="download-queue-body">
           <ScriptPairingPrompt />

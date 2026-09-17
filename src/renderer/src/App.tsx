@@ -17,7 +17,7 @@ import NowPlayingBar from './components/NowPlayingBar'
 import PlaybackDrawer, { type DrawerTab } from './components/PlaybackDrawer'
 import TopBar from './components/TopBar'
 import DownloadsPage from './pages/DownloadsPage'
-import { ToastHost, useDownloadFailureToasts } from './toasts'
+import { ToastHost, showToast, useDownloadFailureToasts, useOrganiseFailureToasts } from './toasts'
 import PostsPage from './pages/PostsPage'
 import MediaPage from './pages/MediaPage'
 import TagLibrariesPage from './pages/TagLibrariesPage'
@@ -80,8 +80,6 @@ export default function App(): React.JSX.Element {
   const [activeJobs, setActiveJobs] = useState(0)
   /** Full queue opened from the compact download card on the Posts page. */
   const [downloadsOpen, setDownloadsOpen] = useState(false)
-  /** Library failure the user has to act on (e.g. the disk holding it is full). */
-  const [libraryError, setLibraryError] = useState<string | null>(null)
   const [scriptPlayerOpen, setScriptPlayerOpen] = useState(false)
   const [sourcesOpen, setSourcesOpen] = useState(false)
   const [scriptPlayerDetached, setScriptPlayerDetached] = useState(false)
@@ -317,6 +315,7 @@ export default function App(): React.JSX.Element {
   }, [])
 
   useDownloadFailureToasts(() => setDownloadsOpen(true), downloadsOpen)
+  useOrganiseFailureToasts()
 
   useEffect(() => {
     ipcInvoke('playback:status').then((s) => setPlayingId(s.mediaId)).catch(() => {})
@@ -340,7 +339,9 @@ export default function App(): React.JSX.Element {
 
   useEffect(() => {
     return ipcOn('event:library-error', ({ libraryName, code }) =>
-      setLibraryError(t(`errors.${code}`, { path: libraryName }))
+      // Not tied to any page: the disk under a library filled up, or its index
+      // had to be rebuilt, whatever the user happens to be looking at.
+      showToast({ message: t(`errors.${code}`, { path: libraryName }) })
     )
   }, [t])
 
@@ -354,16 +355,6 @@ export default function App(): React.JSX.Element {
         scriptPlayerDetached={scriptPlayerDetached}
         onOpenUpdates={() => setPage('about')}
       />
-      {libraryError && (
-        <div className="error-banner">
-          <div className="row">
-            <div className="grow">{libraryError}</div>
-            <button className="ghost sm" onClick={() => setLibraryError(null)}>
-              {t('common.close')}
-            </button>
-          </div>
-        </div>
-      )}
       <div className="app-body">
       <nav className="sidebar">
         <ConnStatusPanel

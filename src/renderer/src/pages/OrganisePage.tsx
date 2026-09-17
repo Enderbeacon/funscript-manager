@@ -8,7 +8,6 @@ import { askConfirm, askName } from '../dialogs'
 import { ipcInvoke, ipcOn } from '../ipc'
 import {
   confirm as confirmApplied,
-  dismissFailure,
   enqueue,
   mark,
   pendingNames,
@@ -40,7 +39,6 @@ type Row = Taxonomy['entities'][EntityKind][number]
 
 export default function OrganisePage(): React.JSX.Element {
   const { t } = useTranslation()
-  const toMessage = useErrorMessage()
   const [kind, setKind] = useState<EntityKind>('tags')
   const [taxonomy, setTaxonomy] = useState<Taxonomy | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
@@ -251,17 +249,6 @@ export default function OrganisePage(): React.JSX.Element {
         </button>
       </div>
 
-      {queue.failed && (
-        <div className="error-banner">
-          {t('organise.opFailed', {
-            name: queue.failed.name,
-            message: toMessage(queue.failed.cause)
-          })}
-          <button className="chip-x" onClick={dismissFailure}>
-            <X size={11} />
-          </button>
-        </div>
-      )}
       {queue.pending.length === 0 && queue.rewritten > 0 && (
         <div className="sync-banner">{t('organise.rewrote', { count: queue.rewritten })}</div>
       )}

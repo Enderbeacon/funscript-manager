@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { TriangleAlert, X } from 'lucide-react'
 import { ipcInvoke, ipcOn } from './ipc'
+import { dismissFailure, useOrganiseQueue } from './organiseQueue'
+import { useErrorMessage } from './useErrorMessage'
 import { verifyDownload } from './verifyDownload'
 
 /**
@@ -164,4 +166,25 @@ export function useDownloadFailureToasts(onOpenQueue: () => void, queueOpen: boo
       off()
     }
   }, [])
+}
+
+/**
+ * A notice when an organise edit fails to write. The edits run in the
+ * background and keep running after the user leaves the page, so the failure
+ * is said wherever they are, once, and then forgotten.
+ */
+export function useOrganiseFailureToasts(): void {
+  const { t } = useTranslation()
+  const toMessage = useErrorMessage()
+  const { failed } = useOrganiseQueue()
+
+  useEffect(() => {
+    if (!failed) return
+    showToast({
+      message: t('organise.opFailed', { name: failed.name, message: toMessage(failed.cause) })
+    })
+    dismissFailure()
+    // Only a new failure is news; a language change is not a reason to repeat it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [failed])
 }

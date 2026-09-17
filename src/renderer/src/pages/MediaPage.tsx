@@ -40,6 +40,7 @@ import { isPreviewable, mediaPreviewUrl } from '../mediaUrl'
 import CachedIpcImage, { clearImageCaches, heatmapCache, thumbCache } from '../ipcImage'
 import { setMediaDrag, type MediaDragTarget } from '../mediaDrag'
 import { closeFrontSurface, raiseSurface } from '../surfaces'
+import { showToast } from '../toasts'
 import { useErrorMessage } from '../useErrorMessage'
 import { usePopover } from '../usePopover'
 
@@ -121,7 +122,7 @@ export default function MediaPage({
   const [total, setTotal] = useState(0)
   const [search, setSearch] = useState('')
   const [progress, setProgress] = useState<SyncProgress | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   /** What the last action actually did — dismissed by the next one. */
   const [notice, setNotice] = useState<string | null>(null)
   // Bumped on media-changed so mounted heatmap strips refetch (scripts may
@@ -245,9 +246,9 @@ export default function MediaPage({
           loadedRef.current = next.length
           return next
         })
-        setError(null)
+        setLoadError(null)
       } catch (e) {
-        setError(toMessage(e))
+        setLoadError(toMessage(e))
       }
     },
     [fetchPage, toMessage]
@@ -276,9 +277,9 @@ export default function MediaPage({
       setTotal(total)
       loadedRef.current = pages.length
       setItems(pages)
-      setError(null)
+      setLoadError(null)
     } catch (e) {
-      setError(toMessage(e))
+      setLoadError(toMessage(e))
     }
   }, [fetchPage, toMessage])
 
@@ -462,7 +463,7 @@ export default function MediaPage({
           cur.map((i) => (i.id === item.id ? { ...i, favorite: updated.favorite } : i))
         )
       } catch (e) {
-        setError(toMessage(e))
+        showToast({ message: toMessage(e) })
       }
     },
     [toMessage]
@@ -504,7 +505,7 @@ export default function MediaPage({
           })
         }
       } catch (e) {
-        setError(toMessage(e))
+        showToast({ message: toMessage(e) })
       }
     },
     [toMessage]
@@ -539,7 +540,7 @@ export default function MediaPage({
         })
         if (view.capped) setNotice(t('queue.capped', { count: view.targets.length }))
       } catch (e) {
-        setError(toMessage(e))
+        showToast({ message: toMessage(e) })
       }
     },
     [t, toMessage]
@@ -567,7 +568,7 @@ export default function MediaPage({
         const state = await ipcInvoke('queue:add', { items: targets, mode })
         setNotice(t('queue.added', { count: targets.length, total: state.items.length }))
       } catch (e) {
-        setError(toMessage(e))
+        showToast({ message: toMessage(e) })
       }
     },
     [t, toMessage]
@@ -580,7 +581,7 @@ export default function MediaPage({
         const done = await ipcInvoke('playlist:add', { targets, name })
         setNotice(t('playlist.added', { count: done.added, name: done.name }))
       } catch (e) {
-        setError(toMessage(e))
+        showToast({ message: toMessage(e) })
       }
     },
     [t, toMessage]
@@ -788,7 +789,7 @@ export default function MediaPage({
       await refreshLoaded()
       setSelected(new Map())
     } catch (e) {
-      setError(toMessage(e))
+      showToast({ message: toMessage(e) })
     } finally {
       setBatchBusy(false)
     }
@@ -808,7 +809,6 @@ export default function MediaPage({
         postUrl: url
       })
       await refreshLoaded()
-      setError(null)
       setNotice(
         t('media.batch.fromPostDone', {
           title: result.postTitle,
@@ -817,7 +817,7 @@ export default function MediaPage({
         })
       )
     } catch (e) {
-      setError(toMessage(e))
+      showToast({ message: toMessage(e) })
     } finally {
       setBatchBusy(false)
     }
@@ -837,7 +837,7 @@ export default function MediaPage({
       })
       setSelected(new Map(targets.map((target) => [target.mediaId, target.libraryId])))
     } catch (e) {
-      setError(toMessage(e))
+      showToast({ message: toMessage(e) })
     }
   }
 
@@ -920,7 +920,7 @@ export default function MediaPage({
     try {
       await Promise.all(targets.map((id) => ipcInvoke('library:sync', { id })))
     } catch (e) {
-      setError(toMessage(e))
+      showToast({ message: toMessage(e) })
     }
   }
 
@@ -1096,7 +1096,6 @@ export default function MediaPage({
         </div>
       )}
 
-      {error && <div className="error-banner">{error}</div>}
       {notice && (
         <div className="detail-notice" onClick={() => setNotice(null)}>
           {notice}
@@ -1132,10 +1131,17 @@ export default function MediaPage({
         </div>
       )}
 
+      {/* The list could not be read: said where the list goes. The rows already
+          on screen stay, since they are only out of date. */}
+      {loadError && items.length > 0 && <div className="error-banner">{loadError}</div>}
       {items.length === 0 ? (
-        <div className="empty">
-          {isEmptySidebar(sidebar) && !advanced && !search ? t('media.empty') : t('media.noMatches')}
-        </div>
+        loadError ? (
+          <div className="error-banner">{loadError}</div>
+        ) : (
+          <div className="empty">
+            {isEmptySidebar(sidebar) && !advanced && !search ? t('media.empty') : t('media.noMatches')}
+          </div>
+        )
       ) : viewMode === 'list' ? (
         /*
          * Rows, unlike tiles, are not all the same height: a long name wraps

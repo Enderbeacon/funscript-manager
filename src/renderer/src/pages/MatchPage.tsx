@@ -4,6 +4,7 @@ import { Check, Link2, Pause, Play, Search, SkipForward, Square, X } from 'lucid
 import type { MatchQueueItem, MatchScanStatus, PostCandidate } from '@shared/schemas/post-match'
 import { ipcInvoke, ipcOn } from '../ipc'
 import { useErrorMessage } from '../useErrorMessage'
+import { showToast } from '../toasts'
 
 /**
  * Finding the forum posts a whole library came from.
@@ -28,7 +29,10 @@ export default function MatchPage(): React.JSX.Element {
   const [items, setItems] = useState<MatchQueueItem[]>([])
   const [queued, setQueued] = useState(0)
   const [cursor, setCursor] = useState(0)
-  const [error, setError] = useState<string | null>(null)
+  /** The review queue could not be read. */
+  const [queueError, setQueueError] = useState<string | null>(null)
+  /** Starting a scan failed. */
+  const [startError, setStartError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   /** Which candidate of the current entry is in focus (keyboard picks this one). */
   const [pick, setPick] = useState(0)
@@ -59,9 +63,9 @@ export default function MatchPage(): React.JSX.Element {
       const page = await ipcInvoke('match:queue', { limit: PAGE_SIZE, offset: 0 })
       setItems(page.items.filter((item) => !decided.current.has(keyOf(item))))
       setQueued(page.queued)
-      setError(null)
+      setQueueError(null)
     } catch (e) {
-      setError(toMessage(e))
+      setQueueError(toMessage(e))
     } finally {
       refilling.current = false
     }
@@ -126,7 +130,7 @@ export default function MatchPage(): React.JSX.Element {
         .then((result) => {
           setNotice(t('match.applied', { title: result.postTitle, tags: result.tagsAdded.length }))
         })
-        .catch((e) => setError(`${item.fileName}: ${toMessage(e)}`))
+        .catch((e) => showToast({ message: `${item.fileName}: ${toMessage(e)}` }))
     },
     [advance, t, toMessage]
   )
@@ -153,7 +157,7 @@ export default function MatchPage(): React.JSX.Element {
         libraryId: item.libraryId,
         mediaId: item.mediaId,
         topicId: candidate.topicId
-      }).catch((e) => setError(`${item.fileName}: ${toMessage(e)}`))
+      }).catch((e) => showToast({ message: `${item.fileName}: ${toMessage(e)}` }))
     },
     [advance, toMessage]
   )
@@ -162,7 +166,7 @@ export default function MatchPage(): React.JSX.Element {
     (item: MatchQueueItem) => {
       advance(item)
       ipcInvoke('match:settle', { libraryId: item.libraryId, mediaId: item.mediaId }).catch((e) =>
-        setError(`${item.fileName}: ${toMessage(e)}`)
+        showToast({ message: `${item.fileName}: ${toMessage(e)}` })
       )
     },
     [advance, toMessage]
@@ -245,8 +249,9 @@ export default function MatchPage(): React.JSX.Element {
               data-tour="match-start"
               className="primary"
               onClick={() => {
+                setStartError(null)
                 void ipcInvoke('match:start', { libraryIds: [], rescan: false }).catch((e) =>
-                  setError(toMessage(e))
+                  setStartError(toMessage(e))
                 )
               }}
             >
@@ -296,9 +301,9 @@ export default function MatchPage(): React.JSX.Element {
         {/* A run that stopped because the forum said no carries the reason, not
             a silent halt: the counters would otherwise just stop moving. */}
         {status?.error && <div className="error-banner">{toMessage(status.error)}</div>}
+        {startError && <div className="error-banner">{startError}</div>}
       </section>
 
-      {error && <div className="error-banner">{error}</div>}
       {notice && <div className="detail-notice">{notice}</div>}
 
       <section className="match-review" data-tour="match-review">
@@ -307,7 +312,8 @@ export default function MatchPage(): React.JSX.Element {
           <span className="match-keys">{t('match.keys')}</span>
         </div>
 
-        {!current && <p className="empty">{t('match.queueEmpty')}</p>}
+        {queueError && <div className="error-banner">{queueError}</div>}
+        {!current && !queueError && <p className="empty">{t('match.queueEmpty')}</p>}
 
         {current && (
           <div className="match-card">
