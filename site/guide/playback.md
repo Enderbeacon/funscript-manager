@@ -7,7 +7,7 @@
 | Player | Notes |
 | --- | --- |
 | **Built-in** | Plays inside the app window. Formats it cannot decode need another player. |
-| **mpv** | Comes with the app and is started for you when you press Play. |
+| **mpv** | Install mpv yourself. The app finds it on your PATH, or set **Program** to `mpv.exe`. It is started for you when you press Play. |
 | **MPC-HC** | Turn on **Options → Player → Web Interface** in MPC-HC and check the port matches. |
 | **HereSphere** | Start HereSphere first; the app cannot start it for you. |
 
