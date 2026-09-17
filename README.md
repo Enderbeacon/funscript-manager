@@ -1,10 +1,19 @@
+<div align="center">
+
+<img src="site/public/mark.svg" width="96" height="96" alt="">
+
 # Funscript Manager
 
-A Windows desktop media manager for funscript-driven content. It keeps videos
-and audio together with their companion files (multi-version, multi-axis
-funscripts and subtitles), pulls metadata and downloads from EroScripts posts,
-and plays video in sync with a device — through its built-in script player or
-MultiFunPlayer.
+**From forum post to synced playback, in one app.**
+
+Manage your library, download from forum, watch the video and drive your
+device from the same window.
+
+[![Latest release](https://img.shields.io/github/v/release/Enderbeacon/funscript-manager?label=download&logo=github&color=4c6fff)](https://github.com/Enderbeacon/funscript-manager/releases/latest) [![Downloads](https://img.shields.io/github/downloads/Enderbeacon/funscript-manager/total?color=4c6fff)](https://github.com/Enderbeacon/funscript-manager/releases) ![Windows 10 and 11](https://img.shields.io/badge/Windows-10%20%7C%2011-555555?logo=windows) [![License: AGPL-3.0-or-later](https://img.shields.io/badge/license-AGPL--3.0-2ea043)](LICENSE)
+
+[**Download**](https://github.com/Enderbeacon/funscript-manager/releases/latest) · [**Guide**](https://enderbeacon.github.io/funscript-manager/) · [**Report a problem**](https://github.com/Enderbeacon/funscript-manager/issues)
+
+</div>
 
 ## Features
 
@@ -52,23 +61,6 @@ npm run release       # build and pack an installable release into release/velop
 An optional `mpv.exe` can be placed in `resources/bin/`; it is bundled with
 the packaged app. yt-dlp and ffmpeg are not bundled — the app downloads them.
 
-## Releasing
-
-A tag is the whole process. `.github/workflows/release.yml` builds it, packs
-an installer, a portable zip and a delta package with
-[Velopack](https://velopack.io), and publishes them as a GitHub release; the
-app finds them from there.
-
-1. Write `release-notes/<version>.md` — the app shows this text when it offers
-   the update, and the workflow refuses a release without it.
-2. Commit, then push a tag: `v1.2.0` releases on the stable channel,
-   `v1.2.0-beta.1` on the beta channel (beta users also receive stable
-   releases when those are newer).
-
-Anything a release changes about stored data has to keep an older build safe,
-since the app offers going back to one: run `npm run check:data-compat` after
-changing a persisted shape.
-
 ## Layout
 
 ```
@@ -84,6 +76,7 @@ src/
 resources/
 └── mfp-plugin/      MultiFunPlayer control plugin
 scripts/             Protocol and behaviour checks run with Node
+site/                Project website and user guide
 ```
 
 ## License
@@ -91,8 +84,6 @@ scripts/             Protocol and behaviour checks run with Node
 Copyright (C) 2026 Enderbeacon
 
 Licensed under the [GNU Affero General Public License v3.0 or later](LICENSE).
-Contributions are accepted under the same license; see
-[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Third-party code
 
