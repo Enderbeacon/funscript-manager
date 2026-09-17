@@ -95,7 +95,7 @@ const FORUM_VOCAB = new Set([
 
 /** Sites the filename may have been named after; never a distinguishing word. */
 const SITE_NAMES = new Set([
-  'pornhub', 'xvideos', 'xhamster', 'spankbang', 'eporner', 'rule34video',
+  'pornhub', 'xvideos', 'xnxx', 'xhamster', 'spankbang', 'eporner', 'rule34video',
   'hanime1', 'iwara', 'youtube', 'twitter', 'reddit', 'onlyfans', 'fansly',
   'patreon', 'eroscripts', 'pixeldrain', 'mega', 'gofile'
 ])

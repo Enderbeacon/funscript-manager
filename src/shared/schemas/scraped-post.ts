@@ -16,6 +16,8 @@ export const HOSTER_IDS = [
   'pornhub',
   'rule34video',
   'spankbang',
+  'xnxx',
+  'xvideos',
   'patreon',
   'payhip',
   'attachment',

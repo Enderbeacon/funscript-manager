@@ -39,6 +39,8 @@ const BRANDS: Record<Hoster, Brand> = {
   hanime1: { hex: '#DC1A28', mono: 'H1', name: 'hanime1' },
   hanimetv: { hex: '#F04E5E', mono: 'HT', name: 'hanime.tv' },
   iwara: { hex: '#1E9BD7', mono: 'IW', name: 'Iwara' },
+  xvideos: { hex: '#DE2600', mono: 'XV', name: 'XVIDEOS' },
+  xnxx: { hex: '#286FFF', mono: 'XN', name: 'XNXX' },
   attachment: { hex: '#4A6B8A', mono: 'ER', name: 'EroScripts' },
   unknown: { hex: '', mono: '', name: '' }
 }

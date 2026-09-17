@@ -13,6 +13,7 @@ import { hanime1Plugin } from './page-direct/hanime1'
 import { rule34videoPlugin } from './page-direct/rule34video'
 import { spankbangPlugin } from './page-direct/spankbang'
 import { pixeldrainPlugin } from './pixeldrain'
+import { xnxxPlugin, xvideosPlugin } from './xvideos'
 import { ytdlpPlugin } from './ytdlp'
 
 /**
@@ -43,6 +44,8 @@ export function registerDownloaderPlugins(): void {
   registerPlugin(dropboxPlugin)
   registerPlugin(mediafirePlugin)
   registerPlugin(iwaraPlugin)
+  registerPlugin(xvideosPlugin)
+  registerPlugin(xnxxPlugin)
   registerPlugin(ytdlpPlugin)
   registerPlugin(directPlugin)
 }
