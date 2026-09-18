@@ -26,6 +26,10 @@ extraResources:
     to: mfp-plugin
     filter:
       - "**/*"
+  - from: resources/vr-overlay
+    to: vr-overlay
+    filter:
+      - "**/*"
 # Only the unpacked folder: the installer, the portable zip and the update
 # packages are built from it by scripts/release.mjs.
 win:

@@ -48,6 +48,8 @@ function run(command, commandArgs) {
 
 if (!args.includes('--skip-build')) {
   run('npm', ['run', 'build'])
+  // The SteamVR helper is not committed; every release compiles it fresh.
+  run('node', ['scripts/build-vr-overlay.mjs'])
   run('npx', ['electron-builder', '--win', '--dir'])
 }
 
