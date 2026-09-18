@@ -74,6 +74,7 @@ export default function VrPanel(): React.JSX.Element {
   const theme = useResolvedTheme()
   const hideOnPlay = settings?.vr.hideOnPlay ?? true
   const sort = settings?.vr.sort ?? 'path'
+  const seekBarOpen = settings?.vr.seekBar ?? true
   const hideOnPlayRef = useRef(hideOnPlay)
   hideOnPlayRef.current = hideOnPlay
   const tags = useTags()
@@ -100,6 +101,10 @@ export default function VrPanel(): React.JSX.Element {
 
   const toggleHideOnPlay = (): void => {
     ipcInvoke('settings:update', { vr: { hideOnPlay: !hideOnPlay } }).catch((e) => say(toMessage(e)))
+  }
+
+  const toggleSeekBar = (): void => {
+    ipcInvoke('settings:update', { vr: { seekBar: !seekBarOpen } }).catch((e) => say(toMessage(e)))
   }
 
   // The same setting as the desktop's, so both change together.
@@ -370,6 +375,8 @@ export default function VrPanel(): React.JSX.Element {
           }
         }}
         onPlaylists={() => setPlaylistsOpen(true)}
+        seekBarOpen={seekBarOpen}
+        onToggleSeekBar={toggleSeekBar}
         onError={(e) => say(toMessage(e))}
       />
 

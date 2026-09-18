@@ -1495,6 +1495,8 @@
     "opacity": "Opacité",
     "backgroundOpacity": "Opacité du fond",
     "pause": "Pause",
-    "height": "Hauteur"
+    "height": "Hauteur",
+    "showSeekBar": "Afficher la barre de progression",
+    "hideSeekBar": "Masquer la barre de progression"
   }
 }

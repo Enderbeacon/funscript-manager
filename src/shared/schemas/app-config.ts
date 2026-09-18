@@ -443,6 +443,11 @@ export const SettingsSchema = z.object({
        * headset's list around should not rearrange the one on the monitor.
        */
       sort: z.enum(VR_SORTS).default('path'),
+      /**
+       * The seek bar under the main panel's now-playing strip is full size.
+       * Folded, it stays as a thin strip that still shows where playback is.
+       */
+      seekBar: z.boolean().default(true),
       /** The main panel's look; sizes are factors of its standard size. */
       main: z
         .object({

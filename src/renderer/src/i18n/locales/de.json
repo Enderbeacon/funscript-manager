@@ -1495,6 +1495,8 @@
     "opacity": "Deckkraft",
     "backgroundOpacity": "Hintergrund-Deckkraft",
     "pause": "Pause",
-    "height": "Höhe"
+    "height": "Höhe",
+    "showSeekBar": "Zeitleiste einblenden",
+    "hideSeekBar": "Zeitleiste ausblenden"
   }
 }

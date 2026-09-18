@@ -1144,6 +1144,116 @@ body::before {
   color: var(--accent-text);
 }
 
+.vr-now-lists .vr-now-square {
+  width: 56px;
+  padding: 0;
+  justify-content: center;
+}
+
+/* -------------------------------------------------------------- seek bar */
+
+/*
+ * The track is the heatmap: colour is stroke speed, height is the range the
+ * strokes cover. It is tall enough for a laser a metre away to land on.
+ */
+.vr-seek {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 16px 12px;
+  background: var(--vr-bar);
+}
+
+.vr-seek-time {
+  flex: none;
+  min-width: 84px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.vr-seek-track,
+.vr-seek-thin {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-sunken);
+}
+
+.vr-seek-track {
+  flex: 1;
+  min-width: 0;
+  height: 56px;
+  border-radius: 10px;
+  /* The drag belongs to the track, not to scrolling or to the picture in it. */
+  touch-action: none;
+}
+
+/* Folded: a strip along the very foot of the panel that only shows. */
+.vr-seek-thin {
+  flex: none;
+  height: 10px;
+  pointer-events: none;
+}
+
+.vr-seek-heat {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  opacity: 0.85;
+  -webkit-user-drag: none;
+}
+
+.vr-seek-track:not(.idle):hover .vr-seek-heat {
+  opacity: 1;
+}
+
+/* With no script there is nothing to be tall for: a plain line instead. */
+.vr-seek-plain {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 6px;
+  margin-top: -3px;
+  border-radius: 3px;
+  background: var(--border-secondary);
+}
+
+.vr-seek-thin .vr-seek-plain {
+  height: 2px;
+  margin-top: -1px;
+}
+
+/* What has played is dimmed rather than hidden, so its shape stays readable. */
+.vr-seek-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: color-mix(in srgb, #000 42%, transparent);
+}
+
+/* The playhead runs the full height: a position in the scene, not a dot on it. */
+.vr-seek-head {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: var(--surface);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+.vr-seek-thin .vr-seek-head {
+  width: 3px;
+  margin-left: -1.5px;
+  box-shadow: none;
+}
+
 /* ------------------------------------------------------------ playlists */
 
 .vr-lists {

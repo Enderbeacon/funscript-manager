@@ -1494,6 +1494,8 @@
     "opacity": "Opacity",
     "backgroundOpacity": "Background opacity",
     "pause": "Pause",
-    "height": "Height"
+    "height": "Height",
+    "showSeekBar": "Show seek bar",
+    "hideSeekBar": "Hide seek bar"
   }
 }

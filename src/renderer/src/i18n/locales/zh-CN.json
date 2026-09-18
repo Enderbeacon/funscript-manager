@@ -1472,6 +1472,8 @@
     "opacity": "不透明度",
     "backgroundOpacity": "背景不透明度",
     "pause": "暂停",
-    "height": "高度"
+    "height": "高度",
+    "showSeekBar": "显示进度条",
+    "hideSeekBar": "收起进度条"
   }
 }

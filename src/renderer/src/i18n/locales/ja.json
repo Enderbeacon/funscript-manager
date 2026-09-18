@@ -1472,6 +1472,8 @@
     "opacity": "不透明度",
     "backgroundOpacity": "背景の不透明度",
     "pause": "一時停止",
-    "height": "高さ"
+    "height": "高さ",
+    "showSeekBar": "シークバーを表示",
+    "hideSeekBar": "シークバーを隠す"
   }
 }
