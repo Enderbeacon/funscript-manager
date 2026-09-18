@@ -1132,6 +1132,8 @@ export function registerIpcHandlers(): void {
     // rather than being read when the next transfer starts.
     await applyProxySettings()
     updater.configureAutoCheck(settings)
+    // A new channel changes which release is newest; the last answer was for the old one.
+    if (previous.updates.channel !== settings.updates.channel) void updater.checkForUpdates('manual')
     return settings
   })
 
