@@ -11,6 +11,7 @@ import * as libraryManager from '../services/library/library-manager'
 import { libraryEvents } from '../services/library/library-manager'
 import * as lifecycle from '../services/library/media-lifecycle'
 import * as playlists from '../services/library/playlists'
+import { isSitePageNotVideo } from '../services/downloaders/base'
 import { checkLinks } from '../services/downloaders/link-check'
 import * as downloads from '../services/downloaders/queue'
 import {
@@ -972,7 +973,9 @@ export function registerIpcHandlers(): void {
     isPost: scraper.isPostUrl(normalizePastedUrl(input.url))
   }))
 
-  handle('scrape:describeLink', (input) => pastedLink(normalizePastedUrl(input.url)))
+  handle('scrape:describeLink', (input) =>
+    pastedLink(normalizePastedUrl(input.url), { isSitePageNotVideo })
+  )
 
   handle('scrape:parsePost', (input) =>
     scraper.fetchPost(normalizePastedUrl(input.url), (postsRead, postsTotal) =>

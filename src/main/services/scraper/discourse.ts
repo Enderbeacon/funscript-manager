@@ -1,7 +1,7 @@
 import { BrowserWindow, app, net, session } from 'electron'
 import { AppError } from '@shared/errors'
 import type { ScrapedPost } from '@shared/schemas/scraped-post'
-import { canDownload } from '../downloaders/base'
+import { canDownload, isSitePageNotVideo } from '../downloaders/base'
 import { parseTopic, type TopicJson } from './post-parser'
 
 /**
@@ -292,7 +292,7 @@ export async function fetchPost(
   }
 
   await readRemainingPosts(topicId, topic, onProgress)
-  return parseTopic(topic, url, BASE, { isDownloadable: canDownload })
+  return parseTopic(topic, url, BASE, { isDownloadable: canDownload, isSitePageNotVideo })
 }
 
 /**

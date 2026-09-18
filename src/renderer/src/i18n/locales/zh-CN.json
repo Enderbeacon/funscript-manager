@@ -811,6 +811,7 @@
     "invalid_url": "不是有效的链接：{{url}}",
     "download_no_plugin": "没有下载器能处理这个链接：{{url}}",
     "download_expand_failed": "无法列出该链接下的文件：{{url}}",
+    "download_not_a_video": "这是主页或列表页，不是单个视频：{{url}}",
     "scrape_not_a_post": "这不是 EroScripts 的帖子链接：{{url}}",
     "scrape_post_not_found": "打不开 {{topicId}} 号帖子：可能已被删除，也可能你的账号看不到它。{{url}}",
     "scrape_login_required": "这个帖子需要先登录 EroScripts 才能看。",
@@ -853,6 +854,7 @@
     "jobError": {
       "ytdlp_not_installed": "未找到 yt-dlp，请在设置中指定路径",
       "ytdlp_unsupported": "不支持该站点",
+      "not_a_video": "这是主页或列表页，不是单个视频",
       "ytdlp_unavailable": "视频已下架",
       "ytdlp_auth": "需要登录才能下载",
       "ytdlp_no_output": "未生成文件",
@@ -926,6 +928,7 @@
     "empty": "粘贴帖子链接开始。",
     "openPost": "在论坛打开",
     "openSite": "前往站点",
+    "notAVideo": "主页或列表页，不是单个视频",
     "remove": "移除",
     "videoGroup": "视频 · {{count}} 个来源",
     "scriptGroup": "脚本 · {{count}} 个来源",

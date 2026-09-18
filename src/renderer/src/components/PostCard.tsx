@@ -182,6 +182,7 @@ function LinkCard({
           </span>
         </div>
         {link.label !== link.url && <div className="lk-url">{link.url}</div>}
+        {link.notAVideo && <div className="lk-why">{t('posts.notAVideo')}</div>}
         {/* The author's own words. Between three mirrors of one video this is
             usually the only thing that says which to take. */}
         {link.note && <div className="lk-note">{link.note}</div>}

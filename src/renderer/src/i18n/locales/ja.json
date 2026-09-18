@@ -811,6 +811,7 @@
     "invalid_url": "有効な URL ではありません：{{url}}",
     "download_no_plugin": "このリンクを処理できるダウンローダーがありません：{{url}}",
     "download_expand_failed": "このリンクのファイル一覧を取得できません：{{url}}",
+    "download_not_a_video": "プロフィールか一覧のページで、単体の動画ではありません：{{url}}",
     "scrape_not_a_post": "EroScripts の投稿リンクではありません：{{url}}",
     "scrape_post_not_found": "投稿 {{topicId}} を開けません。削除されたか、このアカウントでは閲覧できません。{{url}}",
     "scrape_login_required": "この投稿を見るには EroScripts へのログインが必要です。",
@@ -853,6 +854,7 @@
     "jobError": {
       "ytdlp_not_installed": "yt-dlp が見つかりません。設定でパスを指定してください",
       "ytdlp_unsupported": "このサイトには対応していません",
+      "not_a_video": "プロフィールか一覧のページで、単体の動画ではありません",
       "ytdlp_unavailable": "動画は公開終了",
       "ytdlp_auth": "ログインが必要です",
       "ytdlp_no_output": "ファイルが生成されませんでした",
@@ -926,6 +928,7 @@
     "empty": "投稿リンクを貼り付けてください。",
     "openPost": "フォーラムで開く",
     "openSite": "サイトへ",
+    "notAVideo": "プロフィールか一覧のページ（単体の動画ではありません）",
     "remove": "削除",
     "videoGroup": "動画 · {{count}} 件のソース",
     "scriptGroup": "スクリプト · {{count}} 件のソース",

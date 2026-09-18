@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { VIDEO_SITE_IDS } from '../video-sites'
 
 /** Parsed EroScripts post. Pure data — no I/O types cross here. */
 
@@ -18,6 +19,7 @@ export const HOSTER_IDS = [
   'spankbang',
   'xnxx',
   'xvideos',
+  ...VIDEO_SITE_IDS,
   'patreon',
   'payhip',
   'attachment',
@@ -45,6 +47,12 @@ export const ScrapedLinkSchema = z.object({
    * Distinct from `manualOnly`, which means no download path at all.
    */
   needsManualLink: z.boolean().default(false),
+  /**
+   * A page on a site the app downloads from that is not one video — a
+   * profile, a channel, a search. It is left to open in a browser, and says
+   * why, so it does not read as a site the app cannot handle.
+   */
+  notAVideo: z.boolean().default(false),
   /**
    * Can the app fetch this itself? True when a downloader plugin claims the
    * URL, or when the URL is plainly a file the generic downloader can take.

@@ -19,6 +19,14 @@ export interface DownloaderPlugin {
   match(url: string): boolean
 
   /**
+   * Whether the host belongs to this plugin's site, whatever the page. Only
+   * plugins that claim some of a site's pages and not others need it: a link
+   * to that site which `match` turns down is then known to be a profile or a
+   * listing, not an unknown page to try something generic on.
+   */
+  ownsHost?(hostname: string): boolean
+
+  /**
    * Expand one URL into several at enqueue time — a folder/album link becomes
    * one job per file (e.g. a pixeldrain `/l/{id}` list). Omitted = one job as-is.
    * This runs when the user adds the URL, not at download time: only the
@@ -202,8 +210,37 @@ export function findPlugin(url: string): DownloaderPlugin | undefined {
   return plugins.find((p) => p.match(url))
 }
 
-/** The catch-all: it claims every http(s) URL, so it proves nothing about one. */
-const GENERIC_PLUGIN_ID = 'direct'
+export function findPluginById(id: string): DownloaderPlugin | undefined {
+  return plugins.find((p) => p.id === id)
+}
+
+/**
+ * The catch-alls: between them they claim every http(s) URL — `web` a page,
+ * `direct` a file — so neither proves anything about one.
+ */
+const GENERIC_PLUGIN_IDS = new Set(['web', 'direct'])
+
+export function isGenericPlugin(plugin: DownloaderPlugin): boolean {
+  return GENERIC_PLUGIN_IDS.has(plugin.id)
+}
+
+/**
+ * A page on a site we download from that is not one video — a profile, a
+ * channel, a search. Nothing claims it, and the generic downloaders must not
+ * either: yt-dlp would read a profile as "download all of these", and the
+ * file downloader would save the page itself.
+ */
+export function isSitePageNotVideo(url: string): boolean {
+  let hostname: string
+  try {
+    hostname = new URL(url).hostname
+  } catch {
+    return false
+  }
+  const plugin = findPlugin(url)
+  if (plugin && !isGenericPlugin(plugin)) return false
+  return plugins.some((p) => p.ownsHost?.(hostname))
+}
 
 /**
  * Does a real downloader handle this link — one that knows the host, rather
@@ -216,7 +253,7 @@ const GENERIC_PLUGIN_ID = 'direct'
  */
 export function canDownload(url: string): boolean {
   const plugin = findPlugin(url)
-  return plugin !== undefined && plugin.id !== GENERIC_PLUGIN_ID
+  return plugin !== undefined && !isGenericPlugin(plugin)
 }
 
 /** Test seam: drop every registration (the app registers once at startup). */

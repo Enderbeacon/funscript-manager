@@ -820,6 +820,7 @@
     "invalid_url": "URL non valide : {{url}}",
     "download_no_plugin": "Aucun téléchargeur ne gère ce lien : {{url}}",
     "download_expand_failed": "Impossible de lister les fichiers de ce lien : {{url}}",
+    "download_not_a_video": "C’est une page de profil ou une liste, pas une vidéo : {{url}}",
     "scrape_not_a_post": "Ce n’est pas un lien de post EroScripts : {{url}}",
     "scrape_post_not_found": "Impossible d’ouvrir le post {{topicId}} : il a été supprimé, ou votre compte n’y a pas accès. {{url}}",
     "scrape_login_required": "Ce post nécessite d’être connecté à EroScripts.",
@@ -862,6 +863,7 @@
     "jobError": {
       "ytdlp_not_installed": "yt-dlp introuvable. Indiquez son chemin dans les réglages.",
       "ytdlp_unsupported": "Site non pris en charge",
+      "not_a_video": "C’est une page de profil ou une liste, pas une vidéo",
       "ytdlp_unavailable": "Vidéo plus disponible",
       "ytdlp_auth": "Connexion requise pour cette vidéo",
       "ytdlp_no_output": "Aucun fichier produit",
@@ -935,6 +937,7 @@
     "empty": "Collez un lien de publication pour commencer.",
     "openPost": "Ouvrir sur le forum",
     "openSite": "Aller au site",
+    "notAVideo": "Page de profil ou liste, pas une vidéo",
     "remove": "Retirer",
     "videoGroup": "Vidéo · {{count}} sources",
     "videoGroup_one": "Vidéo · {{count}} source",
