@@ -13,6 +13,7 @@ import {
   type SidebarState
 } from '../filters'
 import type { FolderRow } from '../folders'
+import { pinnedFirst } from '../pinnedTags'
 
 /**
  * The filter sidebar.
@@ -76,6 +77,8 @@ interface ListRow {
   title?: string
   /** A library's own row, at the top of its folders. */
   root?: boolean
+  /** Tags only: offered above the grid as a one-tap filter. */
+  pinned?: boolean
 }
 
 /**
@@ -148,7 +151,8 @@ export default function FilterSidebar({
   onKindChange,
   onOpenBuilder,
   onSaveFilter,
-  onOpenNameSearch
+  onOpenNameSearch,
+  onTogglePin
 }: {
   state: SidebarState
   onChange: (next: SidebarState) => void
@@ -162,6 +166,8 @@ export default function FilterSidebar({
   onSaveFilter: () => void
   /** Hand the box's text to the panel that can search every kind at once. */
   onOpenNameSearch: (query: string) => void
+  /** Pin a tag above the grid, or take it off. */
+  onTogglePin: (name: string, pinned: boolean) => void
 }): React.JSX.Element {
   const { t } = useTranslation()
   /**
@@ -197,7 +203,9 @@ export default function FilterSidebar({
         root: row.isRoot
       }))
     }
-    return (taxonomy?.entities[kind] ?? []).map((row) => ({
+    const list = taxonomy?.entities[kind] ?? []
+    // Pinned tags head the list, the latest pinned first.
+    return (kind === 'tags' ? pinnedFirst(list) : list).map((row) => ({
       key: row.name,
       label: row.name,
       depth: row.depth,
@@ -205,7 +213,8 @@ export default function FilterSidebar({
       // reads nothing like it.
       search: [row.name, ...row.aliases].join('\u0000'),
       count: row.countWithDescendants,
-      title: row.aliases.length > 0 ? row.aliases.join(' · ') : undefined
+      title: row.aliases.length > 0 ? row.aliases.join(' · ') : undefined,
+      pinned: row.pinned
     }))
   }, [taxonomy, kind, folders])
   const shown = useMemo(() => matchingRows(rows, query), [rows, query])
@@ -467,7 +476,7 @@ export default function FilterSidebar({
             <button
               key={row.key}
               className={`frow${on === 'in' ? ' sel' : on === 'ex' ? ' ex' : ''}${row.root ? ' froot' : ''}`}
-              style={{ paddingLeft: `${0.5 + row.depth * 0.85}rem` }}
+              style={{ paddingLeft: kind === 'tags' ? '0.3rem' : `${0.5 + row.depth * 0.85}rem` }}
               onClick={(e) => pick(row.key, namePickFromEvent(e))}
               onContextMenu={(e) => {
                 e.preventDefault()
@@ -475,6 +484,29 @@ export default function FilterSidebar({
               }}
               title={row.title}
             >
+              {/* First in the row and outside the indent, so the pins stand in
+                  one column down the list. Always drawn, faintly, so it is
+                  plain that there is something to press. A span, not a
+                  button: the row already is one. */}
+              {kind === 'tags' && (
+                <>
+                  <span
+                    className={`frow-pin${row.pinned ? ' on' : ''}`}
+                    role="button"
+                    aria-pressed={row.pinned}
+                    title={t(row.pinned ? 'media.filter.unpinTag' : 'media.filter.pinTag')}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onTogglePin(row.key, !row.pinned)
+                    }}
+                    onContextMenu={(e) => e.stopPropagation()}
+                    onDoubleClick={(e) => e.stopPropagation()}
+                  >
+                    <Pin size={11} />
+                  </span>
+                  {row.depth > 0 && <span className="frow-indent" style={{ width: `${row.depth * 0.85}rem` }} />}
+                </>
+              )}
               <span
                 className="frow-caret"
                 onClick={

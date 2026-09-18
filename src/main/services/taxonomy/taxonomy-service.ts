@@ -270,6 +270,7 @@ export interface EntityPatch {
   description?: string
   image?: string
   order?: number
+  pinned?: boolean
 }
 
 /** Would setting `parent` on `name` make a loop? */
@@ -323,9 +324,13 @@ export async function updateEntity(
       ...(patch.aliases ? { aliases: patch.aliases.map((a) => a.trim()).filter(Boolean) } : {}),
       ...(patch.description !== undefined ? { description: patch.description } : {}),
       ...(patch.image !== undefined ? { image: patch.image } : {}),
-      ...(patch.order !== undefined ? { order: patch.order } : {})
+      ...(patch.order !== undefined ? { order: patch.order } : {}),
+      // Pinning again keeps the original time: it is the same pin.
+      ...(patch.pinned && current.pinnedAt === undefined ? { pinnedAt: Date.now() } : {})
     }
     if (!nextParent) delete (entity as { parent?: string }).parent
+    // Unpinned is the default; the file only records the ones that are.
+    if (patch.pinned === false) delete (entity as { pinnedAt?: number }).pinnedAt
 
     const renamed = lower(nextName) !== lower(current.name)
     const next = list.map((e, i) => {

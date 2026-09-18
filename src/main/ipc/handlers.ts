@@ -125,6 +125,10 @@ interface TaxonomyRow {
   parent: string | null
   /** Sort key inside the parent; what pinning a playlist sets. */
   order: number | null
+  /** Offered as a one-tap filter ahead of the full list. */
+  pinned: boolean
+  /** When it was pinned, epoch ms; the latest pinned is listed first. */
+  pinnedAt: number | null
   aliases: string[]
   description: string | null
   image: string | null
@@ -174,6 +178,8 @@ async function taxonomyProjection(): Promise<{
       name: entity.name,
       parent: entity.parent ?? null,
       order: entity.order ?? null,
+      pinned: entity.pinnedAt !== undefined,
+      pinnedAt: entity.pinnedAt ?? null,
       aliases: entity.aliases,
       description: entity.description ?? null,
       image: entity.image ?? null,

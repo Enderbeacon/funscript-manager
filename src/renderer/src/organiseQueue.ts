@@ -324,6 +324,8 @@ export function projectRows(rows: Row[], ops: OrganiseOp[]): Row[] {
             image: null,
             depth: 0,
             order: null,
+            pinned: false,
+            pinnedAt: null,
             count: 0,
             countWithDescendants: 0,
             seq: nodes.length

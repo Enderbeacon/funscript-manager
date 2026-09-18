@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { Check, Heart, ListVideo } from 'lucide-react'
+import { Check, Heart, ListVideo, Pin } from 'lucide-react'
 import { memo } from 'react'
 import { Virtuoso, VirtuosoGrid } from 'react-virtuoso'
 import type { RegisteredLibrary, Settings } from '@shared/schemas/app-config'
@@ -599,6 +599,24 @@ export default function MediaPage({
     [setSidebar]
   )
 
+  /** Pinned tags sit above the grid, here and in the VR panel alike. */
+  const togglePin = useCallback(
+    (name: string, pinned: boolean): void => {
+      ipcInvoke('taxonomy:update', { kind: 'tags', name, patch: { pinned } }).catch((e) =>
+        showToast({ message: toMessage(e) })
+      )
+    },
+    [toMessage]
+  )
+  const pinnedTags = useMemo(
+    () =>
+      (taxonomy?.entities.tags ?? [])
+        .filter((row) => row.pinned)
+        .sort((a, b) => (b.pinnedAt ?? 0) - (a.pinnedAt ?? 0))
+        .map((row) => row.name),
+    [taxonomy]
+  )
+
   /** Which tags the filter is already holding, so the cards can say so. */
   const pickedTags = useMemo(
     () => ({
@@ -959,6 +977,7 @@ export default function MediaPage({
         }}
         onSaveFilter={() => filter && saveFilter(filter)}
         onOpenNameSearch={setNameSearch}
+        onTogglePin={togglePin}
       />
 
       <div className="media-main">
@@ -1088,6 +1107,25 @@ export default function MediaPage({
           {t('media.sort.addedAt')}
         </button>
       </div>
+
+      {pinnedTags.length > 0 && (
+        <div className="vbar ptags" role="group" aria-label={t('media.filter.pinnedTags')}>
+          <Pin size={12} className="ptags-icon" />
+          {pinnedTags.map((name) => {
+            const on = sidebar.names.tags.include.includes(name)
+            return (
+              <button
+                key={name}
+                className={`vchip${on ? ' on' : ''}`}
+                aria-pressed={on}
+                onClick={() => pickTag(name, 'toggle')}
+              >
+                {name}
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {progress && (
         <div className="sync-banner">

@@ -1398,6 +1398,10 @@ export const ipcContract = {
             depth: z.number().int().nonnegative(),
             /** Sort key inside the parent; what pinning a playlist sets. */
             order: z.number().int().nullable(),
+            /** Offered as a one-tap filter ahead of the full list. */
+            pinned: z.boolean(),
+            /** When it was pinned, epoch ms; the latest pinned is listed first. */
+            pinnedAt: z.number().int().nullable(),
             /** Media carrying this exact name. */
             count: z.number().int().nonnegative(),
             /** Including everything below it. */
@@ -1425,7 +1429,8 @@ export const ipcContract = {
         aliases: z.array(z.string()).optional(),
         description: z.string().optional(),
         image: z.string().optional(),
-        order: z.number().int().optional()
+        order: z.number().int().optional(),
+        pinned: z.boolean().optional()
       })
     }),
     output: z.object({ mediaRewritten: z.number().int().nonnegative() })

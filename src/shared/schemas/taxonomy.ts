@@ -38,7 +38,13 @@ export const EntitySchema = z.looseObject({
   /** Media-relative or absolute image path; the organise page shows it. */
   image: z.string().optional(),
   /** Sort key inside the parent; ties fall back to name order. */
-  order: z.number().int().optional()
+  order: z.number().int().optional(),
+  /**
+   * When the name was pinned, epoch ms; absent = not pinned. Pinned names are
+   * kept within reach — the media page and the VR panel offer them as one-tap
+   * filters and list them first — the latest pinned at the top.
+   */
+  pinnedAt: z.number().int().optional()
 })
 
 const TaxonomyBodySchema = z.looseObject({
