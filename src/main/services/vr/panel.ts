@@ -1,21 +1,29 @@
+import type { WebContents } from 'electron'
 import type { VrPanelAction } from '@shared/vr'
 
 /**
- * What the VR panel's own buttons ask of the panel: put it away, hang it on
- * the wrist, bring it in front of the viewer.
+ * What the VR pages ask of the panels showing them: placement, the script
+ * player's panel, and the headset keyboard for a text field.
  *
  * The headset side registers here once it is running. Until then — and in the
  * development preview, which has no headset — the requests go nowhere.
  */
 
-type Handler = (action: VrPanelAction) => void
+export interface PanelRequests {
+  action: (action: VrPanelAction, sender: WebContents) => void
+  keyboard: (open: boolean, text: string, sender: WebContents) => void
+}
 
-let handler: Handler | null = null
+let handler: PanelRequests | null = null
 
-export function onPanelAction(next: Handler | null): void {
+export function onPanelRequests(next: PanelRequests | null): void {
   handler = next
 }
 
-export function panelAction(action: VrPanelAction): void {
-  handler?.(action)
+export function panelAction(action: VrPanelAction, sender: WebContents): void {
+  handler?.action(action, sender)
+}
+
+export function panelKeyboard(open: boolean, text: string, sender: WebContents): void {
+  handler?.keyboard(open, text, sender)
 }

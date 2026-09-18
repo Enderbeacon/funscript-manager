@@ -12,11 +12,27 @@ body,
   overflow: hidden;
 }
 
+/*
+ * The page's own background can be see-through (the panel settings), down to
+ * whatever is playing behind the panel. Only the backdrop and the bars fade;
+ * covers, text and buttons keep their own solid backgrounds.
+ */
+html,
+body {
+  background: transparent !important;
+}
+
+body::before {
+  display: none;
+}
+
 .vr-panel {
+  --vr-backdrop: color-mix(in srgb, var(--bg-page) calc(var(--vr-bg-alpha, 1) * 100%), transparent);
+  --vr-bar: color-mix(in srgb, var(--bg-card) calc(var(--vr-bg-alpha, 1) * 100%), transparent);
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: var(--bg-page);
+  background: var(--vr-backdrop);
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-size: 22px;
@@ -43,7 +59,7 @@ body,
   align-items: center;
   gap: 14px;
   padding: 14px 16px;
-  background: var(--bg-card);
+  background: var(--vr-bar);
   border-bottom: 1px solid var(--border-tertiary);
 }
 
@@ -139,6 +155,221 @@ body,
   width: 60px;
   padding: 0;
   justify-content: center;
+}
+
+/* ----------------------------------------------------------- tool row */
+
+.vr-toolrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  background: var(--vr-bar);
+  border-bottom: 1px solid var(--border-tertiary);
+}
+
+.vr-toolrow .grow {
+  flex: 1;
+}
+
+.vr-toolrow > button:not(.vr-chip) {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 18px;
+  border-radius: 14px;
+  background: var(--bg-muted);
+  white-space: nowrap;
+}
+
+.vr-toolrow > button:not(.vr-chip):hover {
+  background: var(--accent-soft);
+}
+
+.vr-toolrow > .vr-square {
+  width: 52px;
+  padding: 0;
+  justify-content: center;
+}
+
+/* ------------------------------------------------------- sort dropdown */
+
+.vr-menu-root {
+  position: relative;
+}
+
+.vr-menu-root > button {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px 0 18px;
+  border-radius: 14px;
+  background: var(--bg-muted);
+  white-space: nowrap;
+}
+
+.vr-menu-root > button:hover {
+  background: var(--accent-soft);
+}
+
+/* Catches the press outside the menu that closes it; the whole panel. */
+.vr-menu-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+}
+
+.vr-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 40;
+  min-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 18px;
+  border: 1px solid var(--border-secondary);
+  background:
+    linear-gradient(160deg, var(--glass-sheen), transparent 44%),
+    color-mix(in srgb, var(--bg-page) 90%, transparent);
+  backdrop-filter: blur(30px) saturate(190%);
+  box-shadow: 0 18px 60px rgb(0 0 0 / 45%);
+}
+
+.vr-menu button {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px 0 10px;
+  border-radius: 12px;
+  background: transparent;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.vr-menu button:hover {
+  background: var(--accent-soft);
+}
+
+.vr-menu button.on {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.vr-menu-check {
+  width: 28px;
+  display: flex;
+  justify-content: center;
+}
+
+/* ------------------------------------------------------ settings card */
+
+.vr-sheet {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/*
+ * Frosted, whatever the panel's background is set to: the panel behind shows
+ * through blurred, never clearly enough to compete with the card.
+ */
+.vr-sheet-card {
+  max-width: calc(100% - 80px);
+  max-height: calc(100% - 60px);
+  overflow-y: auto;
+  padding: 24px 28px 28px;
+  border-radius: 22px;
+  background:
+    linear-gradient(160deg, var(--glass-sheen), transparent 44%),
+    color-mix(in srgb, var(--bg-page) 90%, transparent);
+  backdrop-filter: blur(30px) saturate(190%);
+  border: 1px solid var(--border-secondary);
+  box-shadow: 0 18px 60px rgb(0 0 0 / 45%);
+}
+
+.vr-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.vr-sheet-head h2 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 650;
+}
+
+.vr-look {
+  width: 1040px;
+}
+
+.vr-look-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+}
+
+.vr-look h3 {
+  margin: 12px 0 8px;
+  font-size: 22px;
+  font-weight: 650;
+  color: var(--text-secondary);
+}
+
+.vr-slider {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  column-gap: 12px;
+  padding: 10px 0;
+}
+
+.vr-slider-label {
+  font-size: 21px;
+}
+
+.vr-slider-value {
+  font-size: 21px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.vr-slider input[type='range'] {
+  grid-column: 1 / -1;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 48px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.vr-slider input[type='range']::-webkit-slider-runnable-track {
+  height: 10px;
+  border-radius: 5px;
+  background: var(--bg-muted);
+}
+
+.vr-slider input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 40px;
+  height: 40px;
+  margin-top: -15px;
+  border: 3px solid var(--bg-card);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 35%);
 }
 
 /* ------------------------------------------------------------ tag row */
@@ -424,8 +655,45 @@ body,
 
 .vr-side-head {
   display: flex;
-  justify-content: flex-end;
-  padding: 8px 8px 0;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 0 12px;
+}
+
+.vr-side-head .grow {
+  flex: 1;
+}
+
+.vr-heart.on {
+  color: var(--danger);
+}
+
+.vr-side-add {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  border-radius: 14px;
+  background: var(--bg-muted);
+  font-size: 19px !important;
+  white-space: nowrap;
+}
+
+.vr-side-add:hover {
+  background: var(--accent-soft);
+}
+
+/* A tag on the detail column: pressing it filters the grid by it. */
+.vr-chip-tag {
+  height: 46px;
+  padding: 0 16px;
+  font-size: 19px !important;
+}
+
+.vr-chip-fav.on {
+  background: var(--danger);
+  color: #fff;
 }
 
 .vr-side-body {
@@ -645,7 +913,7 @@ body,
 .vr-queue-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 10px;
   padding: 12px 16px;
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border-tertiary);
@@ -765,4 +1033,247 @@ body,
   color: var(--bg-page);
   z-index: 20;
   text-align: center;
+}
+
+.vr-queue-head .grow {
+  flex: 1;
+}
+
+/* -------------------------------------------------------------- now bar */
+
+.vr-nowbar {
+  flex: none;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px;
+  background: var(--vr-bar);
+  border-top: 1px solid var(--border-tertiary);
+}
+
+.vr-now {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.vr-now-thumb {
+  width: 96px;
+  height: 54px;
+  flex: none;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-sunken);
+}
+
+.vr-now-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vr-now-title.idle {
+  color: var(--text-tertiary);
+}
+
+.vr-transport {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vr-transport button {
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.vr-transport button:not(:disabled):hover {
+  background: var(--accent-soft);
+  color: var(--text-primary);
+}
+
+.vr-transport button.on {
+  color: var(--accent);
+}
+
+.vr-transport .vr-transport-main {
+  width: 72px;
+  height: 72px;
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.vr-transport .vr-transport-main:not(:disabled):hover {
+  background: var(--accent);
+  color: var(--accent-text);
+  filter: brightness(1.1);
+}
+
+.vr-now-lists {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.vr-now-lists button {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 18px;
+  border-radius: 14px;
+  background: var(--bg-muted);
+  white-space: nowrap;
+}
+
+.vr-now-lists button:hover {
+  background: var(--accent-soft);
+}
+
+.vr-now-lists button.on {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+/* ------------------------------------------------------------ playlists */
+
+.vr-lists {
+  width: 1160px;
+  height: 700px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.vr-lists-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 16px;
+}
+
+.vr-lists-names {
+  width: 320px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+}
+
+.vr-lists-names button {
+  min-height: 60px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  border-radius: 14px;
+  background: var(--bg-muted);
+  text-align: left;
+}
+
+.vr-lists-names button:hover {
+  background: var(--accent-soft);
+}
+
+.vr-lists-names button.on {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.vr-lists-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vr-lists-count {
+  flex: none;
+  font-size: 18px;
+  opacity: 0.75;
+}
+
+.vr-lists-tracks {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vr-lists-tracks .vr-qrow {
+  margin: 6px 0;
+}
+
+.vr-primary-inline {
+  height: 64px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 24px;
+  border-radius: 14px;
+  background: var(--accent);
+  color: var(--accent-text) !important;
+  font-weight: 600;
+}
+
+.vr-primary-inline:not(:disabled):hover {
+  filter: brightness(1.1);
+}
+
+.vr-addto {
+  width: 560px;
+  max-height: 700px;
+  display: flex;
+  flex-direction: column;
+}
+
+.vr-addto .vr-lists-names {
+  width: auto;
+}
+
+.vr-addto-title {
+  margin: 0 0 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* -------------------------------------------------- name for a playlist */
+
+.vr-name-card {
+  width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.vr-name-input {
+  height: 64px;
+  padding: 0 18px;
+  border-radius: 14px;
+  border: 2px solid var(--border-secondary);
+  background: var(--bg-sunken);
+  color: var(--text-primary);
+  font: inherit;
+  outline: none;
+}
+
+.vr-name-input:focus {
+  border-color: var(--accent);
 }

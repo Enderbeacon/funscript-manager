@@ -25,6 +25,7 @@ import { useMainWindowOpen } from '@/useMainWindow'
 import Select from '@/components/Select'
 import AxisPanel, { ToolPopover } from './AxisPanel'
 import RangeSlider from './RangeSlider'
+import { NumberSteps, useVrMode } from './vrMode'
 import {
   DEFAULT_AXIS_RANGES,
   SCRIPT_PLAYER_AXES,
@@ -97,6 +98,7 @@ export default function ScriptPlayerPanel({
 }): React.JSX.Element {
   const { t } = useTranslation()
   const toMessage = useErrorMessage()
+  const vr = useVrMode()
   /** In its own window with no main window left, this is the way back. */
   const mainWindowOpen = useMainWindowOpen()
   const [settings, setSettings] = useState<PlayerSettings | null>(null)
@@ -366,7 +368,7 @@ export default function ScriptPlayerPanel({
   }
 
   return (
-    <section className={`script-player${standalone ? ' standalone' : ''}`}>
+    <section className={`script-player${standalone ? ' standalone' : ''}${vr ? ' vr' : ''}`}>
       <header className="sp-header">
         <div>
           <h1>{t('scriptPlayer.title')}</h1>
@@ -379,7 +381,7 @@ export default function ScriptPlayerPanel({
           </div>
         </div>
         <div className="row">
-          {standalone && !mainWindowOpen && (
+          {standalone && !mainWindowOpen && !vr && (
             <button
               className="icon-btn"
               type="button"
@@ -402,9 +404,11 @@ export default function ScriptPlayerPanel({
           >
             <Settings2 size={16} />
           </button>
-          <button className="icon-btn" title={t(standalone ? 'scriptPlayer.attach' : 'scriptPlayer.detach')} onClick={() => void detach()}>
-            {standalone ? <Link2Off size={16} /> : <ExternalLink size={16} />}
-          </button>
+          {!vr && (
+            <button className="icon-btn" title={t(standalone ? 'scriptPlayer.attach' : 'scriptPlayer.detach')} onClick={() => void detach()}>
+              {standalone ? <Link2Off size={16} /> : <ExternalLink size={16} />}
+            </button>
+          )}
           {!standalone && onClose && (
             <button className="icon-btn" title={t('common.close')} onClick={onClose}><X size={17} /></button>
           )}
@@ -436,10 +440,13 @@ export default function ScriptPlayerPanel({
         <div className="sp-standing-down">
           <strong>{t('scriptPlayer.disabledTitle')}</strong>
           <span>{t('scriptPlayer.disabledHint')}</span>
-          <button className="primary sp-standing-action" type="button" onClick={openRouteSettings}>
-            <Settings2 size={13} />
-            {t('scriptPlayer.openRouteSettings')}
-          </button>
+          {/* The settings page is on the desktop, out of sight from the headset. */}
+          {!vr && (
+            <button className="primary sp-standing-action" type="button" onClick={openRouteSettings}>
+              <Settings2 size={13} />
+              {t('scriptPlayer.openRouteSettings')}
+            </button>
+          )}
         </div>
       )}
 
@@ -502,7 +509,10 @@ export default function ScriptPlayerPanel({
             </span>
           )
           const portInput = (
-            <input className="settings-input sp-number" disabled={settingsLocked} type="number" min={1} max={65535} aria-label={t('scriptPlayer.port')} value={profile.port} onChange={(event) => changeProfile(profile.id, (item) => ({ ...item, port: Number(event.target.value) }))} />
+            <>
+              <input className="settings-input sp-number" disabled={settingsLocked} type="number" min={1} max={65535} aria-label={t('scriptPlayer.port')} value={profile.port} onChange={(event) => changeProfile(profile.id, (item) => ({ ...item, port: Number(event.target.value) }))} />
+              <NumberSteps value={profile.port} step={1} min={1} max={65535} disabled={settingsLocked} onChange={(port) => changeProfile(profile.id, (item) => ({ ...item, port }))} />
+            </>
           )
           const connectButton = (compact: boolean): React.JSX.Element => (
             <button
@@ -643,7 +653,7 @@ export default function ScriptPlayerPanel({
                       ) : null}
                       {!handy && <label>
                         <span>{t('scriptPlayer.interval')}</span>
-                        <span className="row"><input className="settings-input sp-number" type="number" min={profile.transport === 'websocket' ? 16 : 3} max={200} value={profile.updateIntervalMs} onChange={(event) => changeProfile(profile.id, (item) => ({ ...item, updateIntervalMs: Number(event.target.value) }))} /><span className="settings-unit">ms</span></span>
+                        <span className="row"><input className="settings-input sp-number" type="number" min={profile.transport === 'websocket' ? 16 : 3} max={200} value={profile.updateIntervalMs} onChange={(event) => changeProfile(profile.id, (item) => ({ ...item, updateIntervalMs: Number(event.target.value) }))} /><span className="settings-unit">ms</span><NumberSteps value={profile.updateIntervalMs} step={1} min={profile.transport === 'websocket' ? 16 : 3} max={200} onChange={(updateIntervalMs) => changeProfile(profile.id, (item) => ({ ...item, updateIntervalMs }))} /></span>
                       </label>}
                       {!handy && <label>
                         <span>{t('scriptPlayer.protocol')}</span>
@@ -836,6 +846,7 @@ function ScriptPlayerSettingsSheet({
                   onChange={(event) => onChange({ syncOffsetMs: Number(event.target.value) })}
                 />
                 <span className="settings-unit">ms</span>
+                <NumberSteps value={settings.syncOffsetMs} step={10} min={-5000} max={5000} onChange={(syncOffsetMs) => onChange({ syncOffsetMs })} />
               </span>
             </label>
             <p className="settings-hint">{t('scriptPlayer.autoConnectPerOutput')}</p>
@@ -859,6 +870,13 @@ function ScriptPlayerSettingsSheet({
                     })}
                   />
                   <span className="settings-unit">s</span>
+                  <NumberSteps
+                    value={settings.syncDurationMs / 1000}
+                    step={0.5}
+                    min={0}
+                    max={20}
+                    onChange={(seconds) => onChange({ syncDurationMs: Math.round(seconds * 1000) })}
+                  />
                 </div>
                 <span className="settings-hint">{t('scriptPlayer.easeInHint')}</span>
               </div>

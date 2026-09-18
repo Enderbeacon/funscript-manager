@@ -1,7 +1,4 @@
-import { useEffect } from 'react'
-import { applyLanguageSetting } from '../i18n'
-import { ipcInvoke } from '../ipc'
-import { applyPaletteSetting, applyThemeSetting } from '../theme'
+import { useAppearance } from '../useAppearance'
 import NowPlayingBar from './NowPlayingBar'
 import VideoPlayerStage, { useVideoIntent } from './VideoPlayerStage'
 
@@ -15,16 +12,7 @@ import VideoPlayerStage, { useVideoIntent } from './VideoPlayerStage'
  */
 export default function VideoPlayerWindow(): React.JSX.Element {
   const intent = useVideoIntent()
-
-  useEffect(() => {
-    ipcInvoke('settings:get')
-      .then((settings) => {
-        applyLanguageSetting(settings.ui.language)
-        applyPaletteSetting(settings.ui.palette)
-        applyThemeSetting(settings.ui.theme)
-      })
-      .catch(() => {})
-  }, [])
+  useAppearance()
 
   return (
     <div className="video-window">

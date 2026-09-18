@@ -143,6 +143,12 @@ export default function App(): React.JSX.Element {
         applyThemeSetting(s.ui.theme)
       })
       .catch(console.error)
+    // A theme or language chosen in another window — a VR panel — reaches
+    // this one too. The palette is only edited here, so it is left alone.
+    const offSettings = ipcOn('event:settings-changed', (s) => {
+      applyLanguageSetting(s.ui.language)
+      applyThemeSetting(s.ui.theme)
+    })
     /*
      * The window is hidden until this says otherwise, and the startup card
      * stands in for it. Two frames after the preferences land: the first
@@ -163,6 +169,7 @@ export default function App(): React.JSX.Element {
     void restoreQueue()
     // What the tour has already shown, so it knows whether to offer itself.
     void loadTour().catch(() => {})
+    return offSettings
   }, [])
 
   useEffect(() => {

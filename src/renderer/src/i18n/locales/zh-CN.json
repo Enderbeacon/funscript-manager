@@ -1457,6 +1457,18 @@
     "remove": "移除",
     "script": "脚本",
     "nowPlaying": "正在播放",
-    "switchScript": "切换脚本"
+    "switchScript": "切换脚本",
+    "scriptPlayer": "脚本播放器",
+    "hideOnPlay": "播放时收起",
+    "toLight": "切换到浅色",
+    "toDark": "切换到深色",
+    "panelSettings": "面板设置",
+    "mainPanel": "主面板",
+    "size": "大小",
+    "wristSize": "手腕上的大小",
+    "opacity": "不透明度",
+    "backgroundOpacity": "背景不透明度",
+    "pause": "暂停",
+    "height": "高度"
   }
 }

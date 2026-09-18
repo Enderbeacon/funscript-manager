@@ -1457,6 +1457,18 @@
     "remove": "削除",
     "script": "スクリプト",
     "nowPlaying": "再生中",
-    "switchScript": "スクリプトを切り替え"
+    "switchScript": "スクリプトを切り替え",
+    "scriptPlayer": "スクリプトプレーヤー",
+    "hideOnPlay": "再生したらしまう",
+    "toLight": "ライトに切り替え",
+    "toDark": "ダークに切り替え",
+    "panelSettings": "パネル設定",
+    "mainPanel": "メインパネル",
+    "size": "サイズ",
+    "wristSize": "手首でのサイズ",
+    "opacity": "不透明度",
+    "backgroundOpacity": "背景の不透明度",
+    "pause": "一時停止",
+    "height": "高さ"
   }
 }

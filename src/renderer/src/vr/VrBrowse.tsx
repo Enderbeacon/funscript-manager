@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { VirtuosoGrid } from 'react-virtuoso'
+import type { VR_SORTS } from '@shared/schemas/app-config'
 import type { MediaListItem } from '@shared/schemas/media-index'
 import type { FilterNode } from '@shared/schemas/taxonomy'
 import CachedIpcImage, { thumbCache } from '../ipcImage'
@@ -15,15 +16,17 @@ const CHANGED_DEBOUNCE_MS = 400
 
 /**
  * What the grid holds: only videos that can be played. Every picked tag must
- * be present, tags counting their children, as the desktop sidebar does.
+ * be present, tags counting their children, as the desktop sidebar does; with
+ * `favorites`, only the favourites.
  */
-function browseFilter(tags: string[]): FilterNode {
+function browseFilter(tags: string[], favorites: boolean): FilterNode {
   return {
     kind: 'group',
     match: 'all',
     children: [
       { kind: 'rule', field: 'wanted', op: 'is', value: false },
       { kind: 'rule', field: 'missing', op: 'is', value: false },
+      ...(favorites ? [{ kind: 'rule' as const, field: 'favorite' as const, op: 'is' as const, value: true }] : []),
       ...tags.map((name) => ({
         kind: 'rule' as const,
         field: 'tags' as const,
@@ -38,11 +41,15 @@ function browseFilter(tags: string[]): FilterNode {
 export default function VrBrowse({
   search,
   tags,
+  favorites,
+  sort,
   selectedId,
   onOpen
 }: {
   search: string
   tags: string[]
+  favorites: boolean
+  sort: (typeof VR_SORTS)[number]
   /** The one open in the column beside the grid. */
   selectedId: string | null
   onOpen: (item: MediaListItem) => void
@@ -61,10 +68,10 @@ export default function VrBrowse({
         offset,
         limit: PAGE,
         ...(search ? { search } : {}),
-        filter: browseFilter(tags),
-        sort: 'path'
+        filter: browseFilter(tags, favorites),
+        sort
       }),
-    [search, tags]
+    [search, tags, favorites, sort]
   )
 
   // A new search or tag starts again from the top.
@@ -145,7 +152,7 @@ export default function VrBrowse({
   }
 
   if (total === 0) {
-    return <div className="vr-empty">{t(search || tags.length ? 'vr.noMatches' : 'vr.emptyLibrary')}</div>
+    return <div className="vr-empty">{t(search || tags.length || favorites ? 'vr.noMatches' : 'vr.emptyLibrary')}</div>
   }
 
   return (

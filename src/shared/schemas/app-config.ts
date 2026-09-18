@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { COMPANION_MATCH_LEVELS, DEFAULT_COMPANION_MATCH } from '../constants'
 import { QUALITY_CHOICES } from '../quality'
 import { UpdateChannelSchema } from './updates'
+import { VR_PANEL_HEIGHT, VR_PANEL_MAX_HEIGHT, VR_PANEL_MIN_HEIGHT } from '../vr'
 import { ScriptPlayerSettingsSchema } from '../../script-player/shared/config'
 
 /**
@@ -133,6 +134,22 @@ export const RegisteredLibrarySchema = z.object({
 export const LibrariesFileSchema = z.object({
   libraries: z.array(RegisteredLibrarySchema).default([])
 })
+
+/** The orders the VR grid offers; playlist order belongs to the playlists card. */
+export const VR_SORTS = ['path', 'title', 'addedAt', 'updatedAt', 'size', 'rating', 'scriptCount'] as const
+
+/** A VR panel's size, as a factor of its standard size. */
+const VrSizeSchema = z.number().min(0.5).max(2).default(1)
+
+/**
+ * How see-through a VR panel is. `opacity` fades the whole panel, content and
+ * all; `background` only the page behind the content, so covers, text and
+ * buttons stay solid over the video.
+ */
+const VrLookShape = {
+  opacity: z.number().min(0.2).max(1).default(1),
+  background: z.number().min(0).max(1).default(1)
+}
 
 export const SettingsSchema = z.object({
   schemaVersion: z.literal(1).default(1),
@@ -409,6 +426,38 @@ export const SettingsSchema = z.object({
           skipAll: z.boolean().default(false),
           /** Sections finished or skipped, so they do not come back by themselves. */
           seen: z.array(z.string()).default([])
+        })
+        .prefault({})
+    })
+    .prefault({}),
+  vr: z
+    .object({
+      /**
+       * Playing a video from the VR panel puts the panel away, so the video is
+       * not watched through it. Only the main panel: the script player's panel
+       * stays where it is, since adjusting while watching is what it is for.
+       */
+      hideOnPlay: z.boolean().default(true),
+      /**
+       * The VR grid's order. Its own, not the desktop grid's: turning the
+       * headset's list around should not rearrange the one on the monitor.
+       */
+      sort: z.enum(VR_SORTS).default('path'),
+      /** The main panel's look; sizes are factors of its standard size. */
+      main: z
+        .object({
+          size: VrSizeSchema,
+          /** The page's height in CSS pixels; the width stays as it is. */
+          height: z.number().int().min(VR_PANEL_MIN_HEIGHT).max(VR_PANEL_MAX_HEIGHT).default(VR_PANEL_HEIGHT),
+          /** Hung on the left wrist, where it starts much smaller. */
+          wristSize: VrSizeSchema,
+          ...VrLookShape
+        })
+        .prefault({}),
+      scriptPlayer: z
+        .object({
+          size: VrSizeSchema,
+          ...VrLookShape
         })
         .prefault({})
     })

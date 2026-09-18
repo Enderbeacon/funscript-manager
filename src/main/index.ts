@@ -16,6 +16,7 @@ import { disposeStartupArtworkPreparation } from './services/startup/artwork-poo
 import { disposeScriptPlayer } from '@script-player/composition/session'
 import { applyPendingOnQuit, runUpdaterStartup } from './services/updates/updater'
 import { openVrPanelPreview } from './services/vr/preview-window'
+import { disposeVrOverlay, isVrOverlayWindow, startVrOverlay } from './services/vr/overlay'
 import { BROWSER_UA } from './services/downloaders/page-direct/common'
 
 /**
@@ -92,10 +93,22 @@ app.whenReady().then(async () => {
   void initPlayback().catch((e) => console.error('[playback] startup failed:', e))
   registerDownloaderPlugins()
   void initDownloads().catch((e) => console.error('[downloads] startup failed:', e))
+  startVrOverlay()
 })
 
 app.on('window-all-closed', () => {
   app.quit()
+})
+
+// The VR panel renders in off-screen windows no one can close, so they would
+// keep `window-all-closed` from ever firing. Once they are all that is left,
+// the app is done all the same.
+app.on('browser-window-created', (_event, win) => {
+  win.once('closed', () => {
+    if (isVrOverlayWindow(win)) return
+    const left = BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed() && w !== win)
+    if (left.length > 0 && left.every(isVrOverlayWindow)) app.quit()
+  })
 })
 
 app.on('will-quit', (event) => {
@@ -107,6 +120,7 @@ app.on('will-quit', (event) => {
   disposePlayback()
   disposeVideoStreams()
   disposeDownloads()
+  disposeVrOverlay()
   void Promise.all([
     disposeStartupArtworkPreparation(),
     disposeAllLibraries(),

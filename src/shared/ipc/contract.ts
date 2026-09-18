@@ -865,8 +865,34 @@ export const ipcContract = {
     output: z.object({ scriptVersionId: z.uuid().nullable() })
   },
   'vr:panel': {
-    /** The panel's own placement buttons. */
+    /** A VR page's own buttons, applied to the panel showing that page. */
     input: z.object({ action: z.enum(VR_PANEL_ACTIONS) }),
+    output: z.void()
+  },
+  'vr:queue': {
+    /**
+     * The queue, played from the VR panel: a playlist from the top or from one
+     * of its videos, the next or the previous one, or on from where it
+     * stopped. Like `vr:play`, always into HereSphere.
+     */
+    input: z.discriminatedUnion('action', [
+      z.object({
+        action: z.literal('start'),
+        source: QueueSourceSchema,
+        items: z.array(z.object({ libraryId: z.uuid(), mediaId: z.uuid() })).min(1),
+        at: z.number().int().nonnegative().default(0)
+      }),
+      z.object({ action: z.enum(['next', 'previous', 'resume']) })
+    ]),
+    output: z.object({ moved: z.boolean() })
+  },
+  'vr:keyboard': {
+    /**
+     * A text field on a VR page gained or lost focus. Open brings up the
+     * headset keyboard over the panel, starting from the field's text; what
+     * is typed there comes back to the page as key presses.
+     */
+    input: z.object({ open: z.boolean(), text: z.string().max(256) }),
     output: z.void()
   },
   'playback:setPaused': {
@@ -1594,6 +1620,12 @@ export const ipcEvents = {
    * told which windows are open so it can name them.
    */
   'event:confirm-close': z.object({ video: z.boolean(), script: z.boolean() }),
+  /**
+   * The settings changed. Every window follows the theme, palette and
+   * language from here, so a change made in one — the desktop's top bar, a VR
+   * panel — reaches all the others.
+   */
+  'event:settings-changed': SettingsSchema,
   /** The main window appeared or went away; the detached players watch for it. */
   'event:main-window': z.object({ open: z.boolean() }),
   'event:libraries-changed': z.object({

@@ -1479,6 +1479,18 @@
     "remove": "Remove",
     "script": "Script",
     "nowPlaying": "Playing",
-    "switchScript": "Switch script"
+    "switchScript": "Switch script",
+    "scriptPlayer": "Script player",
+    "hideOnPlay": "Put away when playing",
+    "toLight": "Switch to light",
+    "toDark": "Switch to dark",
+    "panelSettings": "Panel settings",
+    "mainPanel": "Main panel",
+    "size": "Size",
+    "wristSize": "Size on the wrist",
+    "opacity": "Opacity",
+    "backgroundOpacity": "Background opacity",
+    "pause": "Pause",
+    "height": "Height"
   }
 }

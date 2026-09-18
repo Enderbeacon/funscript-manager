@@ -1,6 +1,7 @@
 import { join } from 'node:path'
 import { BrowserWindow, shell } from 'electron'
 import { VR_PANEL_HEIGHT, VR_PANEL_WIDTH } from '@shared/vr'
+import { loadVrPage } from './page'
 
 /**
  * The VR panel in an ordinary window, for working on it without a headset.
@@ -37,13 +38,5 @@ export function openVrPanelPreview(): void {
   previewWindow.once('closed', () => {
     previewWindow = null
   })
-
-  const rendererUrl = process.env['ELECTRON_RENDERER_URL']
-  if (rendererUrl) {
-    const url = new URL(rendererUrl)
-    url.searchParams.set('vrPanel', '1')
-    void previewWindow.loadURL(url.toString())
-  } else {
-    void previewWindow.loadFile(join(__dirname, '../renderer/index.html'), { query: { vrPanel: '1' } })
-  }
+  loadVrPage(previewWindow, 'panel')
 }

@@ -114,7 +114,8 @@ import { applyProxySettings } from '../services/net/proxy'
 import { listSites, openSiteLogin, signOutSite } from '../services/sites/site-login'
 import { registerScriptPlayerHandlers } from '@script-player/interface/ipc/register'
 import { configureScriptPlayer } from '@script-player/composition/session'
-import { panelAction } from '../services/vr/panel'
+import { panelAction, panelKeyboard } from '../services/vr/panel'
+import { applyVrSettings } from '../services/vr/overlay'
 
 /**
  * The taxonomy as the UI needs it: tree order, with a count on every row and
@@ -313,8 +314,8 @@ export function registerIpcHandlers(): void {
     return { path: result.canceled ? null : (result.filePaths[0] ?? null) }
   })
 
-  handle('app:setTitleBarColors', ({ color, symbolColor }) => {
-    const win = BrowserWindow.getAllWindows()[0]
+  handle('app:setTitleBarColors', ({ color, symbolColor }, sender) => {
+    const win = BrowserWindow.fromWebContents(sender)
     // Only windows created with a title-bar overlay have one to set; a build
     // without it must not turn a colour change into an error dialog.
     try {
@@ -711,9 +712,11 @@ export function registerIpcHandlers(): void {
 
   handle('playback:play', (input) => playMedia(input))
 
-  handle('vr:panel', ({ action }) => panelAction(action))
+  handle('vr:panel', ({ action }, sender) => panelAction(action, sender))
+  handle('vr:keyboard', ({ open, text }, sender) => panelKeyboard(open, text, sender))
 
-  handle('vr:play', async ({ libraryId, mediaId, scriptVersionId, resumePosition }) => {
+  /** What the VR panel plays goes to HereSphere, the player the headset is showing. */
+  const useHeresphere = async (): Promise<void> => {
     const { playback: settings } = await config.getSettings()
     const heresphere =
       settings.sources.find((s) => s.id === settings.currentSourceId && s.kind === 'heresphere') ??
@@ -723,8 +726,27 @@ export function registerIpcHandlers(): void {
       await config.updateSettings({ playback: { currentSourceId: heresphere.id } })
       await playback.switchPlayer(heresphere.id)
     }
+  }
+
+  handle('vr:play', async ({ libraryId, mediaId, scriptVersionId, resumePosition }) => {
+    await useHeresphere()
     const result = await playMedia({ libraryId, mediaId, scriptVersionId, resumePosition })
     return { scriptVersionId: result.scriptVersionId }
+  })
+
+  handle('vr:queue', async (input) => {
+    await useHeresphere()
+    switch (input.action) {
+      case 'start':
+        await queue.start(input.source, input.items, input.at)
+        return { moved: true }
+      case 'next':
+        return { moved: await queue.next() }
+      case 'previous':
+        return { moved: await queue.previous() }
+      case 'resume':
+        return { moved: await queue.resume() }
+    }
   })
 
   handle('media:listByIds', ({ targets }) => ({ items: libraryManager.mediaByIds(targets) }))
@@ -1085,6 +1107,11 @@ export function registerIpcHandlers(): void {
   handle('settings:update', async (patch) => {
     const previous = await config.getSettings()
     const settings = await config.updateSettings(patch)
+    broadcast('event:settings-changed', settings)
+    applyVrSettings(settings.vr)
+    // A VR panel's sliders write several times a second while dragged; none
+    // of what follows reads those settings.
+    if (Object.keys(patch).every((key) => key === 'vr')) return settings
     const libraries = await config.listLibraries()
     if (
       previous.ui.startupArtwork.mode !== settings.ui.startupArtwork.mode ||

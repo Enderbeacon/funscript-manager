@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ListEnd, ListStart, Play, RefreshCw, X } from 'lucide-react'
+import { Heart, ListEnd, ListPlus, ListStart, Play, RefreshCw, X } from 'lucide-react'
 import type { MediaDetail, MediaListItem } from '@shared/schemas/media-index'
 import { SCRIPT_AXIS_KEYS } from '@shared/schemas/media-meta'
 import CachedIpcImage, { thumbCache } from '../ipcImage'
@@ -14,25 +14,36 @@ interface Playing {
 
 /**
  * One video, in a column beside the grid: look at it, choose which script
- * plays with it, then play it or queue it.
+ * plays with it, then play it or queue it. Its tags filter the grid, the heart
+ * keeps it among the favourites, and it can go into a playlist.
  *
  * With the video already playing, choosing another script and pressing the
  * main button swaps the script in and carries on from the same moment.
  */
 export default function VrDetail({
   item,
+  picked,
+  onPickTag,
   onClose,
   onPlay,
-  onQueue
+  onQueue,
+  onAddToPlaylist,
+  onError
 }: {
   item: MediaListItem
+  /** Tags filtering the grid; the ones this video carries show as on. */
+  picked: string[]
+  onPickTag: (name: string) => void
   onClose: () => void
   /** Resolves with the script version that was loaded, or null on failure. */
   onPlay: (scriptVersionId: string | undefined, resume: boolean) => Promise<string | null | undefined>
   onQueue: (mode: 'next' | 'end') => void
+  onAddToPlaylist: () => void
+  onError: (e: unknown) => void
 }): React.JSX.Element {
   const { t } = useTranslation()
   const [detail, setDetail] = useState<MediaDetail | null>(null)
+  const [favorite, setFavorite] = useState(item.favorite)
   const [selected, setSelected] = useState<string | null>(null)
   const [playing, setPlaying] = useState<Playing>({ mediaId: null, scriptVersionId: null })
 
@@ -43,6 +54,7 @@ export default function VrDetail({
       .then((d) => {
         if (!alive || !d) return
         setDetail(d)
+        setFavorite(d.favorite)
         // The one a plain play would pick: last used, then the default, then the first.
         const versions = d.scriptVersions
         const pick =
@@ -71,6 +83,15 @@ export default function VrDetail({
   const isPlaying = playing.mediaId === item.id
   const switching = isPlaying && selected !== null && selected !== playing.scriptVersionId
 
+  const toggleFavorite = (): void => {
+    const next = !favorite
+    setFavorite(next)
+    ipcInvoke('media:setUserMeta', { libraryId: item.libraryId, mediaId: item.id, favorite: next }).catch((e) => {
+      setFavorite(!next)
+      onError(e)
+    })
+  }
+
   const main = async (): Promise<void> => {
     const loaded = await onPlay(selected ?? undefined, switching)
     if (loaded !== undefined) setPlaying({ mediaId: item.id, scriptVersionId: loaded })
@@ -85,6 +106,19 @@ export default function VrDetail({
   return (
     <aside className="vr-side">
       <div className="vr-side-head">
+        <button
+          className={`vr-icon-btn vr-heart${favorite ? ' on' : ''}`}
+          aria-label={t(favorite ? 'media.batch.favoriteOff' : 'media.batch.favoriteOn')}
+          aria-pressed={favorite}
+          onClick={toggleFavorite}
+        >
+          <Heart size={30} fill={favorite ? 'currentColor' : 'none'} />
+        </button>
+        <button className="vr-side-add" onClick={onAddToPlaylist}>
+          <ListPlus size={26} />
+          {t('playlist.addTo')}
+        </button>
+        <div className="grow" />
         <button className="vr-icon-btn" aria-label={t('vr.close')} onClick={onClose}>
           <X size={30} />
         </button>
@@ -152,9 +186,14 @@ export default function VrDetail({
         {item.tags.length > 0 && (
           <div className="vr-side-tags">
             {item.tags.map((tag) => (
-              <span key={tag} className="vr-chip vr-chip-static">
+              <button
+                key={tag}
+                className={`vr-chip vr-chip-tag${picked.includes(tag) ? ' on' : ''}`}
+                aria-pressed={picked.includes(tag)}
+                onClick={() => onPickTag(tag)}
+              >
                 {tag}
-              </span>
+              </button>
             ))}
           </div>
         )}

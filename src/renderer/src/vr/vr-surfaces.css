@@ -1,0 +1,27 @@
+/*
+ * Solid surfaces for the VR pages.
+ *
+ * The app's cards and buttons are glass: a thin tint that relies on the
+ * opaque page behind it. A VR panel's page can be see-through (the panel
+ * settings), and glass over nothing is next to invisible. Here every fill is
+ * the same tint laid over the page colour instead, so it looks as it does on
+ * the desktop and stays solid whatever the backdrop does.
+ *
+ * On :root rather than a page's own element: dropdowns and popovers are drawn
+ * into the body, outside it. Only the VR pages load this sheet.
+ */
+
+:root,
+:root[data-theme='light'] {
+  --bg-card: color-mix(in srgb, var(--surface) 62%, var(--bg-page));
+  --bg-muted: color-mix(in srgb, var(--surface) 42%, var(--bg-page));
+  --bg-sunken: color-mix(in srgb, var(--text-primary) 5%, var(--bg-page));
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, var(--bg-page));
+}
+
+:root[data-theme='dark'] {
+  --bg-card: color-mix(in srgb, var(--surface) 6%, var(--bg-page));
+  --bg-muted: color-mix(in srgb, var(--surface) 4%, var(--bg-page));
+  --bg-sunken: color-mix(in srgb, #000000 28%, var(--bg-page));
+  --accent-soft: color-mix(in srgb, var(--accent) 16%, var(--bg-page));
+}

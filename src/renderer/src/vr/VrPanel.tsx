@@ -1,17 +1,39 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Hand, ListOrdered, LayoutGrid, Maximize2, Search, Tags, X } from 'lucide-react'
+import {
+  ArrowUpDown,
+  Check,
+  ChevronDown,
+  EyeOff,
+  Hand,
+  Heart,
+  LayoutGrid,
+  Maximize2,
+  Moon,
+  Search,
+  Settings2,
+  SlidersHorizontal,
+  Sun,
+  Tags,
+  X
+} from 'lucide-react'
+import { VR_SORTS } from '@shared/schemas/app-config'
 import type { MediaListItem } from '@shared/schemas/media-index'
 import type { VrPanelAction } from '@shared/vr'
-import { applyLanguageSetting } from '../i18n'
 import { ipcInvoke, ipcOn } from '../ipc'
 import { pinnedFirst } from '../pinnedTags'
-import { applyPaletteSetting, applyThemeSetting } from '../theme'
+import { applyThemeSetting, currentTheme, onThemeChange } from '../theme'
+import { useAppearance } from '../useAppearance'
 import { useErrorMessage } from '../useErrorMessage'
+import { useVrKeyboard } from './useVrKeyboard'
 import VrBrowse from './VrBrowse'
 import VrDetail from './VrDetail'
+import VrLookSettings from './VrLookSettings'
+import VrNowBar from './VrNowBar'
+import VrPlaylists, { VrAddToPlaylist } from './VrPlaylists'
 import VrQueue from './VrQueue'
 import VrTags, { type TagRow } from './VrTags'
+import './vr-surfaces.css'
 import './vr.css'
 
 /**
@@ -30,6 +52,10 @@ type View = 'browse' | 'tags' | 'queue'
 /** How long a note at the foot of the panel stays up. */
 const NOTICE_MS = 3000
 
+function place(action: VrPanelAction): void {
+  void ipcInvoke('vr:panel', { action }).catch(() => {})
+}
+
 export default function VrPanel(): React.JSX.Element {
   const { t } = useTranslation()
   const toMessage = useErrorMessage()
@@ -39,18 +65,24 @@ export default function VrPanel(): React.JSX.Element {
   const [picked, setPicked] = useState<string[]>([])
   const [detail, setDetail] = useState<MediaListItem | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [lookOpen, setLookOpen] = useState(false)
+  const [favorites, setFavorites] = useState(false)
+  const [playlistsOpen, setPlaylistsOpen] = useState(false)
+  const [addingToPlaylist, setAddingToPlaylist] = useState<MediaListItem | null>(null)
+  const [sortOpen, setSortOpen] = useState(false)
+  const settings = useAppearance()
+  const theme = useResolvedTheme()
+  const hideOnPlay = settings?.vr.hideOnPlay ?? true
+  const sort = settings?.vr.sort ?? 'path'
+  const hideOnPlayRef = useRef(hideOnPlay)
+  hideOnPlayRef.current = hideOnPlay
   const tags = useTags()
-  const queueLength = useQueueLength()
+  useVrKeyboard()
 
+  const background = settings?.vr.main.background ?? 1
   useEffect(() => {
-    ipcInvoke('settings:get')
-      .then((settings) => {
-        applyLanguageSetting(settings.ui.language)
-        applyPaletteSetting(settings.ui.palette)
-        applyThemeSetting(settings.ui.theme)
-      })
-      .catch(() => {})
-  }, [])
+    document.documentElement.style.setProperty('--vr-bg-alpha', String(background))
+  }, [background])
 
   // Typing on the headset keyboard sends a letter at a time; the grid waits
   // for a pause rather than reloading on each.
@@ -66,8 +98,15 @@ export default function VrPanel(): React.JSX.Element {
     noticeTimer.current = setTimeout(() => setNotice(null), NOTICE_MS)
   }, [])
 
-  const place = (action: VrPanelAction): void => {
-    void ipcInvoke('vr:panel', { action }).catch(() => {})
+  const toggleHideOnPlay = (): void => {
+    ipcInvoke('settings:update', { vr: { hideOnPlay: !hideOnPlay } }).catch((e) => say(toMessage(e)))
+  }
+
+  // The same setting as the desktop's, so both change together.
+  const toggleTheme = (): void => {
+    const next = theme === 'dark' ? 'light' : 'dark'
+    applyThemeSetting(next)
+    ipcInvoke('settings:update', { ui: { theme: next } }).catch((e) => say(toMessage(e)))
   }
 
   /** Resolves with the script version loaded, or undefined when it failed. */
@@ -83,8 +122,9 @@ export default function VrPanel(): React.JSX.Element {
           ...(scriptVersionId ? { scriptVersionId } : {}),
           ...(resumePosition ? { resumePosition } : {})
         })
-        // A new video closes the column; a script swap is still about this one.
-        if (!resumePosition) setDetail(null)
+        // A script swap on the video already playing is adjusting it, not
+        // starting something to watch.
+        if (!resumePosition && hideOnPlayRef.current) place('hide')
         return result.scriptVersionId
       } catch (e) {
         say(toMessage(e))
@@ -93,6 +133,21 @@ export default function VrPanel(): React.JSX.Element {
     },
     [say, toMessage]
   )
+
+  const playPlaylist = async (name: string, items: MediaListItem[], at: number): Promise<void> => {
+    try {
+      await ipcInvoke('vr:queue', {
+        action: 'start',
+        source: { kind: 'playlist', name },
+        items: items.map((item) => ({ libraryId: item.libraryId, mediaId: item.id })),
+        at
+      })
+      setPlaylistsOpen(false)
+      if (hideOnPlayRef.current) place('hide')
+    } catch (e) {
+      say(toMessage(e))
+    }
+  }
 
   const enqueue = useCallback(
     async (item: MediaListItem, mode: 'next' | 'end') => {
@@ -153,17 +208,6 @@ export default function VrPanel(): React.JSX.Element {
             <LayoutGrid size={24} />
             {t('vr.browse')}
           </button>
-          <button
-            className={view === 'queue' ? 'on' : ''}
-            onClick={() => {
-              setView('queue')
-              setDetail(null)
-            }}
-          >
-            <ListOrdered size={24} />
-            {t('vr.queue')}
-            {queueLength > 0 && <span className="vr-count">{queueLength}</span>}
-          </button>
         </nav>
 
         <div className="vr-place">
@@ -181,9 +225,71 @@ export default function VrPanel(): React.JSX.Element {
         </div>
       </header>
 
+      <div className="vr-toolrow">
+        <button onClick={() => place('scriptPlayer')}>
+          <SlidersHorizontal size={24} />
+          {t('vr.scriptPlayer')}
+        </button>
+        <button
+          className="vr-square"
+          aria-label={t(theme === 'dark' ? 'vr.toLight' : 'vr.toDark')}
+          onClick={toggleTheme}
+        >
+          {theme === 'dark' ? <Sun size={24} /> : <Moon size={24} />}
+        </button>
+        <button onClick={() => setLookOpen(true)}>
+          <Settings2 size={24} />
+          {t('vr.panelSettings')}
+        </button>
+        <div className="vr-menu-root">
+          <button aria-haspopup="listbox" aria-expanded={sortOpen} onClick={() => setSortOpen((open) => !open)}>
+            <ArrowUpDown size={24} />
+            {t(`media.sort.${sort}`)}
+            <ChevronDown size={22} />
+          </button>
+          {sortOpen && (
+            <>
+              <div className="vr-menu-scrim" onPointerDown={() => setSortOpen(false)} />
+              <div className="vr-menu" role="listbox" aria-label={t('media.sort.label')}>
+                {VR_SORTS.map((option) => (
+                  <button
+                    key={option}
+                    role="option"
+                    aria-selected={option === sort}
+                    className={option === sort ? 'on' : ''}
+                    onClick={() => {
+                      setSortOpen(false)
+                      if (option !== sort) {
+                        ipcInvoke('settings:update', { vr: { sort: option } }).catch((e) => say(toMessage(e)))
+                      }
+                    }}
+                  >
+                    <span className="vr-menu-check">{option === sort && <Check size={24} />}</span>
+                    {t(`media.sort.${option}`)}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+        <div className="grow" />
+        <button className={`vr-chip vr-chip-plain${hideOnPlay ? ' on' : ''}`} aria-pressed={hideOnPlay} onClick={toggleHideOnPlay}>
+          <EyeOff size={22} />
+          {t('vr.hideOnPlay')}
+        </button>
+      </div>
+
       {view !== 'queue' && (
         <div className="vr-tagrow">
           <div className="vr-tagrow-chips">
+            <button
+              className={`vr-chip vr-chip-fav${favorites ? ' on' : ''}`}
+              aria-pressed={favorites}
+              onClick={() => setFavorites((on) => !on)}
+            >
+              <Heart size={22} fill={favorites ? 'currentColor' : 'none'} />
+              {t('media.filter.flag.favorite')}
+            </button>
             {rowNames.length === 0 && <span className="vr-hint">{t('vr.noPinned')}</span>}
             {rowNames.map((name) => (
               <button
@@ -195,8 +301,14 @@ export default function VrPanel(): React.JSX.Element {
               </button>
             ))}
           </div>
-          {picked.length > 0 && (
-            <button className="vr-chip vr-chip-plain" onClick={() => setPicked([])}>
+          {(picked.length > 0 || favorites) && (
+            <button
+              className="vr-chip vr-chip-plain"
+              onClick={() => {
+                setPicked([])
+                setFavorites(false)
+              }}
+            >
               {t('vr.clearTags')}
             </button>
           )}
@@ -213,30 +325,88 @@ export default function VrPanel(): React.JSX.Element {
       <div className="vr-body">
         <main className={`vr-content${detail ? ' narrow' : ''}`}>
           {view === 'browse' && (
-            <VrBrowse search={search} tags={picked} selectedId={detail?.id ?? null} onOpen={setDetail} />
+            <VrBrowse
+              search={search}
+              tags={picked}
+              favorites={favorites}
+              sort={sort}
+              selectedId={detail?.id ?? null}
+              onOpen={setDetail}
+            />
           )}
           {view === 'tags' && (
             <VrTags tags={tags} picked={picked} onPick={togglePick} onPin={(tag) => void togglePin(tag)} />
           )}
-          {view === 'queue' && <VrQueue onPlay={(item) => void play(item)} onError={(e) => say(toMessage(e))} />}
+          {view === 'queue' && (
+            <VrQueue onPlay={(item) => void play(item)} onSaved={say} onError={(e) => say(toMessage(e))} />
+          )}
         </main>
 
         {detail && (
           <VrDetail
             key={detail.id}
             item={detail}
+            picked={picked}
+            onPickTag={togglePick}
             onClose={() => setDetail(null)}
             onPlay={(scriptVersionId, resume) =>
               play({ libraryId: detail.libraryId, mediaId: detail.id }, scriptVersionId, resume)
             }
             onQueue={(mode) => void enqueue(detail, mode)}
+            onAddToPlaylist={() => setAddingToPlaylist(detail)}
+            onError={(e) => say(toMessage(e))}
           />
         )}
       </div>
 
+      <VrNowBar
+        queueOpen={view === 'queue'}
+        onQueue={() => {
+          if (view === 'queue') {
+            setView('browse')
+          } else {
+            setView('queue')
+            setDetail(null)
+          }
+        }}
+        onPlaylists={() => setPlaylistsOpen(true)}
+        onError={(e) => say(toMessage(e))}
+      />
+
+      {playlistsOpen && (
+        <VrPlaylists
+          onPlay={playPlaylist}
+          onClose={() => setPlaylistsOpen(false)}
+          onError={(e) => say(toMessage(e))}
+        />
+      )}
+
+      {addingToPlaylist && (
+        <VrAddToPlaylist
+          item={addingToPlaylist}
+          onDone={(name) => {
+            setAddingToPlaylist(null)
+            say(t('playlist.added', { count: 1, name }))
+          }}
+          onClose={() => setAddingToPlaylist(null)}
+          onError={(e) => say(toMessage(e))}
+        />
+      )}
+
+      {lookOpen && settings && (
+        <VrLookSettings look={settings.vr} onClose={() => setLookOpen(false)} onError={(e) => say(toMessage(e))} />
+      )}
+
       {notice && <div className="vr-notice">{notice}</div>}
     </div>
   )
+}
+
+/** The theme on screen, with 'system' already resolved. */
+function useResolvedTheme(): 'light' | 'dark' {
+  const [theme, setTheme] = useState(currentTheme)
+  useEffect(() => onThemeChange(setTheme), [])
+  return theme
 }
 
 /** The tags in display order, kept current. */
@@ -260,15 +430,4 @@ function useTags(): TagRow[] {
     }
   }, [])
   return tags
-}
-
-function useQueueLength(): number {
-  const [length, setLength] = useState(0)
-  useEffect(() => {
-    ipcInvoke('queue:get')
-      .then((state) => setLength(state.items.length))
-      .catch(() => {})
-    return ipcOn('event:queue-changed', (state) => setLength(state.items.length))
-  }, [])
-  return length
 }

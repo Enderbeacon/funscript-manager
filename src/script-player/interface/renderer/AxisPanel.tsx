@@ -39,6 +39,7 @@ import { linearThrough } from '../../domain/engine/evaluate'
 import CurveEditor from './CurveEditor'
 import RangeSlider from './RangeSlider'
 import { InterpolationPreview, NoisePreview, useSweep } from './AxisPreviews'
+import { NumberSteps, useVrMode } from './vrMode'
 
 type PlayerSettings = IpcOutput<'script-player:settings'>
 type PlayerStatus = IpcOutput<'script-player:status'>
@@ -89,6 +90,7 @@ export default function AxisPanel({
   onError: (caught: unknown) => void
 }): React.JSX.Element {
   const { t } = useTranslation()
+  const vr = useVrMode()
   const [axis, setAxis] = useState<ScriptPlayerAxis>(() => {
     const stored = readStored(TAB_KEY)
     return SCRIPT_PLAYER_AXES.includes(stored as ScriptPlayerAxis) ? stored as ScriptPlayerAxis : 'main'
@@ -156,12 +158,17 @@ export default function AxisPanel({
         <ToolPopover icon={<File size={16} />} title={t('scriptPlayer.axisTools.script')} menu>
           {(close) => (
             <div className="sp-pop-menu">
-              <button type="button" disabled={!script?.path} onClick={() => { close(); act(ipcInvoke('script-player:axisReveal', { axis })) }}>
-                <FolderOpen size={14} />{t('scriptPlayer.axisTools.openFolder')}
-              </button>
-              <button type="button" disabled={!status?.mediaId} onClick={() => { close(); browse() }}>
-                <FileInput size={14} />{t('scriptPlayer.axisTools.load')}
-              </button>
+              {/* A folder window and a file dialog open on the desktop, out of sight from the headset. */}
+              {!vr && (
+                <button type="button" disabled={!script?.path} onClick={() => { close(); act(ipcInvoke('script-player:axisReveal', { axis })) }}>
+                  <FolderOpen size={14} />{t('scriptPlayer.axisTools.openFolder')}
+                </button>
+              )}
+              {!vr && (
+                <button type="button" disabled={!status?.mediaId} onClick={() => { close(); browse() }}>
+                  <FileInput size={14} />{t('scriptPlayer.axisTools.load')}
+                </button>
+              )}
               <button type="button" disabled={!script?.name} onClick={() => { close(); act(ipcInvoke('script-player:axisClear', { axis })) }}>
                 <X size={14} />{t('scriptPlayer.axisTools.clear')}
               </button>
@@ -287,7 +294,7 @@ export default function AxisPanel({
             <span className="sp-axis-label">{t('scriptPlayer.axisTools.file')}</span>
             <span className={`sp-axis-file-name${script?.name ? '' : ' empty'}`}>
               {script?.locked && script.name && <Lock size={12} />}
-              {script?.name ?? t('scriptPlayer.axisTools.dropHint')}
+              {script?.name ?? t(vr ? 'scriptPlayer.axisTools.none' : 'scriptPlayer.axisTools.dropHint')}
               {script?.linkedFrom && (
                 <small>{t('scriptPlayer.axisTools.linkedFrom', { axis: TCODE_CHANNEL_BY_AXIS[script.linkedFrom] })}</small>
               )}
@@ -513,6 +520,17 @@ function NumberField({
         onBlur={() => setDraft(null)}
       />
       {unit && <span className="settings-unit">{unit}</span>}
+      <NumberSteps
+        value={value}
+        step={step}
+        min={min}
+        max={max}
+        disabled={disabled}
+        onChange={(next) => {
+          setDraft(null)
+          onChange(round(clamp(next)))
+        }}
+      />
     </span>
   )
 }
@@ -642,6 +660,7 @@ function MotionSettings({
   onError: (caught: unknown) => void
 }): React.JSX.Element {
   const { t } = useTranslation()
+  const vr = useVrMode()
   const channel = TCODE_CHANNEL_BY_AXIS[axis]
   const provider = motion.motionProvider
 
@@ -788,18 +807,20 @@ function MotionSettings({
             <span className="sp-pop-file" title={motion.providers.loopingScript.path || undefined}>
               {motion.providers.loopingScript.path.split(/[\\/]/).pop() || t('scriptPlayer.axisTools.none')}
             </span>
-            <button
-              type="button"
-              className="icon-btn"
-              title={t('scriptPlayer.axisTools.load')}
-              onClick={() => {
-                ipcInvoke('script-player:pickScript')
-                  .then(({ path }) => { if (path) changeProvider('loopingScript', { path }) })
-                  .catch(onError)
-              }}
-            >
-              <FileInput size={14} />
-            </button>
+            {!vr && (
+              <button
+                type="button"
+                className="icon-btn"
+                title={t('scriptPlayer.axisTools.load')}
+                onClick={() => {
+                  ipcInvoke('script-player:pickScript')
+                    .then(({ path }) => { if (path) changeProvider('loopingScript', { path }) })
+                    .catch(onError)
+                }}
+              >
+                <FileInput size={14} />
+              </button>
+            )}
           </div>
           <label className="sp-pop-row">
             <span>{t('scriptPlayer.interpolation')}</span>

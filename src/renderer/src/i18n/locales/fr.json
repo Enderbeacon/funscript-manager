@@ -1480,6 +1480,18 @@
     "remove": "Retirer",
     "script": "Script",
     "nowPlaying": "En cours",
-    "switchScript": "Changer de script"
+    "switchScript": "Changer de script",
+    "scriptPlayer": "Lecteur de scripts",
+    "hideOnPlay": "Ranger à la lecture",
+    "toLight": "Passer en clair",
+    "toDark": "Passer en sombre",
+    "panelSettings": "Réglages des panneaux",
+    "mainPanel": "Panneau principal",
+    "size": "Taille",
+    "wristSize": "Taille au poignet",
+    "opacity": "Opacité",
+    "backgroundOpacity": "Opacité du fond",
+    "pause": "Pause",
+    "height": "Hauteur"
   }
 }

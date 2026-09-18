@@ -1480,6 +1480,18 @@
     "remove": "Entfernen",
     "script": "Skript",
     "nowPlaying": "Läuft",
-    "switchScript": "Skript wechseln"
+    "switchScript": "Skript wechseln",
+    "scriptPlayer": "Skriptplayer",
+    "hideOnPlay": "Beim Abspielen wegpacken",
+    "toLight": "Zu Hell wechseln",
+    "toDark": "Zu Dunkel wechseln",
+    "panelSettings": "Panel-Einstellungen",
+    "mainPanel": "Hauptpanel",
+    "size": "Größe",
+    "wristSize": "Größe am Handgelenk",
+    "opacity": "Deckkraft",
+    "backgroundOpacity": "Hintergrund-Deckkraft",
+    "pause": "Pause",
+    "height": "Höhe"
   }
 }

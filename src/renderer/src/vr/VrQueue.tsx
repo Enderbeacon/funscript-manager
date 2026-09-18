@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowDown, ArrowUp, ListStart, Trash2, Volume2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, ListStart, Save, Trash2, Volume2, X } from 'lucide-react'
 import { Virtuoso } from 'react-virtuoso'
 import type { MediaListItem } from '@shared/schemas/media-index'
 import type { QueueState } from '@shared/schemas/queue'
@@ -17,12 +17,15 @@ const CONFIRM_MS = 3000
  */
 export default function VrQueue({
   onPlay,
+  onSaved,
   onError
 }: {
   onPlay: (item: { libraryId: string; mediaId: string }) => void
+  onSaved: (message: string) => void
   onError: (error: unknown) => void
 }): React.JSX.Element {
   const { t } = useTranslation()
+  const [saving, setSaving] = useState(false)
   const [state, setState] = useState<QueueState | null>(null)
   const [rows, setRows] = useState<Map<string, MediaListItem>>(new Map())
   const [playing, setPlaying] = useState<string | null>(null)
@@ -85,12 +88,26 @@ export default function VrQueue({
   return (
     <div className="vr-queue">
       <div className="vr-queue-head">
-        <span>{t('vr.queueCount', { count: items.length })}</span>
+        <span className="grow">{t('vr.queueCount', { count: items.length })}</span>
+        <button className="vr-danger" onClick={() => setSaving(true)}>
+          <Save size={24} />
+          {t('queue.save')}
+        </button>
         <button className={`vr-danger${confirmClear ? ' armed' : ''}`} onClick={clear}>
           <Trash2 size={24} />
           {t(confirmClear ? 'vr.clearConfirm' : 'vr.clearQueue')}
         </button>
       </div>
+      {saving && (
+        <SaveAsPlaylist
+          onClose={() => setSaving(false)}
+          onSaved={(name, count) => {
+            setSaving(false)
+            onSaved(t('queue.saved', { count, name }))
+          }}
+          onError={onError}
+        />
+      )}
       <Virtuoso
         className="vr-scroll"
         data={items}
@@ -153,6 +170,61 @@ export default function VrQueue({
           )
         }}
       />
+    </div>
+  )
+}
+
+/**
+ * Names the playlist the queue is kept as. The field takes focus on opening,
+ * which brings up the headset keyboard.
+ */
+function SaveAsPlaylist({
+  onClose,
+  onSaved,
+  onError
+}: {
+  onClose: () => void
+  onSaved: (name: string, count: number) => void
+  onError: (error: unknown) => void
+}): React.JSX.Element {
+  const { t } = useTranslation()
+  const [name, setName] = useState('')
+
+  const save = (): void => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    ipcInvoke('queue:saveAsPlaylist', { name: trimmed })
+      .then((result) => onSaved(result.name, result.added))
+      .catch(onError)
+  }
+
+  return (
+    <div className="vr-sheet" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
+      <form
+        className="vr-sheet-card vr-name-card"
+        onSubmit={(e) => {
+          e.preventDefault()
+          save()
+        }}
+      >
+        <header className="vr-sheet-head">
+          <h2>{t('queue.save')}</h2>
+          <button type="button" className="vr-icon-btn" aria-label={t('vr.close')} onClick={onClose}>
+            <X size={28} />
+          </button>
+        </header>
+        <input
+          className="vr-name-input"
+          autoFocus
+          value={name}
+          placeholder={t('queue.savePrompt')}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <button type="submit" className="vr-primary-inline" disabled={!name.trim()}>
+          <Save size={26} />
+          {t('queue.save')}
+        </button>
+      </form>
     </div>
   )
 }

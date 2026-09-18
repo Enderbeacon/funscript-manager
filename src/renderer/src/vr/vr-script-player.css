@@ -1,0 +1,196 @@
+/*
+ * The script player on its panel inside the headset.
+ *
+ * The panel already hangs larger than the main one per pixel, so the desktop
+ * layout keeps its proportions; what grows here are the targets too small to
+ * hit with a laser a metre away — icon buttons, checkboxes, slider handles,
+ * curve points — and the rows of the dropdowns and menus.
+ *
+ * Only the VR script player page loads this sheet. Dropdowns and popovers are
+ * drawn into the body, outside the player, so their rules are not scoped.
+ */
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  user-select: none;
+}
+
+/*
+ * The backdrop can be see-through (the panel settings), down to whatever is
+ * playing behind the panel; the player's own cards and controls stay solid.
+ */
+html,
+body {
+  background: transparent !important;
+}
+
+body::before {
+  display: none;
+}
+
+.script-player.vr {
+  width: 100vw;
+  height: 100vh;
+  background: color-mix(in srgb, var(--bg-page) calc(var(--vr-bg-alpha, 1) * 100%), transparent);
+}
+
+.script-player.vr .sp-header h1 {
+  font-size: 18px;
+}
+
+.script-player.vr .icon-btn,
+.sp-pop .icon-btn {
+  width: 34px;
+  height: 34px;
+}
+
+.script-player.vr .sp-tool,
+.script-player.vr .sp-toggle {
+  width: 36px;
+  height: 36px;
+}
+
+.script-player.vr .sp-axis-tab {
+  min-height: 44px;
+}
+
+.script-player.vr .sp-output-tabs button {
+  min-height: 40px;
+}
+
+.script-player.vr .sp-route button {
+  min-height: 36px;
+}
+
+.script-player.vr input[type='checkbox'],
+.sp-pop input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
+}
+
+.script-player.vr .settings-input,
+.script-player.vr .select-button,
+.sp-pop .settings-input,
+.sp-pop .select-button {
+  min-height: 34px;
+}
+
+/* Native range inputs: a fat track and a thumb big enough to grab. */
+.script-player.vr input[type='range'],
+.sp-pop input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 30px;
+  background: transparent;
+}
+
+.script-player.vr input[type='range']::-webkit-slider-runnable-track,
+.sp-pop input[type='range']::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border-secondary);
+}
+
+.script-player.vr input[type='range']::-webkit-slider-thumb,
+.sp-pop input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  margin-top: -8px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* The output range sliders. */
+.script-player.vr .sp-range,
+.sp-pop .sp-range {
+  height: 34px;
+  padding: 0 11px;
+}
+
+.script-player.vr .sp-range-rail,
+.sp-pop .sp-range-rail {
+  height: 5px;
+}
+
+.script-player.vr .sp-range-handle,
+.sp-pop .sp-range-handle {
+  width: 20px;
+  height: 20px;
+}
+
+.script-player.vr .sp-range-fill::before,
+.sp-pop .sp-range-fill::before {
+  inset: -14px 0;
+}
+
+.sp-curve-point {
+  r: 9px;
+  stroke-width: 2;
+}
+
+/* Rows in dropdowns and menus, one laser press each. */
+.select-menu button,
+.sp-pop-menu button {
+  min-height: 38px;
+  box-sizing: border-box;
+}
+
+/* Minus and plus beside number fields. */
+.sp-steps {
+  display: inline-flex;
+  flex: none;
+  gap: 4px;
+  margin-left: 4px;
+}
+
+.sp-steps button {
+  all: unset;
+  box-sizing: border-box;
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0.5px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.sp-steps button:hover:not(:disabled) {
+  background: var(--accent-soft);
+  color: var(--text-primary);
+}
+
+.sp-steps button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* What the control under the laser is called. */
+.vr-hover-label {
+  position: fixed;
+  z-index: 1000;
+  max-width: 260px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--text-primary);
+  color: var(--bg-page);
+  font-size: 13px;
+  line-height: 1.35;
+  white-space: pre-line;
+  text-align: center;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.vr-hover-label.above {
+  transform: translate(-50%, -100%);
+}

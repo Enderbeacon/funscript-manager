@@ -1,14 +1,16 @@
-// vr-overlay: puts the app's VR panel into SteamVR as an overlay.
+// vr-overlay: puts the app's VR panels into SteamVR as overlays.
 //
-// The panel itself is a web page the app renders off screen. This process only
-// owns the SteamVR side: it shows the pixels it is given on a floating panel,
-// places the panel in the world or on the left wrist, lets the viewer grab and
-// carry it, offers a button on the right wrist that brings it back, and reports
-// what the controllers do on it.
+// Each panel is a web page the app renders off screen. This process only owns
+// the SteamVR side: it shows the pixels it is given on floating panels, places
+// them in the world (the main panel also on the left wrist), lets the viewer
+// grab and carry each one, offers a button on the right wrist that brings the
+// main panel back, and reports what the controllers do on them.
 //
 // stdin, from the app — binary messages, little endian:
 //   u32 type, u32 length, then `length` bytes of payload.
-// stdout, to the app — one JSON object per line.
+//   A message about one panel carries the panel's number in the type's high
+//   16 bits. Panel 0 is the main panel, so a message without one goes there.
+// stdout, to the app — one JSON object per line; `p` names the panel.
 // stderr — log lines.
 //
 // The process outlives SteamVR: when SteamVR is not running it waits for it,
@@ -44,12 +46,16 @@ enum MessageType : uint32_t {
   kShow = 2,
   kHide = 3,
   kMode = 4,         // u32: 0 = in the world, 1 = on the left wrist
-  kRecenter = 5,     // put the panel in front of the head
+  kRecenter = 5,     // put the panel in front of the head; any other beside the main one
   kKeyboard = 6,     // u32 open; then UTF-8 text already in the field
   kPlacement = 8,    // float[12]: where the panel stood last time (row-major 3x4)
   kSize = 9,         // float world width, float wrist width, in metres
   kButtonImage = 10, // u32 w, h; then w*h*4 bytes BGRA: the wrist button
+  kAlpha = 11,       // float: how opaque the whole panel is, 0..1
 };
+
+// The main panel and the script player's panel.
+constexpr uint32_t kPanelCount = 2;
 
 std::mutex g_outMutex;
 
@@ -113,7 +119,7 @@ struct Picture {
 // Everything that arrives on stdin.
 struct Inbox {
   std::mutex mutex;
-  Picture panel;
+  Picture panels[kPanelCount];
   Picture button;
   std::deque<std::pair<uint32_t, std::vector<uint8_t>>> commands;
   std::atomic<bool> closed{false};
@@ -174,14 +180,20 @@ void ReadStdin() {
     payload.resize(header[1]);
     if (header[1] > 0 && !ReadExact(in, payload.data(), header[1])) break;
 
-    if (header[0] == kFrame) {
+    const uint32_t type = header[0] & 0xffff;
+    const uint32_t panel = header[0] >> 16;
+    if (panel >= kPanelCount) {
+      Log("message %u for panel %u, which does not exist", type, panel);
+      continue;
+    }
+    if (type == kFrame) {
       if (payload.size() < 24) continue;
       uint32_t f[6];
       memcpy(f, payload.data(), sizeof f);
       if (!ValidRect(f[0], f[1], f[2], f[3], f[4], f[5], payload.size() - 24)) continue;
       std::lock_guard<std::mutex> lock(g_inbox.mutex);
-      Paint(g_inbox.panel, f[0], f[1], f[2], f[3], f[4], f[5], payload.data() + 24);
-    } else if (header[0] == kButtonImage) {
+      Paint(g_inbox.panels[panel], f[0], f[1], f[2], f[3], f[4], f[5], payload.data() + 24);
+    } else if (type == kButtonImage) {
       if (payload.size() < 8) continue;
       uint32_t f[2];
       memcpy(f, payload.data(), sizeof f);
@@ -247,7 +259,7 @@ Mat RotationY(float radians) {
 
 // ------------------------------------------------------------------ overlay
 
-constexpr char kPanelKey[] = "funscript-manager.panel";
+constexpr const char* kPanelKeys[kPanelCount] = {"funscript-manager.panel", "funscript-manager.panel.1"};
 constexpr char kButtonKey[] = "funscript-manager.summon";
 constexpr char kOverlayName[] = "Funscript Manager";
 constexpr vr::ETrackingUniverseOrigin kUniverse = vr::TrackingUniverseStanding;
@@ -280,6 +292,11 @@ Mat ButtonOffset() {
 constexpr float kFacingShow = 0.75f;  // cos 41 degrees
 constexpr float kFacingHide = 0.5f;   // cos 60 degrees
 
+// A panel opened beside the main one: this far from its right edge, and
+// turned this much towards the viewer so the two wrap around them.
+constexpr float kBesideGap = 0.04f;
+constexpr float kBesideTurn = 0.35f;  // about 20 degrees
+
 // Whether an overlay currently takes the controllers. SteamVR's laser, and
 // with it all controller input, goes to our overlays only while a laser points
 // at one; the rest of the time the controllers belong to the app underneath.
@@ -305,8 +322,32 @@ struct Surface {
   }
 };
 
-class Panel {
+// One floating panel and everything known about where it is.
+struct Panel {
+  uint32_t index = 0;
+  Surface surface;
+
+  uint32_t mode = 0;
+  bool placed = false;  // world placement known (restored, recentred, placed beside or carried)
+  Mat worldPose = Identity();
+  float worldWidth = 0.9f;
+  float wristWidth = 0.32f;
+  float alpha = 1.f;
+  bool visible = false;
+  bool keyboardOpen = false;
+
+  // The controller the laser on the panel comes from, for the log.
+  vr::TrackedDeviceIndex_t laserDevice = vr::k_unTrackedDeviceIndexInvalid;
+  Pointing pointing;
+  bool logNextMove = false;
+};
+
+class Overlays {
  public:
+  Overlays() {
+    for (uint32_t i = 0; i < kPanelCount; ++i) panels_[i].index = i;
+  }
+
   bool Start();
   void Stop();
   // False once SteamVR has gone away.
@@ -317,18 +358,21 @@ class Panel {
  private:
   bool CreateDevice();
   bool Upload(Surface& surface, Picture& pic, bool mouseScale);
-  void SetVisible(bool visible);
-  void Recenter();
-  void SetMode(uint32_t mode);
-  void StartDrag(vr::TrackedDeviceIndex_t device);
+  void SetVisible(Panel& panel, bool visible);
+  Mat FrontPose();
+  void Recenter(Panel& panel);
+  void PlaceBeside(Panel& panel);
+  void SetMode(Panel& panel, uint32_t mode);
+  void StartDrag(Panel& panel, vr::TrackedDeviceIndex_t device);
   void EndDrag();
-  void ApplyPlacement();
-  void EmitPlacement();
-  void PollPanelEvents();
+  void ApplyPlacement(Panel& panel);
+  void KeepTop(Panel& panel, uint32_t oldWidth, uint32_t oldHeight);
+  void EmitPlacement(const Panel& panel);
+  void PollPanelEvents(Panel& panel);
   void PollButtonEvents();
   void UpdateButton();
   bool PointerRay(int hand, Mat* ray);
-  void UpdatePointing(Surface& surface, struct Pointing& pointing, bool shown, bool hold, const char* name);
+  void UpdatePointing(Surface& surface, Pointing& pointing, bool shown, bool hold, const char* name, bool* logMove);
   bool DevicePose(vr::TrackedDeviceIndex_t device, Mat* out);
 
   vr::IVRSystem* system_ = nullptr;
@@ -336,25 +380,15 @@ class Panel {
 
   ID3D11Device* device_ = nullptr;
   ID3D11DeviceContext* context_ = nullptr;
-  Surface panel_;
+  Panel panels_[kPanelCount];
   Surface button_;
 
-  uint32_t mode_ = 0;
-  bool placed_ = false;  // world placement known (restored, recentred or carried)
-  Mat worldPose_ = Identity();
-  float worldWidth_ = 0.9f;
-  float wristWidth_ = 0.32f;
-  bool visible_ = false;
-
-  // The controller the laser on the panel comes from, for the log.
-  vr::TrackedDeviceIndex_t laserDevice_ = vr::k_unTrackedDeviceIndexInvalid;
-
-  bool dragging_ = false;
+  // One panel is carried at a time, attached to the controller holding it.
+  Panel* dragging_ = nullptr;
   vr::TrackedDeviceIndex_t dragDevice_ = vr::k_unTrackedDeviceIndexInvalid;
   Mat dragOffset_ = Identity();
 
   bool buttonShown_ = false;
-  bool keyboardOpen_ = false;
 
   // Where each hand's laser starts and points. SteamVR draws it from the
   // controller's tip, which sits at a fixed offset from the controller's own
@@ -367,9 +401,7 @@ class Panel {
   Mat tipOffset_[2] = {Identity(), Identity()};
   bool tipKnown_[2] = {false, false};
 
-  Pointing panelPointing_;
   Pointing buttonPointing_;
-  bool logNextPanelMove_ = false;
   double nextFacingLog_ = 0;
 };
 
@@ -380,7 +412,7 @@ double NowMs() {
   return 1000.0 * static_cast<double>(now.QuadPart) / static_cast<double>(freq.QuadPart);
 }
 
-bool Panel::CreateDevice() {
+bool Overlays::CreateDevice() {
   int32_t adapterIndex = -1;
   system_->GetDXGIOutputInfo(&adapterIndex);
 
@@ -405,7 +437,7 @@ bool Panel::CreateDevice() {
 }
 
 // Sends what changed in `pic` to the overlay. Called with the inbox locked.
-bool Panel::Upload(Surface& surface, Picture& pic, bool mouseScale) {
+bool Overlays::Upload(Surface& surface, Picture& pic, bool mouseScale) {
   if (!pic.dirty || pic.width == 0) return false;
 
   const bool resized = !surface.texture || surface.width != pic.width || surface.height != pic.height;
@@ -453,7 +485,7 @@ bool Panel::Upload(Surface& surface, Picture& pic, bool mouseScale) {
   return true;
 }
 
-bool Panel::Start() {
+bool Overlays::Start() {
   vr::EVRInitError error = vr::VRInitError_None;
   system_ = vr::VR_Init(&error, vr::VRApplication_Overlay);
   if (error != vr::VRInitError_None) {
@@ -467,16 +499,29 @@ bool Panel::Start() {
   if (!CreateDevice()) { Stop(); return false; }
 
   // A previous copy of us may still hold the keys while SteamVR tidies up.
-  if (overlay_->CreateOverlay(kPanelKey, kOverlayName, &panel_.handle) != vr::VROverlayError_None ||
-      overlay_->CreateOverlay(kButtonKey, kOverlayName, &button_.handle) != vr::VROverlayError_None) {
+  bool created = overlay_->CreateOverlay(kButtonKey, kOverlayName, &button_.handle) == vr::VROverlayError_None;
+  for (Panel& panel : panels_) {
+    created = created &&
+              overlay_->CreateOverlay(kPanelKeys[panel.index], kOverlayName, &panel.surface.handle) ==
+                  vr::VROverlayError_None;
+  }
+  if (!created) {
     Log("CreateOverlay failed");
     Stop();
     return false;
   }
-  overlay_->SetOverlayInputMethod(panel_.handle, vr::VROverlayInputMethod_Mouse);
-  overlay_->SetOverlayFlag(panel_.handle, vr::VROverlayFlags_SendVRSmoothScrollEvents, true);
-  overlay_->SetOverlayFlag(panel_.handle, vr::VROverlayFlags_EnableClickStabilization, true);
-  overlay_->SetOverlaySortOrder(panel_.handle, 10);
+  for (Panel& panel : panels_) {
+    const auto handle = panel.surface.handle;
+    overlay_->SetOverlayInputMethod(handle, vr::VROverlayInputMethod_Mouse);
+    overlay_->SetOverlayFlag(handle, vr::VROverlayFlags_SendVRSmoothScrollEvents, true);
+    overlay_->SetOverlayFlag(handle, vr::VROverlayFlags_EnableClickStabilization, true);
+    // The page renderer hands over premultiplied alpha, and a page's
+    // background may be see-through.
+    overlay_->SetOverlayFlag(handle, vr::VROverlayFlags_IsPremultiplied, true);
+    overlay_->SetOverlayAlpha(handle, panel.alpha);
+    // The button sits between the main panel and the ones opened from it.
+    overlay_->SetOverlaySortOrder(handle, 10 + 2 * panel.index);
+  }
 
   overlay_->SetOverlayInputMethod(button_.handle, vr::VROverlayInputMethod_Mouse);
   overlay_->SetOverlaySortOrder(button_.handle, 11);
@@ -487,13 +532,15 @@ bool Panel::Start() {
 
   {
     std::lock_guard<std::mutex> lock(g_inbox.mutex);
-    g_inbox.panel.MarkAllDirty();
+    for (Picture& pic : g_inbox.panels) pic.MarkAllDirty();
     g_inbox.button.MarkAllDirty();
   }
   buttonShown_ = false;
-  keyboardOpen_ = false;
-  panelPointing_ = {};
   buttonPointing_ = {};
+  for (Panel& panel : panels_) {
+    panel.keyboardOpen = false;
+    panel.pointing = {};
+  }
   tipKnown_[0] = tipKnown_[1] = false;
 
   char exe[MAX_PATH];
@@ -508,15 +555,18 @@ bool Panel::Start() {
     Log("SetActionManifestPath failed for %s", manifest.c_str());
   }
 
-  ApplyPlacement();
-  if (visible_) overlay_->ShowOverlay(panel_.handle);
+  for (Panel& panel : panels_) {
+    if (!panel.visible) continue;
+    ApplyPlacement(panel);
+    overlay_->ShowOverlay(panel.surface.handle);
+  }
   Emit("{\"t\":\"steamvr\",\"up\":true}");
   return true;
 }
 
-void Panel::Stop() {
-  dragging_ = false;
-  panel_.Release();
+void Overlays::Stop() {
+  dragging_ = nullptr;
+  for (Panel& panel : panels_) panel.surface.Release();
   button_.Release();
   if (context_) { context_->Release(); context_ = nullptr; }
   if (device_) { device_->Release(); device_ = nullptr; }
@@ -528,7 +578,7 @@ void Panel::Stop() {
   }
 }
 
-bool Panel::DevicePose(vr::TrackedDeviceIndex_t device, Mat* out) {
+bool Overlays::DevicePose(vr::TrackedDeviceIndex_t device, Mat* out) {
   if (device == vr::k_unTrackedDeviceIndexInvalid || device >= vr::k_unMaxTrackedDeviceCount) return false;
   vr::TrackedDevicePose_t poses[vr::k_unMaxTrackedDeviceCount];
   system_->GetDeviceToAbsoluteTrackingPose(kUniverse, 0.f, poses, vr::k_unMaxTrackedDeviceCount);
@@ -537,12 +587,16 @@ bool Panel::DevicePose(vr::TrackedDeviceIndex_t device, Mat* out) {
   return true;
 }
 
-void Panel::Recenter() {
-  if (!system_) return;
+// In front of the head: straight ahead on the horizontal plane, whatever the
+// head's pitch, facing back at the viewer.
+Mat Overlays::FrontPose() {
   Mat h;
-  if (!DevicePose(vr::k_unTrackedDeviceIndex_Hmd, &h)) return;
-
-  // Straight ahead on the horizontal plane, whatever the head's pitch.
+  if (!system_ || !DevicePose(vr::k_unTrackedDeviceIndex_Hmd, &h)) {
+    Mat m = Identity();
+    m.m[1][3] = 1.4f;
+    m.m[2][3] = -0.8f;
+    return m;
+  }
   float fx = -h.m[0][2], fz = -h.m[2][2];
   const float len = std::sqrt(fx * fx + fz * fz);
   if (len < 1e-3f) { fx = 0.f; fz = -1.f; } else { fx /= len; fz /= len; }
@@ -557,137 +611,205 @@ void Panel::Recenter() {
   m.m[0][3] = h.m[0][3] + fx * kDistance;
   m.m[1][3] = h.m[1][3] - kBelowEyes;
   m.m[2][3] = h.m[2][3] + fz * kDistance;
-  worldPose_ = m;
-  placed_ = true;
+  return m;
 }
 
-void Panel::ApplyPlacement() {
-  if (!overlay_ || dragging_) return;
-  if (mode_ == 1) {
+void Overlays::Recenter(Panel& panel) {
+  if (!system_) return;
+  panel.worldPose = FrontPose();
+  panel.placed = true;
+}
+
+// To the right of the main panel, its inner edge beside the main panel's
+// right edge and turned in towards the viewer. With the main panel on the
+// wrist or never placed, beside where it would stand in front of the head.
+void Overlays::PlaceBeside(Panel& panel) {
+  if (!system_) return;
+  const Panel& main = panels_[0];
+  const Mat base = main.mode == 0 && main.placed ? main.worldPose : FrontPose();
+  const float mainWidth = main.worldWidth;
+
+  // The hinge: on the main panel's plane, just past its right edge.
+  const float out = mainWidth / 2 + kBesideGap;
+  float hinge[3];
+  for (int i = 0; i < 3; ++i) hinge[i] = base.m[i][3] + base.m[i][0] * out;
+
+  // Turned about the vertical so its face (+Z) swings towards the viewer.
+  const Mat turned = Multiply(base, RotationY(-kBesideTurn));
+  Mat m = turned;
+  for (int i = 0; i < 3; ++i) m.m[i][3] = hinge[i] + turned.m[i][0] * (panel.worldWidth / 2);
+  panel.worldPose = m;
+  panel.placed = true;
+}
+
+void Overlays::ApplyPlacement(Panel& panel) {
+  if (!overlay_ || dragging_ == &panel) return;
+  const auto handle = panel.surface.handle;
+  if (panel.mode == 1) {
     const auto left = system_->GetTrackedDeviceIndexForControllerRole(vr::TrackedControllerRole_LeftHand);
     if (left != vr::k_unTrackedDeviceIndexInvalid) {
       const Mat offset = WristOffset();
-      overlay_->SetOverlayWidthInMeters(panel_.handle, wristWidth_);
-      overlay_->SetOverlayTransformTrackedDeviceRelative(panel_.handle, left, &offset);
+      overlay_->SetOverlayWidthInMeters(handle, panel.wristWidth);
+      overlay_->SetOverlayTransformTrackedDeviceRelative(handle, left, &offset);
       return;
     }
-    Log("no left controller; the panel stays in the world");
+    Log("no left controller; panel %u stays in the world", panel.index);
   }
-  if (!placed_) Recenter();
-  overlay_->SetOverlayWidthInMeters(panel_.handle, worldWidth_);
-  overlay_->SetOverlayTransformAbsolute(panel_.handle, kUniverse, &worldPose_);
+  if (!panel.placed) {
+    if (panel.index == 0) Recenter(panel);
+    else PlaceBeside(panel);
+  }
+  overlay_->SetOverlayWidthInMeters(handle, panel.worldWidth);
+  overlay_->SetOverlayTransformAbsolute(handle, kUniverse, &panel.worldPose);
 }
 
-void Panel::EmitPlacement() {
-  std::string json = "{\"t\":\"placement\",\"mode\":" + std::to_string(mode_) + ",\"m\":[";
+// The page changed shape: taller or shorter at the same width. The overlay
+// is placed by its centre, so left alone it would grow both ways; moved by
+// half the change, its top edge stays where the viewer left it.
+void Overlays::KeepTop(Panel& panel, uint32_t oldWidth, uint32_t oldHeight) {
+  const Surface& s = panel.surface;
+  if (oldWidth == 0 || s.width == 0 || panel.mode != 0 || !panel.placed || dragging_ == &panel) return;
+  const float before = panel.worldWidth * static_cast<float>(oldHeight) / static_cast<float>(oldWidth);
+  const float after = panel.worldWidth * static_cast<float>(s.height) / static_cast<float>(s.width);
+  const float down = (after - before) / 2;
+  for (int i = 0; i < 3; ++i) panel.worldPose.m[i][3] -= panel.worldPose.m[i][1] * down;
+  ApplyPlacement(panel);
+  EmitPlacement(panel);
+}
+
+void Overlays::EmitPlacement(const Panel& panel) {
+  std::string json = "{\"t\":\"placement\",\"p\":" + std::to_string(panel.index) +
+                     ",\"mode\":" + std::to_string(panel.mode) + ",\"m\":[";
   for (int i = 0; i < 3; ++i) {
     for (int j = 0; j < 4; ++j) {
       char num[32];
-      snprintf(num, sizeof num, "%s%.5f", (i || j) ? "," : "", worldPose_.m[i][j]);
+      snprintf(num, sizeof num, "%s%.5f", (i || j) ? "," : "", panel.worldPose.m[i][j]);
       json += num;
     }
   }
   Emit(json + "]}");
 }
 
-void Panel::SetVisible(bool visible) {
-  visible_ = visible;
+void Overlays::SetVisible(Panel& panel, bool visible) {
+  panel.visible = visible;
   if (!overlay_) return;
   if (visible) {
-    ApplyPlacement();
-    overlay_->ShowOverlay(panel_.handle);
+    ApplyPlacement(panel);
+    overlay_->ShowOverlay(panel.surface.handle);
   } else {
-    if (dragging_) EndDrag();
-    overlay_->HideOverlay(panel_.handle);
+    if (dragging_ == &panel) EndDrag();
+    if (panel.keyboardOpen) {
+      panel.keyboardOpen = false;
+      overlay_->HideKeyboard();
+    }
+    overlay_->HideOverlay(panel.surface.handle);
   }
 }
 
-void Panel::SetMode(uint32_t mode) {
-  if (mode > 1 || mode == mode_) return;
-  if (dragging_) EndDrag();
-  mode_ = mode;
+void Overlays::SetMode(Panel& panel, uint32_t mode) {
+  if (mode > 1 || mode == panel.mode) return;
+  if (dragging_ == &panel) EndDrag();
+  panel.mode = mode;
   // Taken off the wrist, the panel comes back in front of the viewer rather
   // than wherever it was left before.
-  if (mode_ == 0) Recenter();
-  ApplyPlacement();
-  EmitPlacement();
+  if (panel.mode == 0) Recenter(panel);
+  ApplyPlacement(panel);
+  EmitPlacement(panel);
 }
 
-// Carrying the panel: it is attached to the controller holding it, so the
+// Carrying a panel: it is attached to the controller holding it, so the
 // compositor moves it with the hand at full frame rate.
-void Panel::StartDrag(vr::TrackedDeviceIndex_t device) {
-  if (!overlay_ || !visible_ || mode_ != 0 || dragging_) return;
+void Overlays::StartDrag(Panel& panel, vr::TrackedDeviceIndex_t device) {
+  if (!overlay_ || !panel.visible || panel.mode != 0 || dragging_) return;
   Mat pose;
   if (!DevicePose(device, &pose)) return;
   dragDevice_ = device;
-  dragOffset_ = Multiply(InvertRigid(pose), worldPose_);
-  dragging_ = true;
-  overlay_->SetOverlayTransformTrackedDeviceRelative(panel_.handle, dragDevice_, &dragOffset_);
-  Emit("{\"t\":\"grab\",\"held\":true}");
+  dragOffset_ = Multiply(InvertRigid(pose), panel.worldPose);
+  dragging_ = &panel;
+  overlay_->SetOverlayTransformTrackedDeviceRelative(panel.surface.handle, dragDevice_, &dragOffset_);
+  Emit("{\"t\":\"grab\",\"p\":" + std::to_string(panel.index) + ",\"held\":true}");
 }
 
-void Panel::EndDrag() {
-  if (!dragging_) return;
-  dragging_ = false;
+void Overlays::EndDrag() {
+  Panel* panel = dragging_;
+  if (!panel) return;
+  dragging_ = nullptr;
   Mat pose;
   if (DevicePose(dragDevice_, &pose)) {
-    worldPose_ = Multiply(pose, dragOffset_);
-    placed_ = true;
+    panel->worldPose = Multiply(pose, dragOffset_);
+    panel->placed = true;
   }
-  ApplyPlacement();
-  EmitPlacement();
-  Emit("{\"t\":\"grab\",\"held\":false}");
+  ApplyPlacement(*panel);
+  EmitPlacement(*panel);
+  Emit("{\"t\":\"grab\",\"p\":" + std::to_string(panel->index) + ",\"held\":false}");
 }
 
-void Panel::HandleCommand(uint32_t type, const std::vector<uint8_t>& payload) {
+void Overlays::HandleCommand(uint32_t message, const std::vector<uint8_t>& payload) {
+  const uint32_t type = message & 0xffff;
+  Panel& panel = panels_[std::min(message >> 16, kPanelCount - 1)];
   auto u32 = [&](size_t at) -> uint32_t {
     uint32_t v = 0;
     if (payload.size() >= at + 4) memcpy(&v, payload.data() + at, 4);
     return v;
   };
   switch (type) {
-    case kShow: SetVisible(true); break;
-    case kHide: SetVisible(false); break;
-    case kMode: SetMode(u32(0)); break;
+    case kShow: SetVisible(panel, true); break;
+    case kHide: SetVisible(panel, false); break;
+    case kMode: SetMode(panel, u32(0)); break;
     case kRecenter:
       // From the wrist this also takes the panel off it: in front of the
-      // viewer is always in the world.
+      // viewer is always in the world. A panel opened from the main one comes
+      // back beside it instead.
       if (!overlay_) break;
-      if (mode_ == 1) {
-        SetMode(0);
-        Emit("{\"t\":\"mode\",\"mode\":0}");
+      if (panel.mode == 1) {
+        SetMode(panel, 0);
+        Emit("{\"t\":\"mode\",\"p\":" + std::to_string(panel.index) + ",\"mode\":0}");
       } else {
-        Recenter();
-        ApplyPlacement();
-        EmitPlacement();
+        if (panel.index == 0) Recenter(panel);
+        else PlaceBeside(panel);
+        ApplyPlacement(panel);
+        EmitPlacement(panel);
       }
       break;
-    case kKeyboard:
+    case kKeyboard: {
       if (!overlay_) break;
-      keyboardOpen_ = u32(0) != 0;
-      if (keyboardOpen_) {
+      const bool open = u32(0) != 0;
+      // SteamVR has one keyboard; opening it for this panel takes it from
+      // any other.
+      for (Panel& other : panels_) other.keyboardOpen = false;
+      panel.keyboardOpen = open;
+      if (open) {
         const std::string text(payload.begin() + std::min<size_t>(4, payload.size()), payload.end());
-        overlay_->ShowKeyboardForOverlay(panel_.handle, vr::k_EGamepadTextInputModeNormal,
+        overlay_->ShowKeyboardForOverlay(panel.surface.handle, vr::k_EGamepadTextInputModeNormal,
                                          vr::k_EGamepadTextInputLineModeSingleLine,
                                          vr::KeyboardFlag_Minimal, "", 256, text.c_str(), 0);
       } else {
         overlay_->HideKeyboard();
       }
       break;
+    }
     case kPlacement:
       if (payload.size() >= 48) {
-        memcpy(&worldPose_, payload.data(), 48);
-        placed_ = true;
-        ApplyPlacement();
+        memcpy(&panel.worldPose, payload.data(), 48);
+        panel.placed = true;
+        ApplyPlacement(panel);
+      }
+      break;
+    case kAlpha:
+      if (payload.size() >= 4) {
+        float a;
+        memcpy(&a, payload.data(), 4);
+        panel.alpha = std::min(1.f, std::max(0.05f, a));
+        if (overlay_) overlay_->SetOverlayAlpha(panel.surface.handle, panel.alpha);
       }
       break;
     case kSize:
       if (payload.size() >= 8) {
         float w[2];
         memcpy(w, payload.data(), 8);
-        if (w[0] > 0.1f && w[0] < 5.f) worldWidth_ = w[0];
-        if (w[1] > 0.05f && w[1] < 1.f) wristWidth_ = w[1];
-        ApplyPlacement();
+        if (w[0] > 0.1f && w[0] < 5.f) panel.worldWidth = w[0];
+        if (w[1] > 0.05f && w[1] < 1.f) panel.wristWidth = w[1];
+        ApplyPlacement(panel);
       }
       break;
     default:
@@ -703,78 +825,86 @@ const char* HandName(vr::IVRSystem* system, vr::TrackedDeviceIndex_t device) {
   }
 }
 
-void Panel::PollPanelEvents() {
+void Overlays::PollPanelEvents(Panel& panel) {
+  const unsigned p = panel.index;
   vr::VREvent_t ev;
-  while (overlay_->PollNextOverlayEvent(panel_.handle, &ev, sizeof ev)) {
+  while (overlay_->PollNextOverlayEvent(panel.surface.handle, &ev, sizeof ev)) {
     char json[256];
     switch (ev.eventType) {
       case vr::VREvent_FocusEnter:
-        Log("laser on the panel (device %u, %s hand)", ev.trackedDeviceIndex, HandName(system_, ev.trackedDeviceIndex));
+        Log("laser on panel %u (device %u, %s hand)", p, ev.trackedDeviceIndex,
+            HandName(system_, ev.trackedDeviceIndex));
         break;
       case vr::VREvent_FocusLeave:
-        Log("laser off the panel");
-        Emit("{\"t\":\"leave\"}");
+        Log("laser off panel %u", p);
+        snprintf(json, sizeof json, "{\"t\":\"leave\",\"p\":%u}", p);
+        Emit(json);
         break;
       case vr::VREvent_MouseButtonDown:
       case vr::VREvent_MouseButtonUp:
-        // While the panel is up SteamVR's laser owns the controllers, and the
+        // While a panel is up SteamVR's laser owns the controllers, and the
         // grip reaches us only as the laser's middle button, from the
         // controller the laser comes from. That controller carries the panel.
         if (ev.data.mouse.button == vr::VRMouseButton_Middle) {
-          Log("grip %s on the panel (device %u, %s hand)",
-              ev.eventType == vr::VREvent_MouseButtonDown ? "down" : "up", ev.trackedDeviceIndex,
-              HandName(system_, ev.trackedDeviceIndex));
+          Log("grip %s on panel %u (device %u, %s hand)", ev.eventType == vr::VREvent_MouseButtonDown ? "down" : "up",
+              p, ev.trackedDeviceIndex, HandName(system_, ev.trackedDeviceIndex));
           if (ev.eventType == vr::VREvent_MouseButtonDown) {
-            StartDrag(ev.trackedDeviceIndex);
-          } else if (dragging_ && ev.trackedDeviceIndex == dragDevice_) {
+            StartDrag(panel, ev.trackedDeviceIndex);
+          } else if (dragging_ == &panel && ev.trackedDeviceIndex == dragDevice_) {
             EndDrag();
           }
           break;
         }
         [[fallthrough]];
       case vr::VREvent_MouseMove: {
-        if (ev.trackedDeviceIndex != laserDevice_) {
-          Log("laser now from device %u (%s hand)", ev.trackedDeviceIndex, HandName(system_, ev.trackedDeviceIndex));
+        if (ev.trackedDeviceIndex != panel.laserDevice) {
+          Log("laser on panel %u now from device %u (%s hand)", p, ev.trackedDeviceIndex,
+              HandName(system_, ev.trackedDeviceIndex));
         }
-        laserDevice_ = ev.trackedDeviceIndex;
-        if (logNextPanelMove_) {
-          logNextPanelMove_ = false;
-          Log("  SteamVR's laser lands at %.3f, %.3f", ev.data.mouse.x / std::max(1u, panel_.width),
-              ev.data.mouse.y / std::max(1u, panel_.height));
+        panel.laserDevice = ev.trackedDeviceIndex;
+        if (panel.logNextMove) {
+          panel.logNextMove = false;
+          Log("  SteamVR's laser lands at %.3f, %.3f", ev.data.mouse.x / std::max(1u, panel.surface.width),
+              ev.data.mouse.y / std::max(1u, panel.surface.height));
         }
         const char* kind = ev.eventType == vr::VREvent_MouseMove ? "move"
                          : ev.eventType == vr::VREvent_MouseButtonDown ? "down" : "up";
         // Overlay mouse coordinates start at the bottom left.
-        snprintf(json, sizeof json, "{\"t\":\"%s\",\"x\":%.1f,\"y\":%.1f,\"button\":%u}", kind,
-                 ev.data.mouse.x, static_cast<float>(panel_.height) - ev.data.mouse.y, ev.data.mouse.button);
+        snprintf(json, sizeof json, "{\"t\":\"%s\",\"p\":%u,\"x\":%.1f,\"y\":%.1f,\"button\":%u}", kind, p,
+                 ev.data.mouse.x, static_cast<float>(panel.surface.height) - ev.data.mouse.y,
+                 ev.data.mouse.button);
         Emit(json);
         break;
       }
       case vr::VREvent_ScrollSmooth:
       case vr::VREvent_ScrollDiscrete:
-        snprintf(json, sizeof json, "{\"t\":\"scroll\",\"dx\":%.4f,\"dy\":%.4f}",
+        snprintf(json, sizeof json, "{\"t\":\"scroll\",\"p\":%u,\"dx\":%.4f,\"dy\":%.4f}", p,
                  ev.data.scroll.xdelta, ev.data.scroll.ydelta);
         Emit(json);
         break;
       case vr::VREvent_KeyboardCharInput: {
         char text[9] = {};
         memcpy(text, ev.data.keyboard.cNewInput, 8);
-        Emit("{\"t\":\"key\",\"s\":" + JsonString(text) + "}");
+        Emit("{\"t\":\"key\",\"p\":" + std::to_string(p) + ",\"s\":" + JsonString(text) + "}");
         break;
       }
       case vr::VREvent_KeyboardDone:
-        keyboardOpen_ = false;
-        Emit("{\"t\":\"keyboard\",\"done\":true}");
+        panel.keyboardOpen = false;
+        snprintf(json, sizeof json, "{\"t\":\"keyboard\",\"p\":%u,\"done\":true}", p);
+        Emit(json);
         break;
       case vr::VREvent_KeyboardClosed:
-        keyboardOpen_ = false;
-        Emit("{\"t\":\"keyboard\",\"done\":false}");
+        panel.keyboardOpen = false;
+        snprintf(json, sizeof json, "{\"t\":\"keyboard\",\"p\":%u,\"done\":false}", p);
+        Emit(json);
         break;
       case vr::VREvent_OverlayShown:
-        Emit("{\"t\":\"visible\",\"v\":true}");
+        snprintf(json, sizeof json, "{\"t\":\"visible\",\"p\":%u,\"v\":true}", p);
+        Emit(json);
         break;
       case vr::VREvent_OverlayHidden:
-        Emit("{\"t\":\"visible\",\"v\":false}");
+        snprintf(json, sizeof json, "{\"t\":\"visible\",\"p\":%u,\"v\":false}", p);
+        Emit(json);
         break;
       default:
         break;
@@ -782,27 +912,27 @@ void Panel::PollPanelEvents() {
   }
 }
 
-void Panel::PollButtonEvents() {
+void Overlays::PollButtonEvents() {
   vr::VREvent_t ev;
   while (overlay_->PollNextOverlayEvent(button_.handle, &ev, sizeof ev)) {
     if (ev.eventType == vr::VREvent_MouseButtonDown && ev.data.mouse.button == vr::VRMouseButton_Left) {
       Log("summon pressed (device %u, %s hand)", ev.trackedDeviceIndex, HandName(system_, ev.trackedDeviceIndex));
       overlay_->HideOverlay(button_.handle);
       buttonShown_ = false;
-      SetVisible(true);
+      SetVisible(panels_[0], true);
       Emit("{\"t\":\"summon\"}");
     }
   }
 }
 
-// The button shows while the panel is away and the back of the right hand is
-// turned to the eyes.
-void Panel::UpdateButton() {
+// The button shows while the main panel is away and the back of the right
+// hand is turned to the eyes.
+void Overlays::UpdateButton() {
   if (!button_.texture) return;
   bool want = false;
   const auto right = system_->GetTrackedDeviceIndexForControllerRole(vr::TrackedControllerRole_RightHand);
   Mat hand, head;
-  if (!visible_ && DevicePose(right, &hand) && DevicePose(vr::k_unTrackedDeviceIndex_Hmd, &head)) {
+  if (!panels_[0].visible && DevicePose(right, &hand) && DevicePose(vr::k_unTrackedDeviceIndex_Hmd, &head)) {
     float to[3] = {head.m[0][3] - hand.m[0][3], head.m[1][3] - hand.m[1][3], head.m[2][3] - hand.m[2][3]};
     const float len = std::sqrt(to[0] * to[0] + to[1] * to[1] + to[2] * to[2]);
     if (len > 1e-3f) {
@@ -835,7 +965,7 @@ void Panel::UpdateButton() {
   }
 }
 
-bool Panel::PointerRay(int hand, Mat* ray) {
+bool Overlays::PointerRay(int hand, Mat* ray) {
   const vr::ETrackedControllerRole role =
       hand ? vr::TrackedControllerRole_RightHand : vr::TrackedControllerRole_LeftHand;
   Mat raw;
@@ -855,7 +985,8 @@ bool Panel::PointerRay(int hand, Mat* ray) {
 
 // Hands the controllers to `surface` while a laser points at it (or `hold`
 // says it must keep them), and back to the app underneath otherwise.
-void Panel::UpdatePointing(Surface& surface, Pointing& pointing, bool shown, bool hold, const char* name) {
+void Overlays::UpdatePointing(Surface& surface, Pointing& pointing, bool shown, bool hold, const char* name,
+                              bool* logMove) {
   const double now = NowMs();
   bool hit = false;
   int hitHand = -1;
@@ -885,13 +1016,13 @@ void Panel::UpdatePointing(Surface& surface, Pointing& pointing, bool shown, boo
   if (want && hit) {
     Log("%s takes the controllers: %s tip points at %.3f, %.3f", name, hitHand ? "right" : "left", hitUv.v[0],
         hitUv.v[1]);
-    if (&surface == &panel_) logNextPanelMove_ = true;
+    if (logMove) *logMove = true;
   } else {
     Log("%s %s the controllers", name, want ? "takes" : "releases");
   }
 }
 
-bool Panel::Tick() {
+bool Overlays::Tick() {
   vr::VREvent_t ev;
   while (system_->PollNextEvent(&ev, sizeof ev)) {
     if (ev.eventType == vr::VREvent_Quit) {
@@ -899,12 +1030,21 @@ bool Panel::Tick() {
       return false;
     }
   }
-  PollPanelEvents();
+  for (Panel& panel : panels_) PollPanelEvents(panel);
   PollButtonEvents();
+  uint32_t oldSize[kPanelCount][2];
+  for (const Panel& panel : panels_) {
+    oldSize[panel.index][0] = panel.surface.width;
+    oldSize[panel.index][1] = panel.surface.height;
+  }
   {
     std::lock_guard<std::mutex> lock(g_inbox.mutex);
-    Upload(panel_, g_inbox.panel, true);
+    for (Panel& panel : panels_) Upload(panel.surface, g_inbox.panels[panel.index], true);
     Upload(button_, g_inbox.button, false);
+  }
+  for (Panel& panel : panels_) {
+    const uint32_t w = oldSize[panel.index][0], h = oldSize[panel.index][1];
+    if (panel.surface.width != w || panel.surface.height != h) KeepTop(panel, w, h);
   }
   UpdateButton();
 
@@ -913,8 +1053,13 @@ bool Panel::Tick() {
     active.ulActionSet = actionSet_;
     input_->UpdateActionState(&active, sizeof active, 1);
   }
-  UpdatePointing(panel_, panelPointing_, visible_, dragging_ || keyboardOpen_, "panel");
-  UpdatePointing(button_, buttonPointing_, buttonShown_, false, "button");
+  for (Panel& panel : panels_) {
+    char name[16];
+    snprintf(name, sizeof name, "panel %u", panel.index);
+    UpdatePointing(panel.surface, panel.pointing, panel.visible, dragging_ == &panel || panel.keyboardOpen, name,
+                   &panel.logNextMove);
+  }
+  UpdatePointing(button_, buttonPointing_, buttonShown_, false, "button", nullptr);
   return true;
 }
 
@@ -927,13 +1072,13 @@ bool SteamVrRunning() {
   return true;
 }
 
-void DrainCommands(Panel& panel) {
+void DrainCommands(Overlays& overlays) {
   std::deque<std::pair<uint32_t, std::vector<uint8_t>>> commands;
   {
     std::lock_guard<std::mutex> lock(g_inbox.mutex);
     commands.swap(g_inbox.commands);
   }
-  for (auto& c : commands) panel.HandleCommand(c.first, c.second);
+  for (auto& c : commands) overlays.HandleCommand(c.first, c.second);
 }
 
 }  // namespace
@@ -942,7 +1087,7 @@ int main() {
   std::thread reader(ReadStdin);
   reader.detach();
 
-  Panel panel;
+  Overlays overlays;
   Emit("{\"t\":\"hello\"}");
   bool reportedDown = false;
 
@@ -952,28 +1097,28 @@ int main() {
       // Messages still count while SteamVR is away: placement and size are
       // kept for when it comes back.
       for (int i = 0; i < 20 && !g_inbox.closed; ++i) {
-        DrainCommands(panel);
+        DrainCommands(overlays);
         Sleep(100);
       }
       continue;
     }
-    if (!panel.Start()) {
+    if (!overlays.Start()) {
       Sleep(2000);
       continue;
     }
     reportedDown = false;
 
     while (!g_inbox.closed) {
-      DrainCommands(panel);
-      if (!panel.Tick()) break;
+      DrainCommands(overlays);
+      if (!overlays.Tick()) break;
       // Controller input is polled, so the loop also wakes on its own at
       // about the headset's frame rate.
       WaitForSingleObject(g_inboxSignal, 11);
     }
-    panel.Stop();
+    overlays.Stop();
     Emit("{\"t\":\"steamvr\",\"up\":false}");
     reportedDown = true;
   }
-  panel.Stop();
+  overlays.Stop();
   return 0;
 }
