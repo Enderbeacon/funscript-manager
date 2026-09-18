@@ -11,11 +11,13 @@ import {
  * hanime1. The watch page carries the player's own `<source>` list,
  * with the resolution in the `size` attribute:
  *
- *   <source src="https://vdownload.hembed.com/407349-720p.mp4?secure=…,1785128422"
+ *   <source src="https://vdownload-3.hembed.com/407349-720p.mp4?token=…&amp;expires=1789795148"
  *           type="video/mp4" size="720">
  *
- * The `secure=` value pairs a signature with an expiry timestamp, so the link is
- * re-resolved on every resume like every other page-direct source.
+ * The query pairs a signature with an expiry timestamp, so the link is
+ * re-resolved on every resume like every other page-direct source. It is an
+ * HTML attribute, so its `&` arrives as `&amp;`; left encoded, the CDN reads no
+ * expiry and answers 403.
  *
  * No yt-dlp fallback exists for this site (yt-dlp does not accept extractors
  * for sites like it), so a parse failure fails the job with `hanime1_parse_failed` and
@@ -47,7 +49,7 @@ async function parse(pageUrl: string): Promise<ParsedPage> {
   const offers: VideoOffer[] = []
   for (let m = SOURCE_TAG.exec(html); m !== null; m = SOURCE_TAG.exec(html)) {
     const tag = m[0]
-    const src = ATTR('src').exec(tag)?.[1]
+    const src = ATTR('src').exec(tag)?.[1]?.replace(/&amp;/g, '&')
     if (!src || !/\.mp4/i.test(src)) continue
     // `size` is the height on this player; the file name repeats it as a suffix.
     const height = Number(
