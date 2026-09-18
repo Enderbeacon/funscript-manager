@@ -15,6 +15,8 @@ export const IPC_CHANNEL_PREFIXES = [
   'library:',
   /** Finding the forum post an entry came from, one entry or the whole library. */
   'match:',
+  /** MEGAcmd, MEGA's command-line client: install, sign-in, status. */
+  'megacmd:',
   'media:',
   'playback:',
   /** Saved playlists, and the queue that plays after this one. */

@@ -500,6 +500,17 @@
       "optionalSummary": "Quellen ohne Konto ({{count}})",
       "optionalHint": "Öffentliche Videos dieser Quellen lassen sich ohne Konto laden. Nach der Anmeldung sind auch kontogebundene Inhalte erreichbar."
     },
+    "mega": {
+      "method": "Herunterladen mit",
+      "builtin": "Integriert (ohne Konto)",
+      "connections": "Verbindungen pro Datei",
+      "connectionsHint": "Mehr Verbindungen laden schneller. MEGA begrenzt die Geschwindigkeit jeder einzelnen.",
+      "installing": "Wird installiert …",
+      "signedInAs": "Angemeldet als {{account}}",
+      "signedOut": "Nicht angemeldet. Downloads nutzen das kostenlose Kontingent.",
+      "signInHint": "Gib im sich öffnenden Fenster login und deine E-Mail-Adresse ein.",
+      "path": "MEGAcmd-Ordner"
+    },
     "onCloseMainWindow": "Beim Schließen des Hauptfensters",
     "onClose": {
       "ask": "Nach den Player-Fenstern fragen",
@@ -825,7 +836,9 @@
     "update_download_failed": "Das Update konnte nicht heruntergeladen werden. Versuche es erneut.",
     "update_not_supported": "Diese Kopie kann sich nicht selbst aktualisieren.",
     "update_release_not_found": "Diese Version lässt sich nicht installieren.",
-    "license_unavailable": "Die Lizenzdatei ließ sich nicht öffnen."
+    "license_unavailable": "Die Lizenzdatei ließ sich nicht öffnen.",
+    "megacmd_missing": "MEGAcmd ist nicht installiert. Installiere es in den Einstellungen.",
+    "megacmd_install_failed": "MEGAcmd ließ sich nicht installieren. Versuch es erneut."
   },
   "downloads": {
     "empty": "Noch keine Downloads.",
@@ -852,6 +865,8 @@
       "ytdlp_extractor_broken": "Diese Seite kann derzeit nicht gelesen werden",
       "mega_gone": "Diese Datei ist nicht mehr auf MEGA",
       "mega_bad_link": "Der MEGA-Link ist unvollständig oder falsch",
+      "megacmd_missing": "MEGAcmd ist nicht installiert – installiere es in den Einstellungen",
+      "megacmd_stalled": "Der MEGA-Download kommt nicht voran – prüfe Netzwerk oder Proxy und versuch es erneut",
       "eporner_unavailable": "Diese Seite ist derzeit nicht lesbar",
       "r34_unavailable": "Diese Seite ist derzeit nicht lesbar",
       "hanime1_unavailable": "Diese Seite ist derzeit nicht lesbar",

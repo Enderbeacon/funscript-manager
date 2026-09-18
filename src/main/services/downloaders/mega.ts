@@ -2,6 +2,8 @@ import { createWriteStream } from 'node:fs'
 import { mkdir, stat } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { File } from 'megajs'
+import { getSettings } from '../config/config-service'
+import * as megacmd from '../megacmd/megacmd'
 import { throttleStage } from '../net/throttle'
 import {
   PermanentError,
@@ -30,6 +32,9 @@ import {
  *   Unhandled, that takes the whole main process down, so every stream gets a
  *   handler before anything can abort it.
  */
+
+/** Size of each ranged request a built-in MEGA download is split into. */
+const CHUNK_BYTES = 4 * 1024 * 1024
 
 /** `https://mega.nz/file/<id>#<key>` and the older `#!<id>!<key>` form. */
 const FILE_URL = /^https:\/\/mega\.(?:nz|io)\/(?:file\/[\w-]+#|#!)/i
@@ -63,7 +68,14 @@ interface MegaNode {
   children?: MegaNode[]
   loadAttributes(): Promise<unknown>
   /** A duplexify stream: readable, and destroyable when the user pauses. */
-  download(options: { start?: number; end?: number }): NodeJS.ReadableStream & {
+  download(options: {
+    start?: number
+    end?: number
+    maxConnections?: number
+    initialChunkSize?: number
+    chunkSizeIncrement?: number
+    maxChunkSize?: number
+  }): NodeJS.ReadableStream & {
     destroy(error?: Error): void
   }
 }
@@ -268,6 +280,11 @@ export const megaPlugin: DownloaderPlugin = {
     return FOLDER_URL.test(normalize(url)) ? 'mega folder' : 'mega file'
   },
 
+  /** A MEGAcmd transfer lives outside the .part file; cancelling stops it too. */
+  async cleanup(partPath) {
+    await megacmd.cleanup(partPath)
+  },
+
   /** Loading the node's attributes is one round trip and no transfer quota. */
   checkCost: 'cheap',
 
@@ -290,6 +307,11 @@ export const megaPlugin: DownloaderPlugin = {
     signal: AbortSignal
   ): Promise<DownloadResult> {
     await mkdir(dirname(targetPath), { recursive: true })
+    const { mega } = (await getSettings()).download
+    // MEGAcmd downloads with the account signed in inside it.
+    if (mega.method === 'megacmd') {
+      return megacmd.download(info.url, targetPath, info.sizeBytes, onProgress, signal)
+    }
     const node = await loadNode(info.url)
     const total = typeof node.size === 'number' ? node.size : undefined
     const offset = await sizeOnDisk(targetPath)
@@ -297,9 +319,18 @@ export const megaPlugin: DownloaderPlugin = {
       return { filePath: targetPath, sizeBytes: offset } // already complete
     }
 
-    let stream: ReturnType<MegaNode["download"]>
+    // MEGA paces each connection on its own, so speed comes from running many
+    // at once. Chunks start at full size: megajs's default ramp from 128 KB
+    // spends most of a download waiting on requests for small ones.
+    let stream: ReturnType<MegaNode['download']>
     try {
-      stream = node.download(offset > 0 ? { start: offset } : {})
+      stream = node.download({
+        ...(offset > 0 ? { start: offset } : {}),
+        maxConnections: Math.max(2, mega.connections),
+        initialChunkSize: CHUNK_BYTES,
+        chunkSizeIncrement: 0,
+        maxChunkSize: CHUNK_BYTES
+      })
     } catch (e) {
       return rethrow(e)
     }

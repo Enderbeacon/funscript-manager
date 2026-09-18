@@ -247,6 +247,25 @@ export const SettingsSchema = z.object({
           bytesPerSec: z.number().int().min(0).default(0)
         })
         .prefault({}),
+      mega: z
+        .object({
+          /**
+           * `builtin` downloads signed out through megajs. `megacmd` hands the
+           * link to MEGA's own command-line client, which downloads with
+           * whatever account the user signed in to there.
+           */
+          method: z.enum(['builtin', 'megacmd']).default('builtin'),
+          /**
+           * Built-in only: parallel connections per file. MEGA paces each
+           * connection on its own, so the total speed grows with this number.
+           * At least 2: with one, megajs switches to a single-request mode
+           * whose abort escapes as an unhandled rejection.
+           */
+          connections: z.number().int().min(2).max(64).default(16),
+          /** The MEGAcmd install folder. Empty = where its installer puts it. */
+          megacmdPath: z.string().default('')
+        })
+        .prefault({}),
       /**
        * gofile's anti-bot website token. Its derivation salt rotates
        * every 6–12 months, so all three are user-settable: `configUrl` fetches

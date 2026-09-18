@@ -43,6 +43,14 @@ import {
   scriptPlayerIpcEvents
 } from '../../script-player/interface/ipc/contract'
 
+const MegacmdStatusSchema = z.object({
+  installed: z.boolean(),
+  path: z.string(),
+  version: z.string().nullable(),
+  /** The account signed in inside MEGAcmd; null when none is. */
+  account: z.string().nullable()
+})
+
 const SettingsNavigationSchema = z.object({
   section: z.literal('playback'),
   target: z.literal('scriptRoute')
@@ -1256,6 +1264,21 @@ export const ipcContract = {
       )
     })
   },
+  'megacmd:status': {
+    /** Asks MEGAcmd itself, so it starts MEGAcmd's background server if needed. */
+    input: z.void(),
+    output: MegacmdStatusSchema
+  },
+  'megacmd:install': {
+    /** Download MEGA's installer and run it silently; progress via `event:megacmd-progress`. */
+    input: z.void(),
+    output: MegacmdStatusSchema
+  },
+  'megacmd:login': {
+    /** Opens MEGAcmd's own shell window for the user to sign in there. */
+    input: z.void(),
+    output: z.void()
+  },
   'deps:status': {
     /** yt-dlp and ffmpeg: what is installed, where it came from, is it current. */
     input: z.void(),
@@ -1584,6 +1607,12 @@ export const ipcEvents = {
   'event:download-progress': z.object({ jobs: z.array(DownloadProgressSchema) }),
   /** Install/update progress for yt-dlp or ffmpeg (the ffmpeg zip is large). */
   'event:dep-progress': InstallProgressSchema,
+  /** Downloading, then running, MEGAcmd's installer. */
+  'event:megacmd-progress': z.object({
+    phase: z.enum(['downloading', 'installing']),
+    bytesDownloaded: z.number().nonnegative(),
+    totalBytes: z.number().nonnegative().nullable()
+  }),
   /** The updater moved: checking, found a release, download progress, ready. */
   'event:update-state': UpdateStateSchema,
   /** A fresh release list came back from GitHub. */

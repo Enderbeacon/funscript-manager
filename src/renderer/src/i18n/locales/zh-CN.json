@@ -753,6 +753,17 @@
       "optionalSummary": "无需登录的来源（{{count}}）",
       "optionalHint": "这些来源的公开视频无需账号即可下载。登录后可获取仅账号可见的内容。"
     },
+    "mega": {
+      "method": "下载方式",
+      "builtin": "内置（不登录）",
+      "connections": "每个文件的连接数",
+      "connectionsHint": "连接越多下载越快。MEGA 会限制每条连接的速度。",
+      "installing": "正在安装…",
+      "signedInAs": "已登录：{{account}}",
+      "signedOut": "未登录，下载使用免费额度。",
+      "signInHint": "在打开的窗口中输入 login 加上你的邮箱。",
+      "path": "MEGAcmd 文件夹"
+    },
     "onCloseMainWindow": "关闭主窗口时",
     "onClose": {
       "ask": "询问播放器窗口怎么办",
@@ -816,7 +827,9 @@
     "update_download_failed": "更新下载失败，请重试。",
     "update_not_supported": "当前这份软件无法自动更新。",
     "update_release_not_found": "这个版本无法安装。",
-    "license_unavailable": "无法打开许可证文件。"
+    "license_unavailable": "无法打开许可证文件。",
+    "megacmd_missing": "未安装 MEGAcmd，请在设置中安装。",
+    "megacmd_install_failed": "MEGAcmd 安装失败，请重试。"
   },
   "downloads": {
     "empty": "还没有下载任务。",
@@ -843,6 +856,8 @@
       "ytdlp_extractor_broken": "暂时无法解析该页面",
       "mega_gone": "这个文件在 MEGA 上已不存在",
       "mega_bad_link": "MEGA 链接不完整或有误",
+      "megacmd_missing": "未安装 MEGAcmd，请在设置中安装",
+      "megacmd_stalled": "MEGA 下载停滞，请检查网络或代理后重试",
       "eporner_unavailable": "暂时无法解析该页面",
       "r34_unavailable": "暂时无法解析该页面",
       "hanime1_unavailable": "暂时无法解析该页面",

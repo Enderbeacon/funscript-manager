@@ -583,6 +583,11 @@ button:disabled { opacity: 0.5; cursor: default; }
   .settings-row.long { grid-template-columns: repeat(2, 1fr); }
 }
 
+/* Dependencies, site sign-in and MEGA side by side once there is room. */
+@container settings (min-width: 1160px) {
+  .settings-row.long { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
 /*
  * The playback tab is two cards, not a row of equal ones. The route choice is
  * two options and never needs more than a narrow column; the width it does not

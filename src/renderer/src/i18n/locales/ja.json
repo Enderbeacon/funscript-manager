@@ -496,6 +496,17 @@
       "optionalSummary": "ログイン不要の提供元（{{count}}）",
       "optionalHint": "これらの提供元の公開動画はアカウントなしで取得できます。ログインするとアカウントでのみ閲覧できる内容も取得できます。"
     },
+    "mega": {
+      "method": "ダウンロード方法",
+      "builtin": "内蔵（アカウントなし）",
+      "connections": "ファイルごとの接続数",
+      "connectionsHint": "接続を増やすほど速くなります。MEGA は接続ごとに速度を制限しています。",
+      "installing": "インストール中…",
+      "signedInAs": "{{account}} でログイン中",
+      "signedOut": "未ログインです。無料の転送量で取得します。",
+      "signInHint": "開いたウィンドウで login に続けてメールアドレスを入力してください。",
+      "path": "MEGAcmd のフォルダー"
+    },
     "onCloseMainWindow": "メインウィンドウを閉じたとき",
     "onClose": {
       "ask": "プレーヤーのウィンドウについて尋ねる",
@@ -816,7 +827,9 @@
     "update_download_failed": "アップデートをダウンロードできませんでした。もう一度お試しください。",
     "update_not_supported": "このコピーは自動で更新できません。",
     "update_release_not_found": "このバージョンはインストールできません。",
-    "license_unavailable": "ライセンスファイルを開けませんでした。"
+    "license_unavailable": "ライセンスファイルを開けませんでした。",
+    "megacmd_missing": "MEGAcmd がインストールされていません。設定からインストールしてください。",
+    "megacmd_install_failed": "MEGAcmd をインストールできませんでした。もう一度お試しください。"
   },
   "downloads": {
     "empty": "ダウンロードはまだありません。",
@@ -843,6 +856,8 @@
       "ytdlp_extractor_broken": "現在このページを解析できません",
       "mega_gone": "このファイルは MEGA にありません",
       "mega_bad_link": "MEGA のリンクが不完全か誤りです",
+      "megacmd_missing": "MEGAcmd が未インストールです。設定からインストールしてください",
+      "megacmd_stalled": "MEGA のダウンロードが止まりました。ネットワークかプロキシを確認して再試行してください",
       "eporner_unavailable": "このページは現在読み取れません",
       "r34_unavailable": "このページは現在読み取れません",
       "hanime1_unavailable": "このページは現在読み取れません",

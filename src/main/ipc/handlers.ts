@@ -20,6 +20,7 @@ import {
 } from '../services/downloaders/post-ingest'
 import { downloadEvents } from '../services/downloaders/queue'
 import * as deps from '../services/deps/binaries'
+import * as megacmd from '../services/megacmd/megacmd'
 import { depsEvents } from '../services/deps/binaries'
 import * as updater from '../services/updates/updater'
 import { updateEvents } from '../services/updates/updater'
@@ -867,6 +868,10 @@ export function registerIpcHandlers(): void {
 
   handle('download:checkLinks', (input) => checkLinks(input.urls, { force: input.force ?? false }))
 
+  handle('megacmd:status', () => megacmd.status())
+  handle('megacmd:install', () => megacmd.install())
+  handle('megacmd:login', () => megacmd.openLogin())
+
   handle('deps:status', async () => ({ binaries: await deps.status() }))
 
   handle('deps:missing', async () => ({ ids: await deps.missing() }))
@@ -1095,6 +1100,7 @@ export function registerIpcHandlers(): void {
   downloadEvents.on('jobs-changed', () => broadcast('event:downloads-changed', {}))
   downloadEvents.on('progress', (jobs) => broadcast('event:download-progress', { jobs }))
   depsEvents.on('progress', (p) => broadcast('event:dep-progress', p))
+  megacmd.megacmdEvents.on('progress', (p) => broadcast('event:megacmd-progress', p))
   updateEvents.on('state', (s) => broadcast('event:update-state', s))
   releaseEvents.on('changed', (releases) => broadcast('event:releases', releases))
   scanEvents.on('progress', (p) => broadcast('event:match-progress', p))

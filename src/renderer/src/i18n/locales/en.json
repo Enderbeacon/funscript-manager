@@ -760,6 +760,17 @@
       "optionalSummary": "Sources that need no account ({{count}})",
       "optionalHint": "Public videos on these sources download without an account. Sign in to reach content only your account can see."
     },
+    "mega": {
+      "method": "Download with",
+      "builtin": "Built-in (no account)",
+      "connections": "Connections per file",
+      "connectionsHint": "More connections download faster. MEGA limits the speed of each one.",
+      "installing": "Installing…",
+      "signedInAs": "Signed in as {{account}}",
+      "signedOut": "Not signed in. Downloads use the free quota.",
+      "signInHint": "In the window that opens, type login followed by your email.",
+      "path": "MEGAcmd folder"
+    },
     "onCloseMainWindow": "Closing the main window",
     "onClose": {
       "ask": "Ask about the player windows",
@@ -825,7 +836,9 @@
     "update_download_failed": "The update couldn't be downloaded. Try again.",
     "update_not_supported": "This copy can't update itself.",
     "update_release_not_found": "That version isn't available to install.",
-    "license_unavailable": "The license file couldn't be opened."
+    "license_unavailable": "The license file couldn't be opened.",
+    "megacmd_missing": "MEGAcmd isn’t installed. Install it in Settings.",
+    "megacmd_install_failed": "MEGAcmd couldn’t be installed. Try again."
   },
   "downloads": {
     "empty": "No downloads yet.",
@@ -852,6 +865,8 @@
       "ytdlp_extractor_broken": "Cannot read this page right now",
       "mega_gone": "This file is no longer on MEGA",
       "mega_bad_link": "The MEGA link is incomplete or wrong",
+      "megacmd_missing": "MEGAcmd isn’t installed — install it in Settings",
+      "megacmd_stalled": "MEGA download stopped moving — check your network or proxy, then retry",
       "eporner_unavailable": "Cannot read this page right now",
       "r34_unavailable": "Cannot read this page right now",
       "hanime1_unavailable": "Cannot read this page right now",

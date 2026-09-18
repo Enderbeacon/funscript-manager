@@ -59,6 +59,10 @@ export const APP_ERROR_CODES = [
   'update_release_not_found',
   /** A license file shipped with the app is missing, or nothing would open it. */
   'license_unavailable',
+  /** MEGAcmd is not where the settings say, or not installed at all. */
+  'megacmd_missing',
+  /** Downloading or running MEGA's installer failed; the log says which. */
+  'megacmd_install_failed',
   'internal_error'
 ] as const
 

@@ -500,6 +500,17 @@
       "optionalSummary": "Sources ne nécessitant aucun compte ({{count}})",
       "optionalHint": "Les vidéos publiques de ces sources se téléchargent sans compte. La connexion donne accès au contenu visible uniquement par votre compte."
     },
+    "mega": {
+      "method": "Télécharger avec",
+      "builtin": "Intégré (sans compte)",
+      "connections": "Connexions par fichier",
+      "connectionsHint": "Plus de connexions, plus de vitesse. MEGA limite la vitesse de chacune.",
+      "installing": "Installation…",
+      "signedInAs": "Connecté en tant que {{account}}",
+      "signedOut": "Non connecté. Les téléchargements utilisent le quota gratuit.",
+      "signInHint": "Dans la fenêtre qui s’ouvre, tapez login suivi de votre adresse e-mail.",
+      "path": "Dossier de MEGAcmd"
+    },
     "onCloseMainWindow": "À la fermeture de la fenêtre principale",
     "onClose": {
       "ask": "Demander pour les fenêtres du lecteur",
@@ -825,7 +836,9 @@
     "update_download_failed": "La mise à jour n’a pas pu être téléchargée. Réessayez.",
     "update_not_supported": "Cette copie ne peut pas se mettre à jour.",
     "update_release_not_found": "Cette version ne peut pas être installée.",
-    "license_unavailable": "Impossible d’ouvrir le fichier de licence."
+    "license_unavailable": "Impossible d’ouvrir le fichier de licence.",
+    "megacmd_missing": "MEGAcmd n’est pas installé. Installez-le dans les Paramètres.",
+    "megacmd_install_failed": "Impossible d’installer MEGAcmd. Réessayez."
   },
   "downloads": {
     "empty": "Aucun téléchargement pour l’instant.",
@@ -852,6 +865,8 @@
       "ytdlp_extractor_broken": "Impossible de lire cette page pour l’instant",
       "mega_gone": "Ce fichier n’est plus sur MEGA",
       "mega_bad_link": "Le lien MEGA est incomplet ou erroné",
+      "megacmd_missing": "MEGAcmd n’est pas installé — installez-le dans les Paramètres",
+      "megacmd_stalled": "Le téléchargement MEGA n’avance plus — vérifiez le réseau ou le proxy, puis réessayez",
       "eporner_unavailable": "Impossible de lire cette page pour le moment",
       "r34_unavailable": "Impossible de lire cette page pour le moment",
       "hanime1_unavailable": "Impossible de lire cette page pour le moment",

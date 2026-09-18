@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Settings } from '@shared/schemas/app-config'
 import type { BinaryId, BinaryStatus, InstallProgress } from '@shared/schemas/dependencies'
@@ -335,6 +335,7 @@ export default function SettingsPage({
       <div className="settings-row long">
         <DependenciesCard settings={settings} onPatch={patch} />
         <SiteLoginCard />
+        <MegaCard settings={settings} onPatch={patch} />
       </div>
       </>
       )}
@@ -622,6 +623,180 @@ function SiteLoginCard(): React.JSX.Element {
           <p className="settings-hint">{t('settings.sites.optionalHint')}</p>
           {optional.map(row)}
         </details>
+      )}
+    </div>
+  )
+}
+
+/**
+ * How MEGA links download: here, signed out, or through MEGAcmd — MEGA's own
+ * client, which uses whatever account the user signs in to inside it. MEGAcmd
+ * is only asked about while it is the chosen method; asking starts its
+ * background server.
+ */
+function MegaCard({
+  settings,
+  onPatch
+}: {
+  settings: Settings
+  onPatch: (patch: Record<string, unknown>) => Promise<void>
+}): React.JSX.Element {
+  const { t } = useTranslation()
+  const toMessage = useErrorMessage()
+  const mega = settings.download.mega
+  const [connections, setConnections] = useState(String(mega.connections))
+  const [path, setPath] = useState(mega.megacmdPath)
+  const [cmd, setCmd] = useState<IpcOutput<'megacmd:status'> | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [progress, setProgress] = useState<{ phase: string; bytesDownloaded: number; totalBytes: number | null } | null>(null)
+  const [failed, setFailed] = useState<string | null>(null)
+  const useCmd = mega.method === 'megacmd'
+
+  const refresh = useCallback((): void => {
+    ipcInvoke('megacmd:status')
+      .then(setCmd)
+      .catch(() => setCmd(null))
+  }, [])
+
+  useEffect(() => {
+    if (!useCmd) return
+    refresh()
+    // Signing in happens in MEGAcmd's own window; coming back is the moment
+    // to find out whether it worked.
+    window.addEventListener('focus', refresh)
+    return () => window.removeEventListener('focus', refresh)
+  }, [useCmd, refresh])
+  useEffect(() => ipcOn('event:megacmd-progress', (p) => setProgress(p)), [])
+
+  const saveConnections = (value: string): void => {
+    const n = Math.round(Number(value))
+    const next = Number.isFinite(n) ? Math.min(64, Math.max(2, n)) : mega.connections
+    setConnections(String(next))
+    if (next !== mega.connections) void onPatch({ download: { mega: { connections: next } } })
+  }
+
+  const savePath = (value: string): void => {
+    setPath(value)
+    if (value !== mega.megacmdPath) void onPatch({ download: { mega: { megacmdPath: value } } }).then(refresh)
+  }
+
+  const pickPath = async (): Promise<void> => {
+    const picked = await ipcInvoke('dialog:pickDirectory', { title: t('settings.mega.path') })
+    if (picked.path) savePath(picked.path)
+  }
+
+  const install = async (): Promise<void> => {
+    setBusy(true)
+    setFailed(null)
+    setProgress(null)
+    try {
+      setCmd(await ipcInvoke('megacmd:install'))
+    } catch (e) {
+      setFailed(toMessage(e))
+    } finally {
+      setBusy(false)
+      setProgress(null)
+    }
+  }
+
+  const installText = (): string => {
+    if (!busy) return t('settings.deps.install')
+    if (progress?.phase === 'installing') return t('settings.mega.installing')
+    return progress?.totalBytes
+      ? `${Math.floor((progress.bytesDownloaded / progress.totalBytes) * 100)}%`
+      : t('settings.deps.working')
+  }
+
+  return (
+    <div className="card">
+      <h2 className="settings-section-title">MEGA</h2>
+
+      <div className="settings-field">
+        <span className="settings-label">{t('settings.mega.method')}</span>
+        <Select
+          value={mega.method}
+          onChange={(v) => void onPatch({ download: { mega: { method: v } } })}
+          options={[
+            { value: 'builtin', label: t('settings.mega.builtin') },
+            { value: 'megacmd', label: 'MEGAcmd' }
+          ]}
+        />
+      </div>
+
+      {!useCmd && (
+        <label className="settings-field">
+          <span className="settings-label">{t('settings.mega.connections')}</span>
+          <input
+            className="settings-input speed"
+            type="number"
+            min="2"
+            max="64"
+            step="1"
+            value={connections}
+            onChange={(e) => setConnections(e.target.value)}
+            onBlur={(e) => saveConnections(e.target.value.trim())}
+          />
+          <span className="settings-hint">{t('settings.mega.connectionsHint')}</span>
+        </label>
+      )}
+
+      {useCmd && (
+        <>
+          <div className="dep-row">
+            <span className={`dep-dot ${cmd?.installed ? 'ok' : 'off'}`} />
+            <span className="dep-name">MEGAcmd</span>
+            <span className="dep-version">
+              {cmd === null
+                ? t('settings.deps.working')
+                : cmd.installed
+                  ? t('settings.deps.installed', { version: cmd.version ?? '?' })
+                  : t('settings.deps.notInstalled')}
+            </span>
+            {cmd && !cmd.installed && (
+              <button className="primary" disabled={busy} onClick={() => void install()}>
+                {installText()}
+              </button>
+            )}
+          </div>
+          {failed && <p className="mfp-install-error">{failed}</p>}
+
+          {cmd?.installed && (
+            <div className="site-row">
+              <span className="site-need">
+                {cmd.account
+                  ? t('settings.mega.signedInAs', { account: cmd.account })
+                  : t('settings.mega.signedOut')}
+              </span>
+              <div className="grow" />
+              {!cmd.account && (
+                <button className="ghost" onClick={() => void ipcInvoke('megacmd:login').catch(() => {})}>
+                  {t('settings.sites.signIn')}
+                </button>
+              )}
+            </div>
+          )}
+          {cmd?.installed && !cmd.account && <p className="settings-hint">{t('settings.mega.signInHint')}</p>}
+
+          <details className="mfp-alt">
+            <summary>{t('settings.deps.customPaths')}</summary>
+            <label className="settings-field">
+              <span className="settings-label">{t('settings.mega.path')}</span>
+              <div className="row">
+                <input
+                  className="settings-input grow"
+                  type="text"
+                  value={path}
+                  placeholder={t('settings.deps.pathPlaceholder')}
+                  onChange={(e) => setPath(e.target.value)}
+                  onBlur={(e) => savePath(e.target.value.trim())}
+                />
+                <button className="ghost" onClick={() => void pickPath()}>
+                  {t('settings.browse')}
+                </button>
+              </div>
+            </label>
+          </details>
+        </>
       )}
     </div>
   )
