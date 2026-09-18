@@ -47,6 +47,7 @@ import { canonicalNames, normaliseNames } from '../taxonomy/taxonomy-service'
 import { IgnoreList } from './ignore-list'
 import { scriptAuthorsUpdate } from './script-authors'
 import { syncLibrary, type SyncSummary } from './scanner'
+import { compareBinary, compareNocase } from '../db/sql-order'
 
 /**
  * Per-library lifecycle: index.db handle + startup sync + chokidar watcher.
@@ -1541,13 +1542,14 @@ const ID_CHUNK = 400
 /**
  * Merging pages from several libraries has to repeat the sort each of them
  * already did — SQL cannot order across databases. Same keys, same direction,
- * and the path always breaks ties so paging stays stable.
+ * same collations (see sql-order), and the path always breaks ties so paging
+ * stays stable.
  */
 function mergeComparator(sort: MediaSort | undefined) {
   const byPath = (a: MediaListPage['items'][number], b: MediaListPage['items'][number]): number =>
-    a.filePath.localeCompare(b.filePath) || a.id.localeCompare(b.id)
+    compareBinary(a.filePath, b.filePath) || compareBinary(a.id, b.id)
   const desc = (a: number | null, b: number | null): number => (b ?? -1) - (a ?? -1)
-  const text = (a: string | null, b: string | null): number => (a ?? '').localeCompare(b ?? '')
+  const text = (a: string | null, b: string | null): number => compareNocase(a ?? '', b ?? '')
 
   return (a: MediaListPage['items'][number], b: MediaListPage['items'][number]): number => {
     switch (sort) {
@@ -1561,7 +1563,7 @@ function mergeComparator(sort: MediaSort | undefined) {
         if (ra === null && rb === null) return byPath(a, b)
         if (ra === null) return 1
         if (rb === null) return -1
-        return ra < rb ? -1 : ra > rb ? 1 : byPath(a, b)
+        return compareBinary(ra, rb) || byPath(a, b)
       }
       case 'title':
         return text(a.title || a.filePath, b.title || b.filePath) || byPath(a, b)
