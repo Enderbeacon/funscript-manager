@@ -820,6 +820,7 @@
     "invalid_url": "Keine gültige URL: {{url}}",
     "download_no_plugin": "Kein Downloader kann diesen Link verarbeiten: {{url}}",
     "download_expand_failed": "Dateien hinter diesem Link nicht auflistbar: {{url}}",
+    "download_not_a_video": "Das ist eine Profil- oder Listenseite, kein einzelnes Video: {{url}}",
     "scrape_not_a_post": "Kein EroScripts-Beitragslink: {{url}}",
     "scrape_post_not_found": "Beitrag {{topicId}} lässt sich nicht öffnen: entfernt, oder für dein Konto nicht sichtbar. {{url}}",
     "scrape_login_required": "Für diesen Beitrag musst du bei EroScripts angemeldet sein.",
@@ -861,6 +862,7 @@
     "jobError": {
       "ytdlp_not_installed": "yt-dlp nicht gefunden. Pfad in den Einstellungen setzen.",
       "ytdlp_unsupported": "Seite nicht unterstützt",
+      "not_a_video": "Das ist eine Profil- oder Listenseite, kein einzelnes Video",
       "ytdlp_unavailable": "Video nicht mehr verfügbar",
       "ytdlp_auth": "Anmeldung für dieses Video nötig",
       "ytdlp_no_output": "Keine Datei erzeugt",
@@ -935,6 +937,7 @@
     "empty": "Beitragslink einfügen, um zu beginnen.",
     "openPost": "Im Forum öffnen",
     "openSite": "Zur Seite",
+    "notAVideo": "Profil- oder Listenseite, kein einzelnes Video",
     "remove": "Entfernen",
     "videoGroup": "Video · {{count}} Quellen",
     "videoGroup_one": "Video · {{count}} Quelle",

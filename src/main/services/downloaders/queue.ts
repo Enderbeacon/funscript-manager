@@ -20,6 +20,8 @@ import {
   QuotaExceededError,
   RateLimitedError,
   findPlugin,
+  findPluginById,
+  isSitePageNotVideo,
   type DownloaderPlugin,
   type ProgressEvent
 } from './base'
@@ -282,7 +284,10 @@ export async function addPostJobs(
     // store page is just the page address — must not override it.
     const name = link.isAttachment && target === url ? attachmentName(link, post) : undefined
     plans.push({
-      planned: await planJobs(target, name),
+      // A link pasted in a post link's place is the file itself, so it is
+      // fetched as one: a one-time download link must not be spent on
+      // yt-dlp looking at it first.
+      planned: await planJobs(target, name, target !== url),
       role: link.isScript ? 'script' : 'video'
     })
   }
@@ -336,9 +341,23 @@ export async function addJobs(
   return ids
 }
 
-/** Find the plugin and list the files behind a URL, without writing anything. */
-async function planJobs(url: string, name?: NameHint): Promise<PlannedJob[]> {
-  const plugin = findPlugin(url)
+/**
+ * The downloader a job was planned with. Jobs store its id, and asking the
+ * registry by URL instead would forget a choice made at planning time — a
+ * pasted file link sent to the file downloader on purpose.
+ */
+function pluginFor(job: { hoster: string; sourceUrl: string }): DownloaderPlugin | undefined {
+  return findPluginById(job.hoster) ?? findPlugin(job.sourceUrl)
+}
+
+/**
+ * Find the plugin and list the files behind a URL, without writing anything.
+ * `asFile`: the URL is the file itself, whatever it looks like.
+ */
+async function planJobs(url: string, name?: NameHint, asFile = false): Promise<PlannedJob[]> {
+  if (isSitePageNotVideo(url)) throw new AppError('download_not_a_video', { url })
+  let plugin = findPlugin(url)
+  if (plugin?.id === 'web' && asFile) plugin = findPluginById('direct')
   if (!plugin) throw new AppError('download_no_plugin', { url })
 
   let urls = [url]
@@ -444,7 +463,7 @@ function isStuck(job: store.JobRecord): boolean {
 export async function verifyJob(id: string, hints: VerifyHints): Promise<void> {
   const job = store.get(id)
   if (!job || !isStuck(job)) return
-  const how = findPlugin(job.sourceUrl)?.verification
+  const how = pluginFor(job)?.verification
   if (!how) return
 
   if (how.delivers === 'access') {
@@ -577,7 +596,7 @@ async function discard(id: string): Promise<void> {
   coolTimers.delete(id)
   await rm(job.partPath, { force: true }).catch(() => {})
   // Plugins that stage their work elsewhere (ytdlp) clean that up themselves.
-  await findPlugin(job.sourceUrl)?.cleanup?.(job.partPath).catch(() => {})
+  await pluginFor(job)?.cleanup?.(job.partPath).catch(() => {})
   store.remove(id)
   progressBuf.delete(id)
   notifyChanged()
@@ -639,7 +658,7 @@ async function pump(): Promise<void> {
 }
 
 function startJob(job: store.JobRecord): void {
-  const plugin = findPlugin(job.sourceUrl)
+  const plugin = pluginFor(job)
   if (!plugin) {
     store.update(job.id, { state: 'failed', error: 'download_no_plugin' })
     notifyChanged()

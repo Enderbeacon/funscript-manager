@@ -49,7 +49,12 @@ export const SITES: SiteSpec[] = [
   // Its download panel says "Sign in required" on every resolution, and
   // reserves 1080p for paid accounts — so this is the one source where signing
   // in is not optional.
-  { id: 'hanimetv', label: 'hanime.tv', url: 'https://hanime.tv/', domains: ['hanime.tv'], need: 'some' }
+  { id: 'hanimetv', label: 'hanime.tv', url: 'https://hanime.tv/', domains: ['hanime.tv'], need: 'some' },
+  // Private videos and friends-only uploads need an account.
+  { id: 'thisvid', label: 'ThisVid', url: 'https://thisvid.com/login.php', domains: ['thisvid.com'], need: 'some' },
+  // Posts marked sensitive show no video to a signed-out visitor. The session
+  // lives on x.com; the old domain is kept for cookies set before the move.
+  { id: 'twitter', label: 'X', url: 'https://x.com/i/flow/login', domains: ['x.com', 'twitter.com'], need: 'some' }
 ]
 
 export interface SiteStatus extends SiteSpec {

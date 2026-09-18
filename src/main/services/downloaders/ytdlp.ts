@@ -197,7 +197,10 @@ function firstErrorLine(stderr: string): string {
   return (line ?? '').trim().slice(0, 200)
 }
 
-interface ProbeJson {
+export interface ProbeJson {
+  /** `playlist` for a page holding several videos; absent for one video. */
+  _type?: string
+  entries?: unknown[]
   title?: string
   ext?: string
   filesize?: number | null
@@ -250,6 +253,38 @@ function netArgs(): string[] {
   return proxy ? ['--proxy', proxy] : []
 }
 
+/**
+ * What yt-dlp makes of a URL, without downloading it.
+ *
+ * `--flat-playlist` keeps a profile page to one quick listing instead of a
+ * full extraction per video on it — the answer to "is this one video?" is the
+ * same either way, and one video comes back no different.
+ */
+export async function probeYtdlp(url: string): Promise<ProbeJson> {
+  const exe = await ytdlpPath()
+  const cookies = await cookieFileFor(url)
+  const res = await run(
+    exe,
+    [
+      '-J',
+      '--no-warnings',
+      '--no-playlist',
+      '--flat-playlist',
+      ...netArgs(),
+      ...(cookies ? ['--cookies', cookies.path] : []),
+      url
+    ],
+    { timeoutMs: 60_000 }
+  ).finally(() => cookies?.dispose())
+  if (res.code !== 0) throw classify(res.stderr)
+
+  try {
+    return JSON.parse(res.stdout) as ProbeJson
+  } catch {
+    throw new PermanentError('ytdlp_unsupported')
+  }
+}
+
 /** Where yt-dlp does its work: a directory beside the queue's .part file. */
 function workDirFor(targetPath: string): string {
   return `${targetPath}.d`
@@ -285,28 +320,9 @@ export const ytdlpPlugin: DownloaderPlugin = {
    * nothing here is treated as a link that could expire.
    */
   async resolve(url) {
-    const exe = await ytdlpPath()
-    const cookies = await cookieFileFor(url)
-    const res = await run(
-      exe,
-      [
-        '-J',
-        '--no-warnings',
-        '--no-playlist',
-        ...netArgs(),
-        ...(cookies ? ['--cookies', cookies.path] : []),
-        url
-      ],
-      { timeoutMs: 60_000 }
-    ).finally(() => cookies?.dispose())
-    if (res.code !== 0) throw classify(res.stderr)
-
-    let info: ProbeJson
-    try {
-      info = JSON.parse(res.stdout) as ProbeJson
-    } catch {
-      throw new PermanentError('ytdlp_unsupported')
-    }
+    const info = await probeYtdlp(url)
+    // A profile or channel. Downloading it would fetch every video on it.
+    if (info._type === 'playlist') throw new PermanentError('not_a_video')
     const size = expectedSize(info)
     return {
       url,

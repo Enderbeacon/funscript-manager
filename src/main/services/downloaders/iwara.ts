@@ -28,6 +28,10 @@ export const iwaraPlugin: DownloaderPlugin = {
     return VIDEO_URL.test(url)
   },
 
+  ownsHost(hostname) {
+    return /^(?:www\.)?iwara\.tv$/i.test(hostname)
+  },
+
   guessFileName(url) {
     return VIDEO_URL.exec(url)?.[1] ?? 'iwara'
   }

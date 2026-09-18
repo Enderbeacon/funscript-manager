@@ -5,6 +5,8 @@
  * against a real library offline.
  */
 
+import { VIDEO_SITES } from '@shared/video-sites'
+
 /** Lower-cased, every run of separators reduced to one space. */
 export function fold(value: string): string {
   return value
@@ -97,7 +99,8 @@ const FORUM_VOCAB = new Set([
 const SITE_NAMES = new Set([
   'pornhub', 'xvideos', 'xnxx', 'xhamster', 'spankbang', 'eporner', 'rule34video',
   'hanime1', 'iwara', 'youtube', 'twitter', 'reddit', 'onlyfans', 'fansly',
-  'patreon', 'eroscripts', 'pixeldrain', 'mega', 'gofile'
+  'patreon', 'eroscripts', 'pixeldrain', 'mega', 'gofile',
+  ...VIDEO_SITES.map((site) => site.id)
 ])
 
 export function isFileNoise(token: string): boolean {

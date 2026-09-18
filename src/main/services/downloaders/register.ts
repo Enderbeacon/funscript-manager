@@ -13,12 +13,15 @@ import { hanime1Plugin } from './page-direct/hanime1'
 import { rule34videoPlugin } from './page-direct/rule34video'
 import { spankbangPlugin } from './page-direct/spankbang'
 import { pixeldrainPlugin } from './pixeldrain'
+import { videoSitePlugins } from './video-sites'
+import { webPlugin } from './web'
 import { xnxxPlugin, xvideosPlugin } from './xvideos'
 import { ytdlpPlugin } from './ytdlp'
 
 /**
  * The one place downloader plugins are wired up. Order is match order, and
- * `direct` claims every http(s) URL — so it stays last, as the fallback.
+ * the two catch-alls close the list: `web` takes any page nothing above knew,
+ * `direct` any file.
  *
  * The page-direct parsers sit above ytdlp on purpose: both claim eporner and
  * rule34video, and the page parser is the main path with yt-dlp as the safety
@@ -46,6 +49,8 @@ export function registerDownloaderPlugins(): void {
   registerPlugin(iwaraPlugin)
   registerPlugin(xvideosPlugin)
   registerPlugin(xnxxPlugin)
+  for (const plugin of videoSitePlugins) registerPlugin(plugin)
   registerPlugin(ytdlpPlugin)
+  registerPlugin(webPlugin)
   registerPlugin(directPlugin)
 }

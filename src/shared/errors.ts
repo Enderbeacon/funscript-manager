@@ -31,6 +31,7 @@ export const APP_ERROR_CODES = [
   'invalid_url',
   'download_no_plugin',
   'download_expand_failed',
+  'download_not_a_video',
   'scrape_not_a_post',
   'scrape_post_not_found',
   'scrape_login_required',

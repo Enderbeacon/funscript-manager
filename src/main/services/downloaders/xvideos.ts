@@ -48,6 +48,10 @@ function videoPlugin(id: string, host: RegExp, path: RegExp): DownloaderPlugin {
       return parse(url) !== null
     },
 
+    ownsHost(hostname) {
+      return host.test(hostname)
+    },
+
     /**
      * The slug, which is the title in lower case; else the id. The slug is the
      * last segment rather than the one after the id, because links copied off

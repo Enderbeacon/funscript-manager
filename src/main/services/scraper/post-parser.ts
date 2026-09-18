@@ -1,5 +1,6 @@
 import { basename } from 'node:path'
 import type { LinkSection, ScrapedLink, ScrapedPost } from '@shared/schemas/scraped-post'
+import { VIDEO_SITES } from '@shared/video-sites'
 
 /**
  * EroScripts post parsing. Pure functions over the topic JSON, so
@@ -37,6 +38,7 @@ const HOSTERS: { host: RegExp; hoster: ScrapedLink['hoster'] }[] = [
   { host: /(^|\.)spankbang\.(com|party)$/i, hoster: 'spankbang' },
   { host: /(^|\.)(xvideos2?\.com|xvideos\.es)$/i, hoster: 'xvideos' },
   { host: /(^|\.)xnxx3?\.com$/i, hoster: 'xnxx' },
+  ...VIDEO_SITES.map((site) => ({ host: site.host, hoster: site.id })),
   { host: /(^|\.)patreon\.com$/i, hoster: 'patreon' },
   { host: /(^|\.)payhip\.com$/i, hoster: 'payhip' }
 ]
@@ -278,6 +280,7 @@ function attachmentLinks(
       isScript,
       manualOnly: false,
       needsManualLink: false,
+      notAVideo: false,
       downloadable: true,
       note: '',
       fromPost: from
@@ -480,6 +483,15 @@ export interface ScanOptions {
    * superset for display purposes but says nothing about downloadability.
    */
   isDownloadable?: (url: string) => boolean
+  /**
+   * Whether this is a page on a site we download from that is not one video —
+   * a profile, a channel. Injected for the same reason as `isDownloadable`.
+   *
+   * Such a link is no more a download than a link to a site we have never
+   * heard of, so it is kept or dropped by the same rules — the author's own
+   * Twitter profile is not worth a row — and only labelled when it stays.
+   */
+  isSitePageNotVideo?: (url: string) => boolean
   /** Links already collected from earlier posts, so a repost is not listed twice. */
   seen?: Set<string>
 }
@@ -494,6 +506,7 @@ export function extractLinks(
   const links: ScrapedLink[] = []
   const seen = options.seen ?? new Set<string>()
   const downloadable = options.isDownloadable ?? ((): boolean => false)
+  const notVideo = options.isSitePageNotVideo ?? ((): boolean => false)
 
   const push = (link: ScrapedLink): void => {
     if (seen.has(link.url)) return
@@ -521,11 +534,12 @@ export function extractLinks(
     // And nothing filed under the post's own Video/Script heading is dropped
     // at all: the author put it there to be downloaded, whatever the host is.
     const authorSaidItIsADownload = section === 'video' || section === 'script'
+    const notAVideo = !isAttachment && notVideo(url)
     if (
       !isAttachment &&
       !isFunscript &&
       !authorSaidItIsADownload &&
-      hoster === 'unknown' &&
+      (hoster === 'unknown' || notAVideo) &&
       // A plugin claiming the URL outranks the host table: registering a new
       // downloader should be enough for its links to stop looking like noise.
       !downloadable(url) &&
@@ -544,6 +558,7 @@ export function extractLinks(
       isScript: isFunscript || section === 'script',
       manualOnly: MANUAL_ONLY.has(hoster),
       needsManualLink: NEEDS_MANUAL_LINK.has(hoster),
+      notAVideo,
       downloadable: isAttachment || isFetchable(url, downloadable),
       note: noteAt(noteText, m.index),
       fromPost: null
@@ -588,6 +603,7 @@ export function extractReplyLinks(
 ): ScrapedLink[] {
   const seen = options.seen ?? new Set<string>()
   const downloadable = options.isDownloadable ?? ((): boolean => false)
+  const notVideo = options.isSitePageNotVideo ?? ((): boolean => false)
   const links: ScrapedLink[] = []
 
   for (const reply of replies) {
@@ -620,7 +636,8 @@ export function extractReplyLinks(
       // file on a host nobody has heard of — `https://someones-box/clip.mp4` is
       // a re-upload the generic downloader can take, and requiring a *known*
       // host was throwing exactly those away.
-      const worthShowing = isFunscript || hoster !== 'unknown' || isFetchable(url, downloadable)
+      const worthShowing =
+        isFunscript || (hoster !== 'unknown' && !notVideo(url)) || isFetchable(url, downloadable)
       if (!worthShowing) continue
 
       push({
@@ -632,6 +649,7 @@ export function extractReplyLinks(
         isScript: isFunscript,
         manualOnly: MANUAL_ONLY.has(hoster),
         needsManualLink: NEEDS_MANUAL_LINK.has(hoster),
+        notAVideo: false,
         downloadable: isFetchable(url, downloadable),
         note: '',
         fromPost: from
@@ -653,11 +671,16 @@ export function extractReplyLinks(
  * the post's own links are, so it downloads and files along with the post.
  *
  * Anything the user pasted on purpose is taken as a download, except a host
- * that is only ever a page to visit.
+ * that is only ever a page to visit, and a page on a video site that is not
+ * one video.
  */
-export function pastedLink(url: string): ScrapedLink {
+export function pastedLink(
+  url: string,
+  options: Pick<ScanOptions, 'isSitePageNotVideo'> = {}
+): ScrapedLink {
   const hoster = hosterOf(url)
   const isScript = /\.funscript(\?|$)/i.test(url)
+  const notAVideo = options.isSitePageNotVideo?.(url) ?? false
   return {
     url,
     hoster,
@@ -667,7 +690,8 @@ export function pastedLink(url: string): ScrapedLink {
     isScript,
     manualOnly: MANUAL_ONLY.has(hoster),
     needsManualLink: false,
-    downloadable: !MANUAL_ONLY.has(hoster),
+    notAVideo,
+    downloadable: !MANUAL_ONLY.has(hoster) && !notAVideo,
     note: '',
     fromPost: null
   }

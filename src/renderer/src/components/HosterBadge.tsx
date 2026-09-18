@@ -1,5 +1,6 @@
-import { siDropbox, siGoogledrive, siMediafire, siMega, siPatreon, siPayhip } from 'simple-icons'
+import { siDropbox, siGoogledrive, siMediafire, siMega, siPatreon, siPayhip, siX } from 'simple-icons'
 import type { ScrapedLink } from '@shared/schemas/scraped-post'
+import { VIDEO_SITES, type VideoSiteId } from '@shared/video-sites'
 
 /**
  * Which download source a link or job belongs to, as a badge.
@@ -21,7 +22,15 @@ interface Brand {
   name: string
 }
 
+const VIDEO_SITE_BRANDS = Object.fromEntries(
+  VIDEO_SITES.map((site) => [
+    site.id,
+    { hex: site.hex, name: site.name, ...(site.id === 'twitter' ? { path: siX.path } : { mono: site.mono }) }
+  ])
+) as Record<VideoSiteId, Brand>
+
 const BRANDS: Record<Hoster, Brand> = {
+  ...VIDEO_SITE_BRANDS,
   mega: { hex: `#${siMega.hex}`, path: siMega.path, name: 'MEGA' },
   gdrive: { hex: `#${siGoogledrive.hex}`, path: siGoogledrive.path, name: 'Google Drive' },
   dropbox: { hex: `#${siDropbox.hex}`, path: siDropbox.path, name: 'Dropbox' },
