@@ -27,9 +27,15 @@ import {
  * stores the page URL and `resolve()` runs again on every resume and retry.
  */
 
+/**
+ * A plain Chrome user agent for the engine we actually run. The major version
+ * follows the bundled Chromium, because the page also reports it through
+ * `sec-ch-ua` and `navigator.userAgentData`, and a bot check that sees two
+ * different versions has a reason to keep asking.
+ */
 export const BROWSER_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) ' +
-  'Chrome/140.0.0.0 Safari/537.36'
+  `Chrome/${process.versions.chrome.split('.')[0]}.0.0.0 Safari/537.36`
 
 /** One resolution the page offers. `height` is what the quality preference sorts on. */
 export interface VideoOffer {

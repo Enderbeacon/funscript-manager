@@ -16,6 +16,7 @@ import { disposeStartupArtworkPreparation } from './services/startup/artwork-poo
 import { disposeScriptPlayer } from '@script-player/composition/session'
 import { applyPendingOnQuit, runUpdaterStartup } from './services/updates/updater'
 import { openVrPanelPreview } from './services/vr/preview-window'
+import { BROWSER_UA } from './services/downloaders/page-direct/common'
 
 /**
  * Main process entry. Startup order:
@@ -47,6 +48,13 @@ const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
   app.quit()
 }
+
+// Every frame, in every session, presents itself as the same Chrome. Passing a
+// user agent to `loadURL` only reaches the top frame: a cross-origin iframe
+// still sends the default one, which names Electron. A Cloudflare check runs
+// its box in exactly such an iframe and ties the pass it hands out to the
+// iframe's user agent, so the page, sending another, is asked again forever.
+app.userAgentFallback = BROWSER_UA
 
 // Privileged-scheme registration must happen before app `ready`.
 registerMediaScheme()
