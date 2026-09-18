@@ -11,3 +11,7 @@ Thumbs.db
 # External binaries are dropped in by hand; see resources/bin/README.txt
 resources/bin/*
 !resources/bin/README.txt
+
+# Built by scripts/build-vr-overlay.mjs
+resources/vr-overlay/
+native/vr-overlay/build/

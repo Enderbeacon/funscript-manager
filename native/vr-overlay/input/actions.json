@@ -1,0 +1,20 @@
+{
+  "default_bindings": [
+    { "controller_type": "oculus_touch", "binding_url": "bindings_oculus_touch.json" },
+    { "controller_type": "knuckles", "binding_url": "bindings_knuckles.json" },
+    { "controller_type": "vive_controller", "binding_url": "bindings_vive_controller.json" }
+  ],
+  "actions": [
+    { "name": "/actions/panel/in/pointer", "type": "pose" }
+  ],
+  "action_sets": [
+    { "name": "/actions/panel", "usage": "leftright" }
+  ],
+  "localization": [
+    {
+      "language_tag": "en_US",
+      "/actions/panel": "Panel",
+      "/actions/panel/in/pointer": "Laser pointer"
+    }
+  ]
+}

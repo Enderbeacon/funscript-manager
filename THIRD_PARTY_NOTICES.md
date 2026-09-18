@@ -69,3 +69,12 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## OpenVR SDK
+
+`native/vr-overlay/third_party/openvr/` holds unmodified files from Valve's
+OpenVR SDK, release `v2.15.6` (https://github.com/ValveSoftware/openvr):
+the `openvr.h` header, the `openvr_api.lib` import library and the
+`openvr_api.dll` runtime the VR panel helper ships with. They are under the
+BSD 3-Clause license, whose full text is in `LICENSE` beside them and is copied
+next to the helper as `OPENVR_LICENSE.txt` when it is built.
