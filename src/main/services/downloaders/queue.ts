@@ -423,40 +423,71 @@ export interface VerifyHints {
   file: string
 }
 
+/** Jobs with a captcha window open for them right now. */
+const capturing = new Set<string>()
+
+function isStuck(job: store.JobRecord): boolean {
+  return job.state === 'failed' && job.error === VERIFICATION_REQUIRED
+}
+
 /**
  * Open the check a job is stuck behind, for the user to pass.
  *
  * For a page check, passing it lets every download from that site that was
- * stuck on the same thing through, so they are all retried. For a captcha in
- * front of a file, the download the page starts is this job's download.
+ * stuck on the same thing through, so they are all retried.
+ *
+ * A captcha in front of a file is good for that one file only, so the
+ * download the page starts is this job's download. Once it is under way the
+ * next file from the same site that is stuck the same way gets its window,
+ * and so on until none are left or the user closes one.
  */
 export async function verifyJob(id: string, hints: VerifyHints): Promise<void> {
   const job = store.get(id)
-  if (!job || job.state !== 'failed' || job.error !== VERIFICATION_REQUIRED) return
+  if (!job || !isStuck(job)) return
   const how = findPlugin(job.sourceUrl)?.verification
   if (!how) return
-  const page = how.pageUrl(job.sourceUrl)
 
   if (how.delivers === 'access') {
-    const outcome = await openVerification(page, { delivers: 'access', hint: hints.access })
+    const outcome = await openVerification(how.pageUrl(job.sourceUrl), {
+      delivers: 'access',
+      hint: hints.access
+    })
     if (outcome.kind !== 'cleared') return
-    const stuck = store
-      .list()
-      .filter((j) => j.state === 'failed' && j.error === VERIFICATION_REQUIRED && j.hoster === job.hoster)
+    const stuck = store.list().filter((j) => isStuck(j) && j.hoster === job.hoster)
     for (const other of stuck) await retryJob(other.id)
     return
   }
 
-  // The browser cannot append to a partial file, and a captcha answer starts
-  // the transfer over anyway.
-  await rm(job.partPath, { force: true }).catch(() => {})
-  await mkdir(dirname(job.partPath), { recursive: true })
-  const outcome = await openVerification(page, {
-    delivers: 'file',
-    hint: hints.file,
-    savePath: job.partPath
-  })
-  if (outcome.kind === 'file') runCaptured(id, outcome.item)
+  // Asking again for a job whose window is open only brings that window forward.
+  if (capturing.has(id)) {
+    void openVerification(how.pageUrl(job.sourceUrl), { delivers: 'file', hint: hints.file })
+    return
+  }
+
+  let next: store.JobRecord | undefined = job
+  while (next) {
+    if (!(await captureFile(next, how.pageUrl(next.sourceUrl), hints.file))) return
+    next = store
+      .list()
+      .find((j) => isStuck(j) && j.hoster === job.hoster && !capturing.has(j.id))
+  }
+}
+
+/** One captcha window for one job; true once the page's download is running as the job. */
+async function captureFile(job: store.JobRecord, page: string, hint: string): Promise<boolean> {
+  capturing.add(job.id)
+  try {
+    // The browser cannot append to a partial file, and a captcha answer starts
+    // the transfer over anyway.
+    await rm(job.partPath, { force: true }).catch(() => {})
+    await mkdir(dirname(job.partPath), { recursive: true })
+    const outcome = await openVerification(page, { delivers: 'file', hint, savePath: job.partPath })
+    if (outcome.kind !== 'file') return false
+    runCaptured(job.id, outcome.item)
+    return true
+  } finally {
+    capturing.delete(job.id)
+  }
 }
 
 /**
