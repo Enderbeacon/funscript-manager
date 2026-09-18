@@ -82,6 +82,9 @@ export default function UpdatesCard(): React.JSX.Element {
 
   const busy = state.phase === 'checking' || state.phase === 'downloading'
   const release = state.release
+  // The release on offer while there is one, otherwise the one running.
+  const pending = state.phase === 'available' || state.phase === 'downloading' || state.phase === 'ready'
+  const notes = (pending ? release : releases?.find((r) => r.version === state.currentVersion))?.notes.trim()
 
   return (
     <div className="card updates-card">
@@ -155,13 +158,12 @@ export default function UpdatesCard(): React.JSX.Element {
 
         {/* What to read and where else to go: beside the status, not below it. */}
         <div className="updates-side">
-          {(state.phase === 'available' || state.phase === 'downloading' || state.phase === 'ready') &&
-            release?.notes.trim() && (
-              <details className="mfp-alt">
-                <summary>{t('updates.notes')}</summary>
-                <Markdown source={release.notes} />
-              </details>
-            )}
+          {notes && (
+            <details className="mfp-alt">
+              <summary>{t('updates.notes')}</summary>
+              <Markdown source={notes} />
+            </details>
+          )}
 
           <details
             className="mfp-alt"
