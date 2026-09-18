@@ -8,6 +8,7 @@
   "author": "",
   "scripts": {
     "dev": "electron-vite dev --remoteDebuggingPort 9222 --inspect 5858",
+    "dev:vr": "node scripts/dev-vr.mjs",
     "dev:watch": "electron-vite dev --watch --remoteDebuggingPort 9222 --inspect 5858",
     "build": "electron-vite build",
     "generate:icon": "node scripts/generate-icon.mjs",

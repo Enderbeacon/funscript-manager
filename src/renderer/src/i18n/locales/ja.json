@@ -832,7 +832,8 @@
     "update_release_not_found": "このバージョンはインストールできません。",
     "license_unavailable": "ライセンスファイルを開けませんでした。",
     "megacmd_missing": "MEGAcmd がインストールされていません。設定からインストールしてください。",
-    "megacmd_install_failed": "MEGAcmd をインストールできませんでした。もう一度お試しください。"
+    "megacmd_install_failed": "MEGAcmd をインストールできませんでした。もう一度お試しください。",
+    "vr_no_heresphere": "先に設定で HereSphere を動画プレーヤーとして追加してください。"
   },
   "downloads": {
     "empty": "ダウンロードはまだありません。",
@@ -1419,5 +1420,43 @@
     "documentation": "ドキュメント",
     "licenseText": "ライセンス",
     "thirdPartyLicenses": "サードパーティのライセンス"
+  },
+  "vr": {
+    "search": "検索",
+    "clearSearch": "検索をクリア",
+    "browse": "動画",
+    "queue": "キュー",
+    "toWrist": "手首に付ける",
+    "toFront": "正面に戻す",
+    "hide": "しまう",
+    "noPinned": "「すべてのタグ」でピン留めしたタグがここに並びます",
+    "clearTags": "クリア",
+    "allTags": "すべてのタグ",
+    "showVideos": "動画に戻る",
+    "noMatches": "該当する動画はありません",
+    "emptyLibrary": "動画はまだありません",
+    "noTags": "タグはまだありません",
+    "pin": "ピン留め",
+    "unpin": "ピン留めを外す",
+    "close": "閉じる",
+    "noScript": "スクリプトなし",
+    "scripts_other": "スクリプト {{count}} 件",
+    "multiAxis": "多軸",
+    "play": "再生",
+    "playNext": "次に再生",
+    "addToEnd": "最後に追加",
+    "queuedNext": "次に再生 · キュー {{total}} 件",
+    "queuedEnd": "追加しました · キュー {{total}} 件",
+    "queueEmpty": "キューは空です",
+    "queueCount_other": "動画 {{count}} 件",
+    "clearQueue": "クリア",
+    "clearConfirm": "もう一度押すとクリア",
+    "unknownVideo": "ライブラリにありません",
+    "moveUp": "上へ",
+    "moveDown": "下へ",
+    "remove": "削除",
+    "script": "スクリプト",
+    "nowPlaying": "再生中",
+    "switchScript": "スクリプトを切り替え"
   }
 }

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { APP_ERROR_CODES } from '../errors'
+import { VR_PANEL_ACTIONS } from '../vr'
 import { LibrariesFileSchema, RegisteredLibrarySchema, SettingsSchema } from '../schemas/app-config'
 import {
   MediaDetailSchema,
@@ -844,6 +845,29 @@ export const ipcContract = {
         .nullable(),
       scriptVersionId: z.uuid().nullable()
     })
+  },
+  'vr:play': {
+    /**
+     * Play from the VR panel. Always into HereSphere, the player the headset
+     * is showing — whichever player the desktop last used.
+     *
+     * scriptVersionId omitted = lastUsed → default → first, as the grid plays.
+     * resumePosition: a script switch on the video already playing, which
+     * carries on from where it is.
+     */
+    input: z.object({
+      libraryId: z.uuid(),
+      mediaId: z.uuid(),
+      scriptVersionId: z.uuid().optional(),
+      resumePosition: z.boolean().optional()
+    }),
+    /** The script version that was loaded; null for a video without one. */
+    output: z.object({ scriptVersionId: z.uuid().nullable() })
+  },
+  'vr:panel': {
+    /** The panel's own placement buttons. */
+    input: z.object({ action: z.enum(VR_PANEL_ACTIONS) }),
+    output: z.void()
   },
   'playback:setPaused': {
     /**

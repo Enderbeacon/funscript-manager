@@ -8,6 +8,10 @@ import { applyThemeSetting } from './theme'
 import ScriptPlayerStandalone from '@script-player/interface/renderer/ScriptPlayerStandalone'
 import VideoPlayerWindow from './components/VideoPlayerWindow'
 
+// Its own chunk: the panel's stylesheet sizes the whole page for the headset,
+// and must never reach the main window.
+const VrPanel = React.lazy(() => import('./vr/VrPanel'))
+
 // System theme immediately (before first paint); the persisted ui.theme
 // setting is applied by App once settings arrive over IPC.
 applyThemeSetting('system')
@@ -20,6 +24,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <ScriptPlayerStandalone />
     ) : query.has('videoPlayerWindow') ? (
       <VideoPlayerWindow />
+    ) : query.has('vrPanel') ? (
+      <React.Suspense fallback={null}>
+        <VrPanel />
+      </React.Suspense>
     ) : (
       <App />
     )}

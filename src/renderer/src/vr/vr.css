@@ -1,0 +1,768 @@
+/*
+ * The VR panel. Read from about a metre away and pointed at with a laser, so
+ * everything is large: 22px body text, targets at least 56px tall, and no
+ * state that only shows on hover.
+ */
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+.vr-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-page);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 22px;
+  user-select: none;
+  position: relative;
+}
+
+.vr-panel button {
+  font: inherit;
+  color: inherit;
+  border: 0;
+  cursor: pointer;
+}
+
+.vr-panel button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* ---------------------------------------------------------------- bar */
+
+.vr-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-tertiary);
+}
+
+.vr-search {
+  flex: 1;
+  min-width: 0;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px 0 18px;
+  border-radius: 14px;
+  background: var(--bg-sunken);
+  border: 2px solid var(--border-tertiary);
+  color: var(--text-secondary);
+}
+
+.vr-search:focus-within {
+  border-color: var(--accent);
+}
+
+.vr-search input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.vr-tabs,
+.vr-place {
+  display: flex;
+  gap: 8px;
+}
+
+.vr-tabs button,
+.vr-place button {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 18px;
+  border-radius: 14px;
+  background: var(--bg-muted);
+  white-space: nowrap;
+}
+
+.vr-tabs button:hover,
+.vr-place button:hover {
+  background: var(--accent-soft);
+}
+
+.vr-tabs button.on {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.vr-count {
+  min-width: 34px;
+  padding: 0 8px;
+  border-radius: 17px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 18px;
+  line-height: 34px;
+  text-align: center;
+}
+
+.vr-icon-btn {
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border-radius: 14px;
+  background: transparent;
+}
+
+.vr-search .vr-icon-btn {
+  width: 48px;
+  height: 48px;
+}
+
+.vr-icon-btn:hover {
+  background: var(--accent-soft);
+}
+
+.vr-place .vr-close {
+  width: 60px;
+  padding: 0;
+  justify-content: center;
+}
+
+/* ------------------------------------------------------------ tag row */
+
+.vr-tagrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-tertiary);
+}
+
+.vr-tagrow-chips {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.vr-chip {
+  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding: 0 20px;
+  border-radius: 26px;
+  background: var(--bg-muted);
+  white-space: nowrap;
+}
+
+.vr-chip:hover {
+  background: var(--accent-soft);
+}
+
+.vr-chip.on {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.vr-chip-plain {
+  background: transparent;
+  border: 2px solid var(--border-secondary) !important;
+}
+
+.vr-chip-static {
+  height: 44px;
+  padding: 0 16px;
+  font-size: 19px;
+  cursor: default;
+}
+
+.vr-chip-static:hover {
+  background: var(--bg-muted);
+}
+
+.vr-hint {
+  color: var(--text-tertiary);
+  line-height: 52px;
+  font-size: 20px;
+}
+
+/* ---------------------------------------------------------------- body */
+
+.vr-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.vr-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/*
+ * No scroll anchoring. The virtual lists here keep swapping which rows exist,
+ * and the browser's anchoring would move the position to keep one of them in
+ * place while the list moves it back: the position has to have one owner.
+ */
+.vr-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overflow-anchor: none;
+}
+
+.vr-scroll * {
+  overflow-anchor: none;
+}
+
+.vr-scroll::-webkit-scrollbar {
+  width: 14px;
+}
+
+.vr-scroll::-webkit-scrollbar-thumb {
+  background: var(--border-secondary);
+  border-radius: 7px;
+}
+
+.vr-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: 26px;
+}
+
+/*
+ * Every tile exactly as wide, and so exactly as tall, as every other one,
+ * whatever it holds. The grid measures one tile and takes it for all of them.
+ * A plain `1fr` column grows to fit its widest content: one title that is a
+ * single unbroken string widened its column, the grid overflowed, a sideways
+ * scrollbar took 15px of height, the wider tiles grew taller, and the grid —
+ * now rendering a different stretch of the list, without that tile — shrank
+ * back, only to bring the tile in again. `minmax(0, 1fr)` columns cannot be
+ * pushed wider by anything inside them.
+ */
+.vr-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  padding: 16px;
+}
+
+/* The detail column takes a third of the width; the grid gives up a column. */
+.vr-content.narrow .vr-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.vr-content.narrow .vr-taglist {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.vr-card {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 18px;
+  background: var(--bg-card);
+  text-align: left;
+  outline: 4px solid transparent;
+}
+
+.vr-card:hover {
+  outline-color: var(--accent-soft);
+}
+
+.vr-card.on {
+  outline-color: var(--accent);
+}
+
+.vr-cover {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-sunken);
+}
+
+.vr-cover-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.vr-badge {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 2px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 18px;
+}
+
+.vr-card-title {
+  height: 2.6em;
+  overflow-wrap: anywhere;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.3;
+  font-size: 20px;
+}
+
+/* ------------------------------------------------------------- tag list */
+
+.vr-taglist {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px;
+}
+
+.vr-tag {
+  display: flex;
+  height: 64px;
+  border-radius: 16px;
+  background: var(--bg-card);
+  overflow: hidden;
+  outline: 3px solid transparent;
+}
+
+.vr-tag.on {
+  outline-color: var(--accent);
+}
+
+.vr-tag-name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 18px;
+  background: transparent;
+  text-align: left;
+}
+
+.vr-tag-name span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vr-tag.on .vr-tag-name {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.vr-tag-count {
+  flex: none;
+  color: var(--text-tertiary);
+  font-size: 18px;
+}
+
+.vr-tag.on .vr-tag-count {
+  color: inherit;
+}
+
+.vr-tag-name:hover,
+.vr-tag-pin:hover {
+  background: var(--accent-soft);
+}
+
+.vr-tag-pin {
+  width: 64px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--text-tertiary);
+  border-left: 1px solid var(--border-tertiary) !important;
+}
+
+.vr-tag-pin.on {
+  color: var(--accent);
+}
+
+/* --------------------------------------------------------------- detail */
+
+.vr-side {
+  width: 440px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border-left: 1px solid var(--border-tertiary);
+}
+
+.vr-side-head {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 8px 0;
+}
+
+.vr-side-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 20px 16px;
+}
+
+.vr-side-cover {
+  aspect-ratio: 16 / 9;
+  flex: none;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--bg-sunken);
+}
+
+.vr-side-title {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.vr-facts {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.vr-side-label {
+  margin: 8px 0 0;
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.vr-versions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vr-version {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--bg-muted);
+  text-align: left;
+  outline: 3px solid transparent;
+}
+
+.vr-version:hover {
+  background: var(--accent-soft);
+}
+
+.vr-version.on {
+  background: var(--accent-soft);
+  outline-color: var(--accent);
+}
+
+.vr-version-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.vr-radio {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 3px solid var(--border-secondary);
+}
+
+.vr-radio.on {
+  border: 8px solid var(--accent);
+}
+
+.vr-version-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.vr-version-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-left: 38px;
+  color: var(--text-secondary);
+  font-size: 18px;
+}
+
+.vr-version-author {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vr-flag {
+  padding: 1px 10px;
+  border-radius: 999px;
+  border: 1.5px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  color: var(--accent);
+  font-size: 16px;
+}
+
+.vr-axes {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.vr-ax {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.vr-ax.borrowed {
+  background: transparent;
+  border: 1.5px solid color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.vr-version-now {
+  flex: none;
+  padding: 2px 10px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 17px;
+}
+
+.vr-side-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.vr-side-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 20px 18px;
+  border-top: 1px solid var(--border-tertiary);
+}
+
+.vr-side-pair {
+  display: flex;
+  gap: 10px;
+}
+
+.vr-side-actions button {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 14px;
+  background: var(--bg-muted);
+}
+
+.vr-side-pair button {
+  flex: 1;
+  min-width: 0;
+  padding: 0 10px;
+  font-size: 19px;
+}
+
+.vr-side-actions button:hover {
+  background: var(--accent-soft);
+}
+
+.vr-side-actions .vr-primary {
+  height: 72px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 26px;
+  font-weight: 600;
+}
+
+.vr-side-actions .vr-primary:hover {
+  background: var(--accent);
+  filter: brightness(1.1);
+}
+
+/* ---------------------------------------------------------------- queue */
+
+.vr-queue {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.vr-queue-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-tertiary);
+}
+
+.vr-danger {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 18px;
+  border-radius: 14px;
+  background: var(--bg-muted);
+}
+
+.vr-danger.armed {
+  background: var(--danger);
+  color: #fff;
+}
+
+.vr-qrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 16px;
+  padding: 6px;
+  border-radius: 16px;
+  background: var(--bg-card);
+}
+
+.vr-qrow.playing {
+  outline: 3px solid var(--accent);
+}
+
+.vr-qrow-main {
+  flex: 1;
+  min-width: 0;
+  height: 84px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 10px;
+  border-radius: 12px;
+  background: transparent;
+  text-align: left;
+}
+
+.vr-qrow-main:hover {
+  background: var(--accent-soft);
+}
+
+.vr-qrow-index {
+  width: 40px;
+  flex: none;
+  display: flex;
+  justify-content: center;
+  color: var(--text-tertiary);
+}
+
+.vr-qrow.playing .vr-qrow-index {
+  color: var(--accent);
+}
+
+.vr-qrow-thumb {
+  width: 128px;
+  height: 72px;
+  flex: none;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-sunken);
+}
+
+.vr-qrow-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vr-qrow-time {
+  flex: none;
+  color: var(--text-secondary);
+  font-size: 19px;
+}
+
+.vr-qrow-tools {
+  display: flex;
+  gap: 6px;
+}
+
+.vr-qrow-tools button {
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: var(--bg-muted);
+}
+
+.vr-qrow-tools button:not(:disabled):hover {
+  background: var(--accent-soft);
+}
+
+/* --------------------------------------------------------------- notice */
+
+.vr-notice {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  max-width: 900px;
+  padding: 16px 28px;
+  border-radius: 16px;
+  background: var(--text-primary);
+  color: var(--bg-page);
+  z-index: 20;
+  text-align: center;
+}

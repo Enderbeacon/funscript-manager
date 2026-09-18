@@ -63,6 +63,8 @@ export const APP_ERROR_CODES = [
   'megacmd_missing',
   /** Downloading or running MEGA's installer failed; the log says which. */
   'megacmd_install_failed',
+  /** The VR panel plays into HereSphere, and no HereSphere is in the player list. */
+  'vr_no_heresphere',
   'internal_error'
 ] as const
 

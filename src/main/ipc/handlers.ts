@@ -114,6 +114,7 @@ import { applyProxySettings } from '../services/net/proxy'
 import { listSites, openSiteLogin, signOutSite } from '../services/sites/site-login'
 import { registerScriptPlayerHandlers } from '@script-player/interface/ipc/register'
 import { configureScriptPlayer } from '@script-player/composition/session'
+import { panelAction } from '../services/vr/panel'
 
 /**
  * The taxonomy as the UI needs it: tree order, with a count on every row and
@@ -150,6 +151,29 @@ function withNamesInUse(entities: Entity[], inUse: string[]): Entity[] {
     .sort((a, b) => a.localeCompare(b))
     .map((name) => ({ name, aliases: [] }) as Entity)
   return extra.length === 0 ? entities : [...entities, ...extra]
+}
+
+/** One media into the current player, the way the grid's play does it. */
+async function playMedia(input: {
+  libraryId: string
+  mediaId: string
+  scriptVersionId?: string
+  noScript?: boolean
+  resumePosition?: boolean
+}): Promise<playback.PlayResult> {
+  const loc = libraryManager.getMediaLocation(input.libraryId, input.mediaId)
+  // Playing something that is not what the queue is on replaces the queue:
+  // the bar must never describe a list the user has walked away from.
+  queue.notePlayed({ libraryId: input.libraryId, mediaId: input.mediaId })
+  return playback.play({
+    libraryRoot: loc.libraryRoot,
+    mediaRelPath: loc.mediaRelPath,
+    libraryId: input.libraryId,
+    mediaId: input.mediaId,
+    scriptVersionId: input.scriptVersionId,
+    noScript: input.noScript,
+    resumePosition: input.resumePosition
+  })
 }
 
 async function taxonomyProjection(): Promise<{
@@ -685,20 +709,22 @@ export function registerIpcHandlers(): void {
     libraryManager.deleteScriptVersion(input.libraryId, input.mediaId, input.scriptVersionId)
   )
 
-  handle('playback:play', async (input) => {
-    const loc = libraryManager.getMediaLocation(input.libraryId, input.mediaId)
-    // Playing something that is not what the queue is on replaces the queue:
-    // the bar must never describe a list the user has walked away from.
-    queue.notePlayed({ libraryId: input.libraryId, mediaId: input.mediaId })
-    return playback.play({
-      libraryRoot: loc.libraryRoot,
-      mediaRelPath: loc.mediaRelPath,
-      libraryId: input.libraryId,
-      mediaId: input.mediaId,
-      scriptVersionId: input.scriptVersionId,
-      noScript: input.noScript,
-      resumePosition: input.resumePosition
-    })
+  handle('playback:play', (input) => playMedia(input))
+
+  handle('vr:panel', ({ action }) => panelAction(action))
+
+  handle('vr:play', async ({ libraryId, mediaId, scriptVersionId, resumePosition }) => {
+    const { playback: settings } = await config.getSettings()
+    const heresphere =
+      settings.sources.find((s) => s.id === settings.currentSourceId && s.kind === 'heresphere') ??
+      settings.sources.find((s) => s.kind === 'heresphere')
+    if (!heresphere) throw new AppError('vr_no_heresphere')
+    if (heresphere.id !== settings.currentSourceId) {
+      await config.updateSettings({ playback: { currentSourceId: heresphere.id } })
+      await playback.switchPlayer(heresphere.id)
+    }
+    const result = await playMedia({ libraryId, mediaId, scriptVersionId, resumePosition })
+    return { scriptVersionId: result.scriptVersionId }
   })
 
   handle('media:listByIds', ({ targets }) => ({ items: libraryManager.mediaByIds(targets) }))

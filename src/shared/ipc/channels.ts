@@ -30,7 +30,9 @@ export const IPC_CHANNEL_PREFIXES = [
   /** Finding, downloading and installing app releases, and the notices shown about them. */
   'updates:',
   /** The built-in picture: the surface holding it, and what it reports back. */
-  'video:'
+  'video:',
+  /** The panel shown inside the headset. */
+  'vr:'
 ] as const
 
 /** Prefix for main → renderer event channels. */

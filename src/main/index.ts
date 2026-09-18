@@ -15,6 +15,7 @@ import { focusCard } from './services/startup/splash-window'
 import { disposeStartupArtworkPreparation } from './services/startup/artwork-pool'
 import { disposeScriptPlayer } from '@script-player/composition/session'
 import { applyPendingOnQuit, runUpdaterStartup } from './services/updates/updater'
+import { openVrPanelPreview } from './services/vr/preview-window'
 
 /**
  * Main process entry. Startup order:
@@ -74,6 +75,7 @@ app.whenReady().then(async () => {
   })
 
   await runStartup(settings)
+  if (!app.isPackaged && process.env['FSMGR_VR_PREVIEW']) openVrPanelPreview()
 
   // Behind the finished window from here: nothing below has to exist before
   // the user can work, and the downloads resume after the libraries are known

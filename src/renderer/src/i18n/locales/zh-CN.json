@@ -832,7 +832,8 @@
     "update_release_not_found": "这个版本无法安装。",
     "license_unavailable": "无法打开许可证文件。",
     "megacmd_missing": "未安装 MEGAcmd，请在设置中安装。",
-    "megacmd_install_failed": "MEGAcmd 安装失败，请重试。"
+    "megacmd_install_failed": "MEGAcmd 安装失败，请重试。",
+    "vr_no_heresphere": "先在设置里把 HereSphere 添加为视频播放器。"
   },
   "downloads": {
     "empty": "还没有下载任务。",
@@ -1419,5 +1420,43 @@
     "documentation": "使用文档",
     "licenseText": "许可证",
     "thirdPartyLicenses": "第三方许可"
+  },
+  "vr": {
+    "search": "搜索",
+    "clearSearch": "清空搜索",
+    "browse": "视频",
+    "queue": "队列",
+    "toWrist": "挂到手腕",
+    "toFront": "回到面前",
+    "hide": "收起",
+    "noPinned": "在「全部标签」里钉住的标签会显示在这里",
+    "clearTags": "清除",
+    "allTags": "全部标签",
+    "showVideos": "回到视频",
+    "noMatches": "没有符合的视频",
+    "emptyLibrary": "还没有视频",
+    "noTags": "还没有标签",
+    "pin": "钉住",
+    "unpin": "取消钉住",
+    "close": "关闭",
+    "noScript": "没有脚本",
+    "scripts_other": "{{count}} 个脚本",
+    "multiAxis": "多轴",
+    "play": "播放",
+    "playNext": "下一个播",
+    "addToEnd": "放到最后",
+    "queuedNext": "下一个播放 · 队列共 {{total}} 个",
+    "queuedEnd": "已加入 · 队列共 {{total}} 个",
+    "queueEmpty": "队列是空的",
+    "queueCount_other": "{{count}} 个视频",
+    "clearQueue": "清空",
+    "clearConfirm": "再按一次清空",
+    "unknownVideo": "不在媒体库里",
+    "moveUp": "上移",
+    "moveDown": "下移",
+    "remove": "移除",
+    "script": "脚本",
+    "nowPlaying": "正在播放",
+    "switchScript": "切换脚本"
   }
 }
