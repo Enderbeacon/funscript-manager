@@ -218,7 +218,7 @@ export default function SettingsPage({
       <div className="settings-row">
           <EroScriptsCard />
 
-          <div className="card">
+          <FoldingCard>
             <h2 className="settings-section-title">{t('settings.downloads.title')}</h2>
             <div className="settings-field">
               <span className="settings-label">{t('settings.downloads.quality')}</span>
@@ -254,7 +254,7 @@ export default function SettingsPage({
               value={settings.download.gofile}
               onSave={(gofile) => void patch({ download: { gofile } })}
             />
-          </div>
+          </FoldingCard>
 
           <NetworkCard settings={settings} onPatch={patch} />
 
@@ -479,6 +479,35 @@ export default function SettingsPage({
   )
 }
 
+/**
+ * A card with a fold inside it. Cards on a line are stretched to the tallest
+ * of them, so one that grew when its fold opened would push the whole line
+ * down. This one holds the height it had and scrolls what no longer fits.
+ */
+function FoldingCard({ children }: { children: React.ReactNode }): React.JSX.Element {
+  const card = useRef<HTMLDivElement>(null)
+  const [height, setHeight] = useState<number | null>(null)
+
+  // A click on a summary arrives before the fold opens, so the card is still
+  // at the height to hold it to. Closing hands the height back to the layout.
+  const onClick = (event: React.MouseEvent<HTMLDivElement>): void => {
+    const fold = (event.target as HTMLElement).closest('summary')?.parentElement
+    if (!(fold instanceof HTMLDetailsElement) || !card.current) return
+    setHeight(fold.open ? null : card.current.offsetHeight)
+  }
+
+  return (
+    <div
+      ref={card}
+      className={`card settings-fold-card${height === null ? '' : ' scrolling'}`}
+      style={height === null ? undefined : { height }}
+      onClick={onClick}
+    >
+      {children}
+    </div>
+  )
+}
+
 /** The rate limit is stored in bytes per second and shown in MB/s. */
 const MB = 1024 * 1024
 
@@ -612,7 +641,7 @@ function SiteLoginCard(): React.JSX.Element {
   const optional = sites.filter((s) => s.need === 'no' && !s.signedIn)
 
   return (
-    <div className="card">
+    <FoldingCard>
       <h2 className="settings-section-title">{t('settings.sites.title')}</h2>
       <p className="settings-hint">{t('settings.sites.hint')}</p>
       {required.map(row)}
@@ -623,7 +652,7 @@ function SiteLoginCard(): React.JSX.Element {
           {optional.map(row)}
         </details>
       )}
-    </div>
+    </FoldingCard>
   )
 }
 
