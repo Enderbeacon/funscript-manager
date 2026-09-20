@@ -1859,6 +1859,9 @@ textarea:disabled { opacity: 0.55; cursor: default; }
   font-size: 11px;
 }
 
+/* Ties a card to its entry in each file's version picker. */
+.add-version-index { margin-right: 5px; color: var(--text-secondary); }
+
 .add-version-hint { color: var(--text-tertiary); }
 .add-version-warn { color: var(--danger); }
 
