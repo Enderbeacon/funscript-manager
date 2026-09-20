@@ -1745,11 +1745,13 @@ interface Draft {
 }
 
 /**
- * Each new file starts a version of its own, so picking four main scripts adds
- * four versions rather than a conflict. A non-main axis instead joins the
- * version whose suggested name it shares, when that version has no such axis
- * yet — `clip.a` and `clip.a.roll` are one version by every convention the
- * scanner uses. Anything mis-grouped is moved with the version picker.
+ * A file joins the version whose suggested name it shares, as long as that
+ * version has nothing on its axis yet — `clip.a`, `clip.a.roll` and
+ * `clip.a.pitch` are one version by every convention the scanner uses, and
+ * they arrive in whatever order the file list happens to be sorted in, main
+ * script last as often as first. Everything else starts a version of its own,
+ * so picking four main scripts adds four versions rather than a conflict.
+ * Anything mis-grouped is moved with the version picker.
  */
 function addPaths(draft: Draft, paths: string[]): Draft {
   const versions = [...draft.versions]
@@ -1759,12 +1761,9 @@ function addPaths(draft: Draft, paths: string[]): Draft {
     if (files.some((f) => f.path === path)) continue
     const axis = guessAxis(path)
     const name = suggestName(path)
-    const host =
-      axis === 'main'
-        ? undefined
-        : versions.find(
-            (v) => v.name === name && !files.some((f) => f.versionId === v.id && f.axis === axis)
-          )
+    const host = versions.find(
+      (v) => v.name === name && !files.some((f) => f.versionId === v.id && f.axis === axis)
+    )
     const versionId = host?.id ?? nextId++
     if (!host) versions.push({ id: versionId, name })
     files.push({ path, axis, versionId })
@@ -1874,10 +1873,12 @@ function AddVersionForm({
     }
   }
 
+  // Numbered, and the same number heads the card: two scripts picked from one
+  // folder suggest the same name, and a list of identical names picks nothing.
   const versionOptions = [
     ...draft.versions.map((v, i) => ({
       value: String(v.id),
-      label: v.name.trim() || `#${i + 1}`
+      label: `#${i + 1} ${v.name.trim()}`.trim()
     })),
     { value: 'new', label: t('detail.newVersion') }
   ]
@@ -1916,7 +1917,10 @@ function AddVersionForm({
         return (
           <div className="add-version-group" key={version.id}>
             <label className="version-field">
-              <span>{t('detail.versionName')}</span>
+              <span>
+                <span className="add-version-index">#{i + 1}</span>
+                {t('detail.versionName')}
+              </span>
               <input value={version.name} onChange={(e) => rename(version.id, e.target.value)} />
             </label>
 
