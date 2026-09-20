@@ -2551,6 +2551,7 @@ button.lk-check:hover { color: var(--text-primary); border-color: var(--accent);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.pair-axes { margin-left: 0.4rem; color: var(--text-tertiary); font-size: 11.5px; }
 .select-root.pair-select { flex: 0 0 min(320px, 48%); }
 
 /* ------------------------------------------------------------------ *
@@ -3143,15 +3144,19 @@ button.lk-check:hover { color: var(--text-primary); border-color: var(--accent);
 
 .select-caret { flex: none; color: var(--text-tertiary); }
 
-/* Covers the window so a click anywhere else closes the menu. */
-.select-scrim { position: fixed; inset: 0; z-index: 60; }
+/* Covers the window so a click anywhere else closes the menu.
+
+   Above a dialog's scrim: a select opened inside a dialog is in front of
+   everything the dialog is in front of, and a list drawn behind the scrim
+   looks like a control that does nothing. */
+.select-scrim { position: fixed; inset: 0; z-index: 100; }
 
 /* Positioned from JS against the viewport: it lives on the body, not in the
    card, so that a neighbouring card's backdrop-filter cannot bury it. */
 .select-menu {
   position: fixed;
   overflow-y: auto;
-  z-index: 61;
+  z-index: 101;
   padding: 4px;
   display: flex;
   flex-direction: column;

@@ -90,6 +90,11 @@ export const PairingRequestSchema = z.object({
     z.object({
       jobId: z.uuid(),
       fileName: z.string(),
+      /**
+       * The script set this file belongs to: a main script and the axis files
+       * named after it share one, and they only ever go to the same video.
+       */
+      family: z.string(),
       /** The video to offer first; null when nothing points anywhere. */
       guess: z.uuid().nullable()
     })
