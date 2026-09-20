@@ -309,6 +309,26 @@ struct Pointing {
 // input does not flicker between us and the app underneath.
 constexpr double kPointingLingerMs = 150;
 
+// Both hands carry a laser and both may land on the same panel, while the page
+// behind it has one mouse pointer. One laser holds that pointer at a time.
+constexpr uint32_t kCursorCount = 2;
+
+// In panel pixels: how far a laser must travel to count as moving rather than
+// resting in someone's hand, and how far the other hand must then travel to
+// take the pointer from the hand holding it. A hand pointing somewhere else
+// wins the pointer long before its owner finishes a sentence about it.
+constexpr float kLaserNoise = 3.f;
+constexpr float kLaserTakeOver = 48.f;
+
+// One laser on one panel.
+struct Laser {
+  bool onPanel = false;
+  bool placed = false;  // a position has been seen since it arrived
+  float x = 0, y = 0;
+  float travelled = 0;  // towards taking the pointer, spent by the holder moving
+  vr::TrackedDeviceIndex_t device = vr::k_unTrackedDeviceIndexInvalid;
+};
+
 // A texture that feeds one overlay.
 struct Surface {
   vr::VROverlayHandle_t handle = vr::k_ulOverlayHandleInvalid;
@@ -336,8 +356,12 @@ struct Panel {
   bool visible = false;
   bool keyboardOpen = false;
 
-  // The controller the laser on the panel comes from, for the log.
-  vr::TrackedDeviceIndex_t laserDevice = vr::k_unTrackedDeviceIndexInvalid;
+  // SteamVR's two lasers (0 primary, 1 secondary) and which of them the page's
+  // pointer follows. `holding` means the pointer's laser has the trigger down,
+  // so it is in the middle of a click or a drag and keeps the pointer.
+  Laser lasers[kCursorCount];
+  uint32_t pointerCursor = 0;
+  bool holding = false;
   Pointing pointing;
   bool logNextMove = false;
 };
@@ -515,6 +539,10 @@ bool Overlays::Start() {
     overlay_->SetOverlayInputMethod(handle, vr::VROverlayInputMethod_Mouse);
     overlay_->SetOverlayFlag(handle, vr::VROverlayFlags_SendVRSmoothScrollEvents, true);
     overlay_->SetOverlayFlag(handle, vr::VROverlayFlags_EnableClickStabilization, true);
+    // SteamVR draws one laser, on whichever hand last pulled its trigger. This
+    // asks it to also send us the other hand's laser, so that the hand now
+    // pointing at the panel can use it without the other one handing it over.
+    overlay_->SetOverlayFlag(handle, vr::VROverlayFlags_MultiCursor, true);
     // The page renderer hands over premultiplied alpha, and a page's
     // background may be see-through.
     overlay_->SetOverlayFlag(handle, vr::VROverlayFlags_IsPremultiplied, true);
@@ -524,6 +552,9 @@ bool Overlays::Start() {
   }
 
   overlay_->SetOverlayInputMethod(button_.handle, vr::VROverlayInputMethod_Mouse);
+  // The button rides on one wrist and is pressed with the other hand, whichever
+  // laser that hand happens to carry.
+  overlay_->SetOverlayFlag(button_.handle, vr::VROverlayFlags_MultiCursor, true);
   overlay_->SetOverlaySortOrder(button_.handle, 11);
   // The page renderer hands over premultiplied alpha; the button has a
   // transparent surround.
@@ -825,29 +856,82 @@ const char* HandName(vr::IVRSystem* system, vr::TrackedDeviceIndex_t device) {
   }
 }
 
+uint32_t ThisCursor(uint32_t index) { return index < kCursorCount ? index : 0; }
+uint32_t OtherCursor(uint32_t cursor) { return cursor ^ 1u; }
+
+// Hands the page's pointer to another laser.
+void TakePointer(Panel& panel, uint32_t cursor, vr::IVRSystem* system, const char* why) {
+  panel.pointerCursor = cursor;
+  panel.holding = false;
+  for (Laser& laser : panel.lasers) laser.travelled = 0;
+  Log("panel %u follows the %s hand now (cursor %u, it %s)", panel.index,
+      HandName(system, panel.lasers[cursor].device), cursor, why);
+}
+
+// One pointer event for the page. Overlay mouse coordinates start at the
+// bottom left, the page's at the top left.
+void EmitPointer(const Panel& panel, const char* kind, uint32_t cursor, uint32_t button) {
+  const Laser& laser = panel.lasers[cursor];
+  char json[256];
+  snprintf(json, sizeof json, "{\"t\":\"%s\",\"p\":%u,\"x\":%.1f,\"y\":%.1f,\"button\":%u}", kind, panel.index,
+           laser.x, static_cast<float>(panel.surface.height) - laser.y, button);
+  Emit(json);
+}
+
 void Overlays::PollPanelEvents(Panel& panel) {
   const unsigned p = panel.index;
   vr::VREvent_t ev;
   while (overlay_->PollNextOverlayEvent(panel.surface.handle, &ev, sizeof ev)) {
     char json[256];
     switch (ev.eventType) {
-      case vr::VREvent_FocusEnter:
-        Log("laser on panel %u (device %u, %s hand)", p, ev.trackedDeviceIndex,
-            HandName(system_, ev.trackedDeviceIndex));
+      case vr::VREvent_FocusEnter: {
+        const uint32_t c = ThisCursor(ev.data.overlay.cursorIndex);
+        panel.lasers[c] = Laser{};
+        panel.lasers[c].onPanel = true;
+        panel.lasers[c].device = ev.trackedDeviceIndex;
+        // The pointer goes to the only laser on the panel without asking for
+        // any more movement.
+        if (!panel.lasers[OtherCursor(c)].onPanel) {
+          panel.pointerCursor = c;
+          panel.holding = false;
+        }
         break;
-      case vr::VREvent_FocusLeave:
-        Log("laser off panel %u", p);
+      }
+      case vr::VREvent_FocusLeave: {
+        const uint32_t c = ThisCursor(ev.data.overlay.cursorIndex);
+        const uint32_t other = OtherCursor(c);
+        Log("laser off panel %u (device %u, cursor %u)", p, ev.trackedDeviceIndex, c);
+        if (c != panel.pointerCursor) {
+          panel.lasers[c] = Laser{};
+          break;
+        }
+        if (panel.holding) {
+          // Whatever the page was being dragged with, the hand doing it is
+          // gone; let go of it where it stood.
+          panel.holding = false;
+          EmitPointer(panel, "up", c, vr::VRMouseButton_Left);
+        }
+        panel.lasers[c] = Laser{};
+        if (panel.lasers[other].onPanel) {
+          // The hand still pointing takes the pointer where it already is, so
+          // the page sees it move rather than leave.
+          TakePointer(panel, other, system_, "is the one left pointing");
+          if (panel.lasers[other].placed) EmitPointer(panel, "move", other, 0);
+          break;
+        }
         snprintf(json, sizeof json, "{\"t\":\"leave\",\"p\":%u}", p);
         Emit(json);
         break;
+      }
       case vr::VREvent_MouseButtonDown:
       case vr::VREvent_MouseButtonUp:
         // While a panel is up SteamVR's laser owns the controllers, and the
         // grip reaches us only as the laser's middle button, from the
         // controller the laser comes from. That controller carries the panel.
         if (ev.data.mouse.button == vr::VRMouseButton_Middle) {
-          Log("grip %s on panel %u (device %u, %s hand)", ev.eventType == vr::VREvent_MouseButtonDown ? "down" : "up",
-              p, ev.trackedDeviceIndex, HandName(system_, ev.trackedDeviceIndex));
+          Log("grip %s on panel %u (device %u, %s hand, cursor %u)",
+              ev.eventType == vr::VREvent_MouseButtonDown ? "down" : "up", p, ev.trackedDeviceIndex,
+              HandName(system_, ev.trackedDeviceIndex), ev.data.mouse.cursorIndex);
           if (ev.eventType == vr::VREvent_MouseButtonDown) {
             StartDrag(panel, ev.trackedDeviceIndex);
           } else if (dragging_ == &panel && ev.trackedDeviceIndex == dragDevice_) {
@@ -857,31 +941,72 @@ void Overlays::PollPanelEvents(Panel& panel) {
         }
         [[fallthrough]];
       case vr::VREvent_MouseMove: {
-        if (ev.trackedDeviceIndex != panel.laserDevice) {
-          Log("laser on panel %u now from device %u (%s hand)", p, ev.trackedDeviceIndex,
-              HandName(system_, ev.trackedDeviceIndex));
+        const uint32_t c = ThisCursor(ev.data.mouse.cursorIndex);
+        Laser& laser = panel.lasers[c];
+        const float moved =
+            laser.placed ? std::sqrt((ev.data.mouse.x - laser.x) * (ev.data.mouse.x - laser.x) +
+                                     (ev.data.mouse.y - laser.y) * (ev.data.mouse.y - laser.y))
+                         : 0.f;
+        laser.x = ev.data.mouse.x;
+        laser.y = ev.data.mouse.y;
+        laser.placed = true;
+        laser.onPanel = true;
+        laser.device = ev.trackedDeviceIndex;
+
+        if (ev.eventType == vr::VREvent_MouseMove) {
+          if (c == panel.pointerCursor) {
+            // Moving the pointer spends what the other hand has built up, so
+            // a resting hand's wobble never wins it.
+            if (moved > kLaserNoise) {
+              Laser& other = panel.lasers[OtherCursor(c)];
+              other.travelled = std::max(0.f, other.travelled - moved);
+            }
+          } else if (!panel.holding && moved > kLaserNoise) {
+            laser.travelled += moved;
+            if (laser.travelled > kLaserTakeOver) TakePointer(panel, c, system_, "is the hand that is moving");
+          }
+          if (c != panel.pointerCursor) break;
+        } else {
+          // Pressing says plainly which hand is being used, so it takes the
+          // pointer at once — unless the hand that has it is mid-click or
+          // part way through dragging something. A release on its own is no
+          // such statement: it belongs to a press the page never saw.
+          if (c != panel.pointerCursor && !panel.holding && ev.eventType == vr::VREvent_MouseButtonDown) {
+            TakePointer(panel, c, system_, "clicked");
+            // The page follows the new hand before it is clicked there.
+            EmitPointer(panel, "move", c, 0);
+          }
+          if (c != panel.pointerCursor) break;
+          if (ev.data.mouse.button == vr::VRMouseButton_Left) {
+            panel.holding = ev.eventType == vr::VREvent_MouseButtonDown;
+          }
         }
-        panel.laserDevice = ev.trackedDeviceIndex;
         if (panel.logNextMove) {
           panel.logNextMove = false;
-          Log("  SteamVR's laser lands at %.3f, %.3f", ev.data.mouse.x / std::max(1u, panel.surface.width),
-              ev.data.mouse.y / std::max(1u, panel.surface.height));
+          Log("  SteamVR's laser lands at %.3f, %.3f", laser.x / std::max(1u, panel.surface.width),
+              laser.y / std::max(1u, panel.surface.height));
         }
-        const char* kind = ev.eventType == vr::VREvent_MouseMove ? "move"
-                         : ev.eventType == vr::VREvent_MouseButtonDown ? "down" : "up";
-        // Overlay mouse coordinates start at the bottom left.
-        snprintf(json, sizeof json, "{\"t\":\"%s\",\"p\":%u,\"x\":%.1f,\"y\":%.1f,\"button\":%u}", kind, p,
-                 ev.data.mouse.x, static_cast<float>(panel.surface.height) - ev.data.mouse.y,
-                 ev.data.mouse.button);
-        Emit(json);
+        EmitPointer(panel, ev.eventType == vr::VREvent_MouseMove ? "move"
+                           : ev.eventType == vr::VREvent_MouseButtonDown ? "down"
+                                                                        : "up",
+                    c, ev.data.mouse.button);
         break;
       }
       case vr::VREvent_ScrollSmooth:
-      case vr::VREvent_ScrollDiscrete:
+      case vr::VREvent_ScrollDiscrete: {
+        // A scroll is as deliberate as a click, and the page scrolls whatever
+        // its pointer rests on, so the scrolling hand takes the pointer first.
+        const uint32_t c = ThisCursor(ev.data.scroll.cursorIndex);
+        if (c != panel.pointerCursor) {
+          if (panel.holding) break;
+          TakePointer(panel, c, system_, "scrolled");
+          if (panel.lasers[c].placed) EmitPointer(panel, "move", c, 0);
+        }
         snprintf(json, sizeof json, "{\"t\":\"scroll\",\"p\":%u,\"dx\":%.4f,\"dy\":%.4f}", p,
                  ev.data.scroll.xdelta, ev.data.scroll.ydelta);
         Emit(json);
         break;
+      }
       case vr::VREvent_KeyboardCharInput: {
         char text[9] = {};
         memcpy(text, ev.data.keyboard.cNewInput, 8);
@@ -1014,8 +1139,9 @@ void Overlays::UpdatePointing(Surface& surface, Pointing& pointing, bool shown, 
   pointing.interactive = want;
   overlay_->SetOverlayFlag(surface.handle, vr::VROverlayFlags_MakeOverlaysInteractiveIfVisible, want);
   if (want && hit) {
-    Log("%s takes the controllers: %s tip points at %.3f, %.3f", name, hitHand ? "right" : "left", hitUv.v[0],
-        hitUv.v[1]);
+    const auto primary = overlay_->GetPrimaryDashboardDevice();
+    Log("%s takes the controllers: %s tip points at %.3f, %.3f; SteamVR's laser is on device %u (%s hand)", name,
+        hitHand ? "right" : "left", hitUv.v[0], hitUv.v[1], primary, HandName(system_, primary));
     if (logMove) *logMove = true;
   } else {
     Log("%s %s the controllers", name, want ? "takes" : "releases");
@@ -1028,6 +1154,10 @@ bool Overlays::Tick() {
     if (ev.eventType == vr::VREvent_Quit) {
       system_->AcknowledgeQuit_Exiting();
       return false;
+    }
+    if (ev.eventType == vr::VREvent_PrimaryDashboardDeviceChanged) {
+      const auto primary = overlay_->GetPrimaryDashboardDevice();
+      Log("SteamVR's laser moves to device %u (%s hand)", primary, HandName(system_, primary));
     }
   }
   for (Panel& panel : panels_) PollPanelEvents(panel);
@@ -1058,6 +1188,12 @@ bool Overlays::Tick() {
     snprintf(name, sizeof name, "panel %u", panel.index);
     UpdatePointing(panel.surface, panel.pointing, panel.visible, dragging_ == &panel || panel.keyboardOpen, name,
                    &panel.logNextMove);
+    if (!panel.pointing.interactive) {
+      // No laser reaches the panel, so nothing is known about where they are
+      // until one arrives again.
+      for (Laser& laser : panel.lasers) laser = Laser{};
+      panel.holding = false;
+    }
   }
   UpdatePointing(button_, buttonPointing_, buttonShown_, false, "button", nullptr);
   return true;
