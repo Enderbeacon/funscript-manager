@@ -282,6 +282,8 @@
     "sourceAxis": "Axe source",
     "handyExperimental": "Sortie expérimentale · vérifiez la plage avant la lecture",
     "refreshPorts": "Actualiser les ports série",
+    "noPorts": "Aucun port trouvé",
+    "portMissing": "{{port}} — introuvable",
     "connect": "Connecter",
     "disconnect": "Déconnecter",
     "outputReady": "Transport prêt · en attente de lecture",

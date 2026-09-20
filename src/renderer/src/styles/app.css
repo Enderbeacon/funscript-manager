@@ -3121,6 +3121,8 @@ button.lk-check:hover { color: var(--text-primary); border-color: var(--accent);
   white-space: nowrap;
 }
 
+.select-value.placeholder { color: var(--text-tertiary); }
+
 .select-caret { flex: none; color: var(--text-tertiary); }
 
 /* Covers the window so a click anywhere else closes the menu. */

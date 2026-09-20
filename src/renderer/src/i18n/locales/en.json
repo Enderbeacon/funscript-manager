@@ -545,6 +545,8 @@
     "sourceAxis": "Source axis",
     "handyExperimental": "Experimental output · verify the range before playback",
     "refreshPorts": "Refresh serial ports",
+    "noPorts": "No ports found",
+    "portMissing": "{{port}} — not found",
     "connect": "Connect",
     "disconnect": "Disconnect",
     "outputReady": "Transport ready · waiting for playback",
