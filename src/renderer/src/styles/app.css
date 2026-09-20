@@ -796,6 +796,20 @@ button.ghost.icon {
    need to be told to take their own line. */
 .settings-field > .settings-hint { display: block; }
 
+/*
+ * A card that holds a fold. Cards share a line and are stretched to the
+ * tallest of them, so a card that grew on opening would push every card
+ * beside it down; it keeps the height it had and scrolls instead. The height
+ * is pinned from script — it is the one the card had a moment before, which
+ * no rule can name. The bar is the thin one: the card has little width to
+ * give away.
+ */
+.settings-fold-card.scrolling {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-primary) transparent;
+}
+
 .settings-label {
   display: block;
   font-size: 12px;
