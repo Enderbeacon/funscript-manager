@@ -108,9 +108,14 @@ export function registerScriptPlayerHandlers(): void {
     try {
       const ports = await SerialTCodeTransport.list()
       return {
+        // Windows has no maker to name for a port built into the machine, and
+        // fills the field with a parenthesised stand-in translated into the
+        // system language. Dropping it leaves the path on its own.
         ports: ports.map(({ path, manufacturer }) => ({
           path,
-          label: manufacturer ? `${path} — ${manufacturer}` : path
+          label: manufacturer && !manufacturer.trimStart().startsWith('(')
+            ? `${path} — ${manufacturer}`
+            : path
         }))
       }
     } catch (error) {
