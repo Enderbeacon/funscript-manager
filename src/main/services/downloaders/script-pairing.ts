@@ -166,13 +166,20 @@ export function pairScripts(videos: VideoCandidate[], scripts: ScriptToPair[]): 
 
   // What is left gets a first offer, never a decision.
   const claimed = new Set(settled.values())
+  const spare = videos.filter((video) => !claimed.has(video.id))
   const sameCount = scripts.length === videos.length
   for (const { script, index, best, top } of scored) {
     if (settled.has(script.id)) continue
     if (best <= EPSILON) {
-      // Nothing in common with any of them. A post listing as many scripts as
-      // videos usually lists them in the same order.
-      guesses.set(script.id, sameCount ? videos[index]!.id : null)
+      /*
+       * Nothing in common with any of them. Two things still narrow it down:
+       * a script named after the scene while every other script in the post
+       * went to a video by name leaves one video without a script, and that
+       * is the one still needing one; and a post listing as many scripts as
+       * videos usually lists them in the same order.
+       */
+      const left = spare.length === 1 ? spare[0]!.id : null
+      guesses.set(script.id, left ?? (sameCount ? videos[index]!.id : null))
       continue
     }
     const open = top.filter((i) => !claimed.has(videos[i]!.id))

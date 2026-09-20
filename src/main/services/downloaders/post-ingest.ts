@@ -380,9 +380,13 @@ export function pairingRequests(): PairingRequest[] {
     const post = readPost(jobs)
     const videos = jobs.filter(isVideoJob)
     if (!post || videos.length === 0) continue
+    // Every script of the post, not only the waiting ones: where the others
+    // went is what says which video is still without a script.
     const { settled, guesses } = pairScripts(
       candidates(post, videos),
-      waiting.map((s) => ({ id: s.id, fileName: nameOf(s) }))
+      jobs
+        .filter((j) => isScriptJob(j) && j.state === 'done')
+        .map((s) => ({ id: s.id, fileName: nameOf(s) }))
     )
     requests.push({
       batchId,
@@ -398,6 +402,7 @@ export function pairingRequests(): PairingRequest[] {
       scripts: waiting.map((script) => ({
         jobId: script.id,
         fileName: nameOf(script),
+        family: scriptBaseName(nameOf(script)),
         guess: settled.get(script.id) ?? guesses.get(script.id) ?? null
       }))
     })
@@ -423,12 +428,16 @@ export async function resolvePairing(
   )
 
   const byVideo = new Map<string, Job[]>()
-  const standalone: Job[] = []
+  // An entry of its own means one entry per script set, not one per file: the
+  // axis files of a multi-axis script are that script, not three of them.
+  const standalone = new Map<string, Job[]>()
   for (const { jobId, target } of assignments) {
     const script = waiting.get(jobId)
     if (!script) continue
-    if (target === OWN_ENTRY) standalone.push(script)
-    else if (videos.some((v) => v.id === target)) {
+    if (target === OWN_ENTRY) {
+      const family = scriptBaseName(nameOf(script))
+      standalone.set(family, [...(standalone.get(family) ?? []), script])
+    } else if (videos.some((v) => v.id === target)) {
       byVideo.set(target, [...(byVideo.get(target) ?? []), script])
     }
   }
@@ -438,13 +447,10 @@ export async function resolvePairing(
     const entry = await entryForVideo(post, video, videos.length)
     if (entry) await fileScripts(video.libraryId, entry, post, list)
   }
-  for (const script of standalone) {
-    const entry = await createWantedEntry(
-      script.libraryId,
-      post,
-      scriptBaseName(nameOf(script))
-    )
-    if (entry) await fileScripts(script.libraryId, entry, post, [script])
+  for (const [family, list] of standalone) {
+    const libraryId = list[0]!.libraryId
+    const entry = await createWantedEntry(libraryId, post, family)
+    if (entry) await fileScripts(libraryId, entry, post, list)
   }
 }
 

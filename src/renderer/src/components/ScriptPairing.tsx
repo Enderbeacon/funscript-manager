@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { FileQuestion, X } from 'lucide-react'
@@ -18,6 +18,51 @@ import { useEscape } from '../useEscape'
  */
 
 const OWN = 'own'
+
+type PairingScript = PairingRequest['scripts'][number]
+
+/** A script and its axis files, which go to one video or to none of them. */
+interface ScriptSet {
+  key: string
+  /** The name the files share, with no axis token on it. */
+  family: string
+  files: PairingScript[]
+  /** The video to offer first, from whichever file the names placed best. */
+  guess: string | null
+}
+
+/** `clip.roll.funscript` in the set `clip` is its `roll` axis. */
+function axisOf(script: PairingScript, family: string): string {
+  const rest = script.fileName.slice(family.length).replace(/\.funscript$/i, '')
+  return rest.startsWith('.') ? rest.slice(1) : 'main'
+}
+
+/**
+ * The sets a request's scripts fall into. A multi-axis script is one question,
+ * not one per file: its axes describe the same movement and are unplayable
+ * apart, so letting them be answered separately only offers a way to break
+ * them up.
+ */
+function scriptSets(request: PairingRequest): ScriptSet[] {
+  const sets = new Map<string, ScriptSet>()
+  for (const script of request.scripts) {
+    const key = `${request.batchId}:${script.family}`
+    const set = sets.get(key) ?? { key, family: script.family, files: [], guess: null }
+    set.files.push(script)
+    set.guess ??= script.guess
+    sets.set(key, set)
+  }
+  for (const set of sets.values()) {
+    set.files.sort((a, b) => {
+      const [x, y] = [axisOf(a, set.family), axisOf(b, set.family)]
+      if (x === y) return 0
+      if (x === 'main') return -1
+      if (y === 'main') return 1
+      return x.localeCompare(y)
+    })
+  }
+  return [...sets.values()]
+}
 
 /** The waiting requests, kept current with the queue. */
 function usePairingRequests(): { requests: PairingRequest[]; reload: () => void } {
@@ -39,7 +84,8 @@ export function ScriptPairingPrompt(): React.JSX.Element | null {
   const { t } = useTranslation()
   const { requests, reload } = usePairingRequests()
   const [open, setOpen] = useState(false)
-  const count = requests.reduce((sum, r) => sum + r.scripts.length, 0)
+  // Sets, not files: a script with five axes is one thing to answer for.
+  const count = requests.reduce((sum, r) => sum + scriptSets(r).length, 0)
   if (count === 0) return null
   return (
     <>
@@ -74,9 +120,10 @@ function ScriptPairingDialog({
   const toMessage = useErrorMessage()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const setsOf = useMemo(() => new Map(requests.map((r) => [r.batchId, scriptSets(r)])), [requests])
   const [choice, setChoice] = useState<Record<string, string>>(() =>
     Object.fromEntries(
-      requests.flatMap((r) => r.scripts.map((s) => [s.jobId, s.guess ?? OWN] as const))
+      [...setsOf.values()].flat().map((set) => [set.key, set.guess ?? OWN] as const)
     )
   )
 
@@ -89,10 +136,9 @@ function ScriptPairingDialog({
       for (const request of requests) {
         await ipcInvoke('download:resolvePairing', {
           batchId: request.batchId,
-          assignments: request.scripts.map((s) => ({
-            jobId: s.jobId,
-            target: choice[s.jobId] ?? OWN
-          }))
+          assignments: (setsOf.get(request.batchId) ?? []).flatMap((set) =>
+            set.files.map((file) => ({ jobId: file.jobId, target: choice[set.key] ?? OWN }))
+          )
         })
       }
       onDone()
@@ -132,18 +178,26 @@ function ScriptPairingDialog({
                 <div className="pair-post-title" title={request.postUrl}>
                   {request.postTitle}
                 </div>
-                {request.scripts.map((script) => (
-                  <div className="pair-row" key={script.jobId}>
-                    <span className="pair-script" title={script.fileName}>
-                      {script.fileName}
+                {(setsOf.get(request.batchId) ?? []).map((set) => (
+                  <div className="pair-row" key={set.key}>
+                    <span
+                      className="pair-script"
+                      title={set.files.map((file) => file.fileName).join('\n')}
+                    >
+                      {set.family}
+                      {set.files.length > 1 && (
+                        <span className="pair-axes">
+                          {set.files.map((file) => axisOf(file, set.family)).join(' · ')}
+                        </span>
+                      )}
                     </span>
                     <Select
                       className="pair-select"
-                      value={choice[script.jobId] ?? OWN}
+                      value={choice[set.key] ?? OWN}
                       options={options}
                       disabled={busy}
-                      ariaLabel={script.fileName}
-                      onChange={(value) => setChoice((cur) => ({ ...cur, [script.jobId]: value }))}
+                      ariaLabel={set.family}
+                      onChange={(value) => setChoice((cur) => ({ ...cur, [set.key]: value }))}
                     />
                   </div>
                 ))}
