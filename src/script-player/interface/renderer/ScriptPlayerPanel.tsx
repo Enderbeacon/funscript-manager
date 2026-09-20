@@ -494,17 +494,36 @@ export default function ScriptPlayerPanel({
               {profile.connectionKey && <button className="icon-btn" disabled={settingsLocked} title={t('scriptPlayer.clearKey')} onClick={() => changeProfile(profile.id, (item) => ({ ...item, connectionKey: '' }), 0)}><X size={14} /></button>}
             </span>
           )
+          // A port is one of the ones this machine has, so it is chosen, not
+          // typed. A port saved earlier stays in the list even when the scan
+          // no longer sees it, so unplugging a device does not silently drop
+          // the setting — it is marked instead.
+          const portOptions = ports.map(({ path, label }) => ({ value: path, label }))
+          if (profile.endpoint && !ports.some(({ path }) => path === profile.endpoint)) {
+            portOptions.unshift({ value: profile.endpoint, label: t('scriptPlayer.portMissing', { port: profile.endpoint }) })
+          }
           const endpointInput = (
             <span className="row">
-              <input
-                className="settings-input grow"
-                list={serial ? `ports-${profile.id}` : undefined}
-                disabled={settingsLocked}
-                aria-label={serial ? t('scriptPlayer.serialPort') : profile.transport === 'websocket' ? 'URL' : t('scriptPlayer.host')}
-                value={profile.endpoint}
-                placeholder={serial ? 'COM3' : profile.transport === 'websocket' ? 'ws://127.0.0.1:8000' : '127.0.0.1'}
-                onChange={(event) => changeProfile(profile.id, (item) => ({ ...item, endpoint: event.target.value }))}
-              />
+              {serial ? (
+                <Select
+                  className="grow"
+                  value={profile.endpoint}
+                  options={portOptions}
+                  disabled={settingsLocked || portOptions.length === 0}
+                  ariaLabel={t('scriptPlayer.serialPort')}
+                  placeholder={t('scriptPlayer.noPorts')}
+                  onChange={(value) => changeProfile(profile.id, (item) => ({ ...item, endpoint: value }), 0)}
+                />
+              ) : (
+                <input
+                  className="settings-input grow"
+                  disabled={settingsLocked}
+                  aria-label={profile.transport === 'websocket' ? 'URL' : t('scriptPlayer.host')}
+                  value={profile.endpoint}
+                  placeholder={profile.transport === 'websocket' ? 'ws://127.0.0.1:8000' : '127.0.0.1'}
+                  onChange={(event) => changeProfile(profile.id, (item) => ({ ...item, endpoint: event.target.value }))}
+                />
+              )}
               {serial && <button className="icon-btn" disabled={settingsLocked} title={t('scriptPlayer.refreshPorts')} onClick={refreshPorts}><RefreshCw size={14} /></button>}
             </span>
           )
@@ -591,8 +610,6 @@ export default function ScriptPlayerPanel({
                     <ChevronDown size={16} />
                   </button>
                 </div>
-
-                {serial && <datalist id={`ports-${profile.id}`}>{ports.map((port) => <option key={port.path} value={port.path}>{port.label}</option>)}</datalist>}
 
                 {!connectionOpen ? (
                   <div className="sp-connection-row" data-tour="sp-connection">

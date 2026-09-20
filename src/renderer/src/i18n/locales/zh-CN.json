@@ -539,6 +539,8 @@
     "sourceAxis": "来源轴",
     "handyExperimental": "实验性输出 · 播放前请先确认范围",
     "refreshPorts": "刷新串口",
+    "noPorts": "未找到端口",
+    "portMissing": "{{port}} — 未找到",
     "connect": "连接",
     "disconnect": "断开",
     "outputReady": "传输已就绪 · 等待播放",

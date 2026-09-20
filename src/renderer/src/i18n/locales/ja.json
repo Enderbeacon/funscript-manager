@@ -279,6 +279,8 @@
     "sourceAxis": "ソース軸",
     "handyExperimental": "試験的な出力 · 再生前に範囲を確認してください",
     "refreshPorts": "シリアルポートを更新",
+    "noPorts": "ポートが見つかりません",
+    "portMissing": "{{port}} — 見つかりません",
     "connect": "接続",
     "disconnect": "切断",
     "outputReady": "転送準備完了 · 再生待ち",

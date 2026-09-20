@@ -25,7 +25,8 @@ export default function Select<T extends string>({
   onChange,
   disabled = false,
   className = '',
-  ariaLabel
+  ariaLabel,
+  placeholder
 }: {
   value: T
   options: SelectOption<T>[]
@@ -33,6 +34,8 @@ export default function Select<T extends string>({
   disabled?: boolean
   className?: string
   ariaLabel?: string
+  /** Shown when nothing is selected yet, or when there is nothing to choose. */
+  placeholder?: string
 }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -53,7 +56,7 @@ export default function Select<T extends string>({
         aria-label={ariaLabel}
         onClick={() => setOpen((v) => !v)}
       >
-        <span className="select-value">{current?.label ?? ''}</span>
+        <span className={`select-value${current ? '' : ' placeholder'}`}>{current?.label ?? placeholder ?? ''}</span>
         <ChevronDown size={14} className="select-caret" />
       </button>
 

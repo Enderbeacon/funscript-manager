@@ -282,6 +282,8 @@
     "sourceAxis": "Quellachse",
     "handyExperimental": "Experimentelle Ausgabe · Bereich vor der Wiedergabe prüfen",
     "refreshPorts": "Serielle Ports aktualisieren",
+    "noPorts": "Keine Ports gefunden",
+    "portMissing": "{{port}} — nicht gefunden",
     "connect": "Verbinden",
     "disconnect": "Trennen",
     "outputReady": "Übertragung bereit · wartet auf Wiedergabe",
