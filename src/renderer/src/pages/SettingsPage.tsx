@@ -535,7 +535,6 @@ function NetworkCard({
         <span className="settings-label">{t('settings.network.limit')}</span>
         <div className="row limit-row">
           <Select
-            className="grow"
             value={rateLimit.mode}
             onChange={(v) => void onPatch({ download: { rateLimit: { ...rateLimit, mode: v } } })}
             options={[

@@ -568,11 +568,6 @@ button:disabled { opacity: 0.5; cursor: default; }
 
 @container settings (min-width: 1160px) {
   .settings-row { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-
-  /* A fifth of the page is not wide enough for a dropdown, a number and a unit
-     on one line: the picker takes the line and the number follows it. */
-  .limit-row { flex-wrap: wrap; row-gap: 0.4rem; }
-  .limit-row > .select-root { flex: 1 0 100%; }
 }
 
 /* Cards with rows inside (dependencies, site sign-in) need more width than the
@@ -707,6 +702,12 @@ button:disabled { opacity: 0.5; cursor: default; }
 /* A speed is three or four characters; the mode select takes the rest. */
 .settings-input.speed { width: 5.5rem; flex: none; text-align: right; }
 .settings-unit { font-size: 13px; color: var(--text-secondary); flex: none; }
+
+/* A card column is never wide enough for a dropdown, a number and a unit on
+   one line — the dropdown ends up too narrow to read. It takes the line, and
+   the number follows it. */
+.limit-row { flex-wrap: wrap; row-gap: 0.4rem; }
+.limit-row > .select-root { flex: 1 0 100%; }
 
 .settings-error {
   display: block;
