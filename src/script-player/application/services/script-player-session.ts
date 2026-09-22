@@ -1,11 +1,12 @@
 import { EventEmitter } from 'node:events'
 import { ScriptEngine, type AxisActivity, type AxisUpdate } from '../../domain/engine/script-engine'
 import { encodeTCode, encodeTCodeTargets, TCODE_STOP } from '../../domain/engine/tcode'
+import { syncProgress } from '../../domain/engine/axis-pipeline'
 import { applyAxisRange } from '../../domain/model/axis'
 import type { PlaybackClockPort } from '../ports/playback-clock'
 import type { OutputConnectionState, OutputTransport } from '../ports/output'
 import type { ScriptFile, ScriptFilesPort } from '../ports/script-files'
-import type { AxisMotion, ScriptPlayerAxis, ScriptPlayerSettings, TCodeOutputProfile } from '../../shared/config'
+import type { AxisMotion, AxisRange, ScriptPlayerAxis, ScriptPlayerSettings, TCodeOutputProfile } from '../../shared/config'
 import { AXIS_CENTRE, DEFAULT_AXIS_MOTION, SCRIPT_PLAYER_AXES } from '../../shared/config'
 
 export interface OutputRuntimeStatus {
@@ -19,6 +20,8 @@ export interface OutputRuntimeStatus {
   lastReceivedAt: number | null
   lastResponse: string | null
   updateRate: number
+  /** The output dropped and is being connected again on its own. */
+  retrying: boolean
 }
 
 export interface ScriptPlayerStatus {
@@ -99,6 +102,25 @@ interface PendingCommand {
   values: Partial<Record<ScriptPlayerAxis, number>>
 }
 
+/**
+ * An output on its way back into the script after a connect.
+ *
+ * `from` is where this output last put the device. The device is either still
+ * standing there, or — if it lost power while unplugged — at whatever position
+ * it homes itself to, and there is no way to ask it which. So it is first sent
+ * `from` with a long travel time and left alone to cover the distance at its
+ * own pace, and only then eased the rest of the way to the live script.
+ */
+interface OutputResume {
+  from: Partial<Record<ScriptPlayerAxis, number>>
+  /** Time left for the device to reach `from`; nothing is sent until it does. */
+  settleMs: number
+  /** Time left easing from `from` into the live script. */
+  easeMs: number
+  durationMs: number
+  sent: boolean
+}
+
 interface RuntimeOutput {
   profile: TCodeOutputProfile
   transport: OutputTransport | null
@@ -115,6 +137,7 @@ interface RuntimeOutput {
   lastResponse: string | null
   sendTimes: number[]
   polledSynced: boolean
+  resume: OutputResume | null
   generation: number
 }
 
@@ -130,6 +153,9 @@ const DEFAULT_SETTINGS: ScriptPlayerSettings = {
 /** Tick period while anything is moving, and while nothing is. */
 const ACTIVE_TICK_MS = 3
 const IDLE_TICK_MS = 10
+
+/** How long a freshly connected device is given to reach the position it was left at. */
+const RESUME_SETTLE_MS = 1000
 
 export class ScriptPlayerSession extends EventEmitter {
   private readonly engine = new ScriptEngine()
@@ -257,6 +283,7 @@ export class ScriptPlayerSession extends EventEmitter {
       lastResponse: null,
       sendTimes: [],
       polledSynced: false,
+      resume: null,
       generation: 0
     }
   }
@@ -470,6 +497,18 @@ export class ScriptPlayerSession extends EventEmitter {
       runtime.state = 'connected'
       runtime.error = null
       runtime.lastTickAt = 0
+      // The device is wherever this output last left it, and the script has
+      // moved on without it. Keep that position to resume from, and forget
+      // what was last sent so the first command addresses every axis again.
+      runtime.resume = this.settings.syncDurationMs > 0
+        ? {
+            from: runtime.lastSentValues,
+            settleMs: RESUME_SETTLE_MS,
+            easeMs: this.settings.syncDurationMs,
+            durationMs: this.settings.syncDurationMs,
+            sent: false
+          }
+        : null
       runtime.lastSentValues = {}
       runtime.polledSynced = false
       this.ensureTimer()
@@ -491,6 +530,7 @@ export class ScriptPlayerSession extends EventEmitter {
     const transport = runtime.transport
     runtime.transport = null
     runtime.pending = null
+    runtime.resume = null
     runtime.state = 'disconnecting'
     runtime.error = null
     this.emitChanged()
@@ -538,7 +578,8 @@ export class ScriptPlayerSession extends EventEmitter {
           lastSentAt: runtime.lastSentAt,
           lastReceivedAt: runtime.lastReceivedAt,
           lastResponse: runtime.lastResponse,
-          updateRate: runtime.sendTimes.length
+          updateRate: runtime.sendTimes.length,
+          retrying: this.enabled && runtime.profile.autoConnect && runtime.state === 'error'
         }
       })
     }
@@ -640,16 +681,90 @@ export class ScriptPlayerSession extends EventEmitter {
       if (update.autoHoming && Math.abs(update.value - target) > 0.00001) homing = true
     }
     this.axes = axes
-    this.syncing = syncing
     this.homing = homing
 
+    let resuming = false
     for (const runtime of this.outputs.values()) {
-      if (runtime.state !== 'connected' || !runtime.transport || runtime.sending) continue
+      if (runtime.state !== 'connected' || !runtime.transport) continue
+      if (runtime.resume) resuming = true
+      if (this.advanceResume(runtime, deltaMs) || runtime.sending) continue
       if (runtime.profile.updateMode === 'polled') this.sendPolled(runtime, updates)
       else this.sendFixed(runtime, now)
     }
+    // An output walking back into the script is easing in as much as an axis is.
+    this.syncing = syncing || resuming
+
     this.maybeBroadcast()
-    return playing || syncing || homing || moving ? ACTIVE_TICK_MS : IDLE_TICK_MS
+    return playing || syncing || homing || moving || resuming ? ACTIVE_TICK_MS : IDLE_TICK_MS
+  }
+
+  /**
+   * Move one output's resume along, and say whether it is still travelling to
+   * the position it was left at — while it is, it is sent nothing else, or a
+   * streamed value would overrule the slow move before the device finished it.
+   */
+  private advanceResume(runtime: RuntimeOutput, deltaMs: number): boolean {
+    const resume = runtime.resume
+    if (!resume) return false
+    if (!resume.sent) {
+      resume.sent = true
+      const command = this.settleCommand(runtime, resume)
+      if (command) this.queueSend(runtime, command)
+      return true
+    }
+    if (resume.settleMs > 0) {
+      resume.settleMs = Math.max(0, resume.settleMs - deltaMs)
+      return true
+    }
+    resume.easeMs -= deltaMs
+    if (resume.easeMs <= 0) runtime.resume = null
+    return false
+  }
+
+  /**
+   * "Go back to where you were, and take a second over it." The travel time is
+   * spelled out even for an output that leaves timing to the device: this one
+   * move has to be slow, because the distance is unknown.
+   */
+  private settleCommand(runtime: RuntimeOutput, resume: OutputResume): PendingCommand | null {
+    if (runtime.profile.transport === 'handy') {
+      const axis = runtime.profile.sourceAxis
+      const range = runtime.profile.ranges[axis]
+      if (!range.enabled) return null
+      const position = resume.from[axis] ?? applyAxisRange(AXIS_CENTRE, range)
+      return {
+        payload: JSON.stringify({
+          immediateResponse: true,
+          stopOnTarget: true,
+          duration: RESUME_SETTLE_MS,
+          position: Math.min(100, Math.max(0, position * 100))
+        }),
+        values: { [axis]: position }
+      }
+    }
+    const values: Partial<Record<ScriptPlayerAxis, number>> = {}
+    for (const axis of SCRIPT_PLAYER_AXES) {
+      const range = runtime.profile.ranges[axis]
+      if (!range.enabled) continue
+      values[axis] = resume.from[axis] ?? applyAxisRange(AXIS_CENTRE, range)
+    }
+    const payload = encodeTCode(values, RESUME_SETTLE_MS, runtime.profile.protocol === 'v0.2' ? 3 : 4)
+    return payload ? { payload, values } : null
+  }
+
+  /**
+   * Where this output should be putting an axis now: the live value, or, during
+   * the ease-in that follows a connect, a point on the way to it from where the
+   * device was left. The engine's own ease-in cannot cover this — it followed
+   * the script the whole time the device was gone, so it has nothing to ease
+   * from. This one works in device positions, after the output range, because
+   * that is the distance the hardware actually travels.
+   */
+  private resumed(runtime: RuntimeOutput, axis: ScriptPlayerAxis, live: number, range: AxisRange): number {
+    const resume = runtime.resume
+    if (!resume) return live
+    const from = resume.from[axis] ?? applyAxisRange(AXIS_CENTRE, range)
+    return from + (live - from) * syncProgress(resume.easeMs, resume.durationMs)
   }
 
   /** Stream the current value at the output's own interval. */
@@ -690,7 +805,7 @@ export class ScriptPlayerSession extends EventEmitter {
       const event = updates[axis]?.event
       const range = runtime.profile.ranges[axis]
       if (!event || !range.enabled) continue
-      const output = applyAxisRange(event.value, range)
+      const output = this.resumed(runtime, axis, applyAxisRange(event.value, range), range)
       targets[axis] = { value: output, durationMs: event.durationMs }
       values[axis] = output
     }
@@ -712,7 +827,7 @@ export class ScriptPlayerSession extends EventEmitter {
     const axis = runtime.profile.sourceAxis
     const range = runtime.profile.ranges[axis]
     if (!range.enabled) return null
-    const output = applyAxisRange(value ?? AXIS_CENTRE, range)
+    const output = this.resumed(runtime, axis, applyAxisRange(value ?? AXIS_CENTRE, range), range)
     return {
       payload: JSON.stringify({
         immediateResponse: true,
@@ -738,7 +853,7 @@ export class ScriptPlayerSession extends EventEmitter {
     for (const axis of SCRIPT_PLAYER_AXES) {
       const range = runtime.profile.ranges[axis]
       if (!range.enabled) continue
-      const output = applyAxisRange(values[axis] ?? AXIS_CENTRE, range)
+      const output = this.resumed(runtime, axis, applyAxisRange(values[axis] ?? AXIS_CENTRE, range), range)
       const previous = runtime.lastSentValues[axis]
       const dirty = previous === undefined || Math.abs(output - previous) * (10 ** precision) >= 1
       if (force || !runtime.profile.sendDirtyValuesOnly || dirty) mapped[axis] = output

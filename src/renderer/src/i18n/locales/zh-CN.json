@@ -429,7 +429,7 @@
     "disabledHint": "选择这条路线时，内置播放器会保持设备断开。",
     "openRouteSettings": "打开播放设置",
     "phase": { "idle": "未加载脚本", "ready": "已就绪", "playing": "播放中", "paused": "已暂停" },
-    "connection": { "disconnected": "未连接", "connecting": "连接中", "connected": "传输已就绪", "disconnecting": "正在断开", "error": "连接错误" },
+    "connection": { "disconnected": "未连接", "connecting": "连接中", "connected": "传输已就绪", "disconnecting": "正在断开", "error": "连接错误", "reconnecting": "正在重连" },
     "error": { "connect_failed": "连接失败", "send_failed": "发送失败", "connection_lost": "连接已中断" },
     "axis": { "main": "L0 主轴", "surge": "L1 前后", "sway": "L2 左右", "twist": "R0 扭转", "roll": "R1 横滚", "pitch": "R2 俯仰" },
     "motion": "动作",

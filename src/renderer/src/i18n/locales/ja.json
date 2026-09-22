@@ -169,7 +169,7 @@
     "disabledHint": "この経路を選んでいる間はデバイスを解放します。",
     "openRouteSettings": "再生設定を開く",
     "phase": { "idle": "スクリプトなし", "ready": "準備完了", "playing": "再生中", "paused": "一時停止" },
-    "connection": { "disconnected": "未接続", "connecting": "接続中", "connected": "転送準備完了", "disconnecting": "切断中", "error": "エラー" },
+    "connection": { "disconnected": "未接続", "connecting": "接続中", "connected": "転送準備完了", "disconnecting": "切断中", "error": "エラー", "reconnecting": "再接続中" },
     "error": { "connect_failed": "接続に失敗しました", "send_failed": "出力に失敗しました", "connection_lost": "接続が切れました" },
     "axis": { "main": "L0 メイン", "surge": "L1 前後", "sway": "L2 左右", "twist": "R0 ツイスト", "roll": "R1 ロール", "pitch": "R2 ピッチ" },
     "motion": "モーション",

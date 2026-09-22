@@ -172,7 +172,7 @@
     "disabledHint": "Geräte bleiben freigegeben, solange diese Route gewählt ist.",
     "openRouteSettings": "Wiedergabeeinstellungen öffnen",
     "phase": { "idle": "Kein Skript", "ready": "Bereit", "playing": "Wiedergabe", "paused": "Pausiert" },
-    "connection": { "disconnected": "Getrennt", "connecting": "Verbindung…", "connected": "Übertragung bereit", "disconnecting": "Trennen…", "error": "Fehler" },
+    "connection": { "disconnected": "Getrennt", "connecting": "Verbindung…", "connected": "Übertragung bereit", "disconnecting": "Trennen…", "error": "Fehler", "reconnecting": "Neu verbinden…" },
     "error": { "connect_failed": "Verbindung fehlgeschlagen", "send_failed": "Ausgabe fehlgeschlagen", "connection_lost": "Verbindung unterbrochen" },
     "axis": { "main": "L0 Hauptachse", "surge": "L1 Vor/Zurück", "sway": "L2 Seitlich", "twist": "R0 Drehung", "roll": "R1 Rollen", "pitch": "R2 Neigung" },
     "motion": "Bewegung",

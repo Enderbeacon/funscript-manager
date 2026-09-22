@@ -17,7 +17,8 @@ const OutputRuntimeStatusSchema = z.object({
   lastSentAt: z.number().nullable(),
   lastReceivedAt: z.number().nullable(),
   lastResponse: z.string().nullable(),
-  updateRate: z.number().int().nonnegative()
+  updateRate: z.number().int().nonnegative(),
+  retrying: z.boolean()
 })
 
 const AxisSchema = z.enum(SCRIPT_PLAYER_AXES)

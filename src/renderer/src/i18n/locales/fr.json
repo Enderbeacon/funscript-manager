@@ -172,7 +172,7 @@
     "disabledHint": "Les appareils restent libérés tant que cette route est choisie.",
     "openRouteSettings": "Ouvrir les réglages de lecture",
     "phase": { "idle": "Aucun script", "ready": "Prêt", "playing": "Lecture", "paused": "En pause" },
-    "connection": { "disconnected": "Déconnecté", "connecting": "Connexion…", "connected": "Transport prêt", "disconnecting": "Déconnexion…", "error": "Erreur" },
+    "connection": { "disconnected": "Déconnecté", "connecting": "Connexion…", "connected": "Transport prêt", "disconnecting": "Déconnexion…", "error": "Erreur", "reconnecting": "Reconnexion…" },
     "error": { "connect_failed": "Échec de connexion", "send_failed": "Échec de sortie", "connection_lost": "Connexion interrompue" },
     "axis": { "main": "L0 Principal", "surge": "L1 Avant/arrière", "sway": "L2 Latéral", "twist": "R0 Rotation", "roll": "R1 Roulis", "pitch": "R2 Tangage" },
     "motion": "Mouvement",

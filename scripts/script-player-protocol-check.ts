@@ -418,6 +418,101 @@ assert.equal(fake.connected, false)
   await session.dispose()
 }
 
+// ------------------------------------------------- the cable comes out
+
+// The plug is pulled mid-script and put back. The device stops where it was,
+// the script does not, and on the way back the device must be walked to a known
+// position and eased in from there rather than dropped into the live stroke.
+{
+  class Droppable implements OutputTransport {
+    readonly sent: string[] = []
+    live = true
+    setEvents(): void {}
+    async connect(): Promise<void> {}
+    async send(payload: string): Promise<void> {
+      // What Windows says when the port being written to has gone away.
+      if (!this.live) throw new Error('Writing to COM3 (Access is denied.)')
+      this.sent.push(payload)
+    }
+    async disconnect(): Promise<void> {}
+  }
+
+  const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
+
+  /** The last value this port was told to put the stroke axis at. */
+  const strokeValue = (port: Droppable): number => {
+    for (let index = port.sent.length - 1; index >= 0; index--) {
+      const command = port.sent[index]!.trim().split(' ').find((part) => part.startsWith('L0'))
+      if (command) return Number(command.slice(2, 6)) / 9999
+    }
+    return Number.NaN
+  }
+
+  const ports: Droppable[] = []
+  const session = new ScriptPlayerSession(() => {
+    const port = new Droppable()
+    ports.push(port)
+    return port
+  })
+  let positionMs = 1000
+  session.setClock({
+    sample: () => ({ mediaId: MEDIA_ID, scriptVersionId: VERSION_ID, positionMs, paused: false })
+  })
+  // Linear, so the position the clock reports is the position on the axis.
+  session.configure({
+    ...settings,
+    syncDurationMs: 400,
+    axes: withAxis('main', { interpolation: 'linear' })
+  })
+  session.load(MEDIA_ID, VERSION_ID, {
+    main: scriptFile([{ at: 0, pos: 0 }, { at: 10_000, pos: 100 }])
+  })
+
+  await session.connect(OUTPUT_ID)
+  await wait(20)
+  const first = ports[0]!
+  // Even a first connect opens with one slow move to a known position: where
+  // the device is standing is unknown, and a streamed command gives it 20ms.
+  assert.ok(first.sent[0]?.includes('L05000I1000'), `connect settles to centre: ${first.sent[0]}`)
+  await wait(1500)
+  close(strokeValue(first), 0.1, 0.01)
+
+  // The plug comes out, and the next stroke is the one that finds out.
+  first.live = false
+  positionMs = 1200
+  await wait(60)
+  const dropped = session.status().outputs[0]!
+  assert.equal(dropped.state, 'error', 'a failed send drops the output')
+  assert.equal(dropped.retrying, false, 'an output without auto-connect is not reconnected on its own')
+
+  // The script runs on without the device for eight seconds of stroke.
+  positionMs = 9000
+  await wait(500)
+  close(session.status().axes.main!, 0.9, 0.01)
+
+  await session.connect(OUTPUT_ID)
+  await wait(20)
+  const second = ports[1]!
+  assert.equal(second.sent.length, 1, 'a reconnect says one thing first')
+  assert.ok(
+    second.sent[0]?.includes('L01000I1000'),
+    `reconnect walks back to where the device was left: ${second.sent[0]}`
+  )
+  await wait(300)
+  assert.equal(second.sent.length, 1, 'nothing is streamed while the device is still travelling')
+
+  await wait(800)
+  assert.ok(session.status().syncing, 'the panel says the output is easing in')
+  const resumed = strokeValue(second)
+  assert.ok(resumed > 0.05 && resumed < 0.3, `eases in from the device, not the script: ${resumed}`)
+
+  await wait(700)
+  close(strokeValue(second), 0.9, 0.01)
+  assert.equal(session.status().syncing, false, 'the ease-in ends')
+
+  await session.dispose()
+}
+
 // ------------------------------------------------- script route
 
 // Fresh install: the built-in player has the script, and MFP is not involved.

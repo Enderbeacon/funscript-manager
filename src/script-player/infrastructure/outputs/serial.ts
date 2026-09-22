@@ -47,6 +47,14 @@ export class SerialTCodeTransport implements OutputTransport {
     await callbackPromise((done) => port.set({ dtr: this.settings.dtr, rts: this.settings.rts }, done))
     port.on('data', (chunk: Buffer) => this.events.message?.(chunk.toString('utf8')))
     port.on('close', () => this.events.closed?.())
+    // A port that goes away mid-write reports the failure twice: once to the
+    // write callback, and once as an 'error' on the stream. Nothing listening
+    // for the second one turns "the cable was pulled" into an uncaught
+    // exception in the main process, which Windows answers with a native
+    // dialog quoting its own message. The drop is reported by 'close'.
+    port.on('error', (error: Error) => {
+      console.error('[script-player] serial port error:', error)
+    })
     this.port = port
   }
 

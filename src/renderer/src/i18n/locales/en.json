@@ -435,7 +435,7 @@
     "disabledHint": "Devices stay released while that route is selected.",
     "openRouteSettings": "Open playback settings",
     "phase": { "idle": "No script", "ready": "Ready", "playing": "Playing", "paused": "Paused" },
-    "connection": { "disconnected": "Disconnected", "connecting": "Connecting", "connected": "Transport ready", "disconnecting": "Disconnecting", "error": "Error" },
+    "connection": { "disconnected": "Disconnected", "connecting": "Connecting", "connected": "Transport ready", "disconnecting": "Disconnecting", "error": "Error", "reconnecting": "Reconnecting" },
     "error": { "connect_failed": "Connection failed", "send_failed": "Output failed", "connection_lost": "Connection lost" },
     "axis": { "main": "L0 Main", "surge": "L1 Surge", "sway": "L2 Sway", "twist": "R0 Twist", "roll": "R1 Roll", "pitch": "R2 Pitch" },
     "motion": "Motion",

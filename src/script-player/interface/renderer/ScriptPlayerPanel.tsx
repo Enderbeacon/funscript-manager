@@ -466,6 +466,8 @@ export default function ScriptPlayerPanel({
         {!standingDown && activeProfile && [activeProfile].map((profile) => {
           const output = runtime.get(profile.id)
           const connectionState = output?.state ?? 'disconnected'
+          // The output dropped and is being picked back up without the user.
+          const reconnecting = connectionState === 'error' && (output?.retrying ?? false)
           const serial = profile.transport === 'serial'
           const handy = profile.transport === 'handy'
           const settingsLocked = connectionState !== 'disconnected' && connectionState !== 'error'
@@ -588,14 +590,14 @@ export default function ScriptPlayerPanel({
                   <span className={`sp-state ${connectionState}`} role="status" aria-live="polite">
                     {connectionState === 'connected' ? (
                       <CircleCheck size={14} />
-                    ) : connectionState === 'connecting' || connectionState === 'disconnecting' ? (
+                    ) : connectionState === 'connecting' || connectionState === 'disconnecting' || reconnecting ? (
                       <LoaderCircle size={14} />
                     ) : connectionState === 'error' ? (
                       <CircleX size={14} />
                     ) : (
                       <Circle size={12} />
                     )}
-                    {t(`scriptPlayer.connection.${connectionState}`)}
+                    {t(reconnecting ? 'scriptPlayer.connection.reconnecting' : `scriptPlayer.connection.${connectionState}`)}
                   </span>
                   <button className="icon-btn danger" title={t('common.remove')} disabled={busy === profile.id} onClick={() => setRemoving(profile.id)}>
                     <Trash2 size={15} />
