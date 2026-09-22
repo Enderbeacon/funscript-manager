@@ -274,6 +274,13 @@
     }
   },
   "detail": {
+    "vrToggle": "VR 视频",
+    "vrPrompt": {
+      "text": "这个视频看起来是 VR 视频。",
+      "mark": "标记为 VR",
+      "later": "稍后再说",
+      "notVr": "不是 VR"
+    },
     "back": "返回",
     "close": "关闭",
     "notFound": "该条目已不可用。",
@@ -1107,6 +1114,26 @@
     "missingRow": "不在库中"
   },
   "player": {
+    "vr": {
+      "title": "VR 视频",
+      "projection": "投影",
+      "layout": "画面排布",
+      "recentre": "回正视角",
+      "projections": {
+        "flat": "不是 VR",
+        "eq180": "180°",
+        "eq360": "360°",
+        "fisheye190": "鱼眼 190°",
+        "fisheye200": "鱼眼 200°",
+        "fisheye220": "鱼眼 220°",
+        "rf52": "RF52"
+      },
+      "layouts": {
+        "mono": "单眼",
+        "sbs": "左右",
+        "tb": "上下"
+      }
+    },
     "shrink": "缩成浮窗",
     "expand": "铺满",
     "dock": "收回主窗口",

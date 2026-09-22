@@ -2,6 +2,7 @@ import { AppError } from '@shared/errors'
 import type { MediaDetail } from '@shared/schemas/media-index'
 import { NAME_FIELDS, type MediaMeta, type NameField } from '@shared/schemas/media-meta'
 import type { EntityKind } from '@shared/schemas/taxonomy'
+import type { VrFormat } from '@shared/schemas/vr-video'
 import { normaliseNames } from '../taxonomy/taxonomy-service'
 import { editMedia, listStartedLibraries, type MediaEditor } from './library-manager'
 
@@ -127,6 +128,15 @@ export async function setUserMeta(target: MediaTarget, patch: UserMetaPatch): Pr
       updatedAt: new Date().toISOString()
     }
   })
+}
+
+/** Mark a media as VR in the given format, or as not VR with `flat`. */
+export async function setVr(target: MediaTarget, vr: VrFormat): Promise<MediaDetail> {
+  return editMedia(target.libraryId, target.mediaId, (meta) => ({
+    ...meta,
+    vr,
+    updatedAt: new Date().toISOString()
+  }))
 }
 
 /* ------------------------------------------------------------------ *

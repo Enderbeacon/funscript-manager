@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { extname, join } from 'node:path'
@@ -34,12 +35,33 @@ const MIME: Record<string, string> = {
   '.ogg': 'video/ogg'
 }
 
+/**
+ * A key every URL of this scheme has to carry, new each run.
+ *
+ * The scheme is CORS-enabled so the built-in player can draw a video's frames
+ * with WebGL, which refuses frames from a cross-origin video. That also lets
+ * a page `fetch` the bytes, and the default session loads outside pages too
+ * (site login, hidden page readers). The key is handed only to the app's own
+ * pages over IPC, so a URL without it is a 404.
+ */
+const ACCESS_KEY = randomUUID()
+
+export function mediaAccessKey(): string {
+  return ACCESS_KEY
+}
+
 /** Must run before app `ready` (privileged-scheme registration is one-shot). */
 export function registerMediaScheme(): void {
   protocol.registerSchemesAsPrivileged([
     {
       scheme: MEDIA_SCHEME,
-      privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true }
+      privileges: {
+        standard: true,
+        secure: true,
+        stream: true,
+        supportFetchAPI: true,
+        corsEnabled: true
+      }
     }
   ])
 }
@@ -59,6 +81,7 @@ export function registerMediaScheme(): void {
 function resolvePath(rawUrl: string): string | null {
   try {
     const url = new URL(rawUrl)
+    if (url.searchParams.get('k') !== ACCESS_KEY) return null
     const path = url.searchParams.get('p')
     if (path) {
       const found = findByAbsPath(path)

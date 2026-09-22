@@ -7,6 +7,7 @@ import { Virtuoso, VirtuosoGrid } from 'react-virtuoso'
 import type { RegisteredLibrary, Settings } from '@shared/schemas/app-config'
 import type { MediaListItem, SyncProgress } from '@shared/schemas/media-index'
 import type { NameField } from '@shared/schemas/media-meta'
+import type { VrFormat } from '@shared/schemas/vr-video'
 import { folderRef, parseFolderRef, type FilterNode } from '@shared/schemas/taxonomy'
 import type { MediaSelection } from '../App'
 import Select from '../components/Select'
@@ -18,6 +19,7 @@ import MergeWantedDialog from '../components/MergeWantedDialog'
 import LayerStack, { dismissesLayer } from '../components/LayerStack'
 import NameSearchPanel from '../components/NameSearchPanel'
 import ContextMenu, { type MenuItem } from '../components/ContextMenu'
+import PreviewVideo from '../components/PreviewVideo'
 import MediaDetailPage from './MediaDetailPage'
 import type { Taxonomy } from '../components/NameChips'
 import {
@@ -1634,11 +1636,10 @@ const MediaCard = memo(function MediaCard({
             libraryId={item.libraryId}
             mediaId={item.id}
             epoch={heatmapEpoch}
+            variant={`${item.vr.projection}-${item.vr.layout}`}
           />
         )}
-        {preview && (
-          <HoverPreview libraryId={item.libraryId} mediaId={item.id} />
-        )}
+        {preview && <HoverPreview libraryId={item.libraryId} mediaId={item.id} vr={item.vr} />}
         {item.scriptVersionCount > 0 && (
           <CachedIpcImage
             className="media-heatmap"
@@ -1727,32 +1728,25 @@ const MediaCard = memo(function MediaCard({
 })
 
 /**
- * Muted inline preview shown while a card is hovered. Seeks a little past the
- * start so the frame is representative, loops, and stays silent. Sits above the
+ * Muted inline preview shown while a card is hovered. Sits above the
  * thumbnail; if the file can't be decoded it errors out and the thumb shows.
  */
 function HoverPreview({
   libraryId,
-  mediaId
+  mediaId,
+  vr
 }: {
   libraryId: string
   mediaId: string
+  vr: VrFormat
 }): React.JSX.Element {
   const [failed, setFailed] = useState(false)
   if (failed) return <></>
   return (
-    <video
+    <PreviewVideo
       className="media-preview-video"
       src={mediaPreviewUrl(libraryId, mediaId)}
-      muted
-      autoPlay
-      loop
-      playsInline
-      preload="metadata"
-      onLoadedMetadata={(e) => {
-        const v = e.currentTarget
-        if (Number.isFinite(v.duration)) v.currentTime = Math.min(v.duration * 0.1, 20)
-      }}
+      vr={vr}
       onError={() => setFailed(true)}
     />
   )

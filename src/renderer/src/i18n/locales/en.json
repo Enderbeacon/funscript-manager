@@ -277,6 +277,13 @@
     }
   },
   "detail": {
+    "vrToggle": "VR video",
+    "vrPrompt": {
+      "text": "This looks like a VR video.",
+      "mark": "Mark as VR",
+      "later": "Later",
+      "notVr": "Not VR"
+    },
     "back": "Back",
     "close": "Close",
     "notFound": "This item is no longer available.",
@@ -1127,6 +1134,26 @@
     "missingRow": "Not in the library"
   },
   "player": {
+    "vr": {
+      "title": "VR video",
+      "projection": "Projection",
+      "layout": "Eye layout",
+      "recentre": "Recentre view",
+      "projections": {
+        "flat": "Not VR",
+        "eq180": "180°",
+        "eq360": "360°",
+        "fisheye190": "Fisheye 190°",
+        "fisheye200": "Fisheye 200°",
+        "fisheye220": "Fisheye 220°",
+        "rf52": "RF52"
+      },
+      "layouts": {
+        "mono": "One eye",
+        "sbs": "Side by side",
+        "tb": "Over under"
+      }
+    },
     "shrink": "Shrink",
     "expand": "Fill the window",
     "dock": "Put back in the main window",

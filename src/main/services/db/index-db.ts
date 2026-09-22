@@ -5,6 +5,8 @@ import { INDEX_DB, LIBRARY_CACHE_DIR } from '@shared/constants'
 import type { MediaListItem, MediaListPage } from '@shared/schemas/media-index'
 import type { MediaMeta, NameField } from '@shared/schemas/media-meta'
 import type { FilterNode } from '@shared/schemas/taxonomy'
+import { VrFormatSchema, type VrFormat } from '@shared/schemas/vr-video'
+import { FLAT_VR_FORMAT } from '@shared/vr-video'
 import { isMultiAxis } from '../library/companion-grouping'
 import { compileFilter } from './filter-sql'
 
@@ -19,10 +21,21 @@ import { compileFilter } from './filter-sql'
  * FTS5 external content requires an integer rowid and media.id is a UUID.
  */
 
-const SCHEMA_VERSION = 6
+const SCHEMA_VERSION = 7
 
 /** GROUP_CONCAT separator (SQL `char(31)`, the ASCII unit separator). */
 const SEP = String.fromCharCode(31)
+
+/** How a row is marked, from the `vr` column; `flat` when unmarked. */
+function rowVrFormat(vr: string | null): VrFormat {
+  if (!vr) return FLAT_VR_FORMAT
+  try {
+    const parsed = VrFormatSchema.safeParse(JSON.parse(vr))
+    return parsed.success ? parsed.data : FLAT_VR_FORMAT
+  } catch {
+    return FLAT_VR_FORMAT
+  }
+}
 
 /** Sidecar name list → the table that indexes it. Order is the write order. */
 const NAME_TABLES = new Map<NameField, string>([
@@ -43,6 +56,9 @@ CREATE TABLE media (
   duration_ms INTEGER,
   resolution TEXT,
   codec TEXT,
+  -- How the user marked the file, as the sidecar's vr field in JSON. NULL
+  -- when unmarked, which plays as flat.
+  vr TEXT,
   missing INTEGER NOT NULL DEFAULT 0,
   -- 1 = the file has never arrived (bought elsewhere, still to be supplied);
   -- distinct from "missing", which also covers a file that went away.
@@ -389,11 +405,12 @@ export class LibraryIndexDb {
         .run(relPath, meta.id)
       this.db
         .prepare(
-          `INSERT INTO media (id, file_path, file_size, fingerprint, title, duration_ms, resolution, codec, missing, wanted, rating, favorite, created_at, updated_at, file_added_at, file_modified_at, sidecar_mtime)
-           VALUES (@id, @filePath, @fileSize, @fingerprint, @title, @durationMs, @resolution, @codec, @wanted, @wanted, @rating, @favorite, @createdAt, @updatedAt, @fileAddedAt, @fileModifiedAt, @sidecarMtime)
+          `INSERT INTO media (id, file_path, file_size, fingerprint, title, duration_ms, resolution, codec, vr, missing, wanted, rating, favorite, created_at, updated_at, file_added_at, file_modified_at, sidecar_mtime)
+           VALUES (@id, @filePath, @fileSize, @fingerprint, @title, @durationMs, @resolution, @codec, @vr, @wanted, @wanted, @rating, @favorite, @createdAt, @updatedAt, @fileAddedAt, @fileModifiedAt, @sidecarMtime)
            ON CONFLICT(id) DO UPDATE SET
              file_path = @filePath, file_size = @fileSize, fingerprint = @fingerprint,
              title = @title, duration_ms = @durationMs, resolution = @resolution, codec = @codec,
+             vr = @vr,
              missing = @wanted, wanted = @wanted,
              rating = @rating, favorite = @favorite,
              created_at = @createdAt, updated_at = @updatedAt,
@@ -415,6 +432,7 @@ export class LibraryIndexDb {
               ? `${meta.mediaInfo.width}x${meta.mediaInfo.height}`
               : null,
           codec: meta.mediaInfo?.videoCodec ?? meta.mediaInfo?.audioCodec ?? null,
+          vr: meta.vr ? JSON.stringify(meta.vr) : null,
           // A placeholder is missing by definition: there is no file yet.
           wanted: meta.wanted ? 1 : 0,
           rating: meta.userMeta.rating ?? null,
@@ -738,6 +756,18 @@ export class LibraryIndexDb {
     return r?.t ?? null
   }
 
+  /**
+   * How a media's picture is stored, for the parts of the app that hold only
+   * its id — the thumbnail, which has to cut one eye out before it can show
+   * a representative frame.
+   */
+  vrFormat(id: string): VrFormat {
+    const r = this.db.prepare('SELECT vr FROM media WHERE id = ?').get(id) as
+      | { vr: string | null }
+      | undefined
+    return rowVrFormat(r?.vr ?? null)
+  }
+
   getMediaRelPath(id: string): string | null {
     const r = this.db.prepare('SELECT file_path FROM media WHERE id = ?').get(id) as
       | { file_path: string }
@@ -792,7 +822,7 @@ export class LibraryIndexDb {
         `SELECT m.id, m.file_path, m.file_size, m.title, m.missing, m.wanted,
            COALESCE(m.file_added_at, unixepoch(m.created_at) * 1000) AS added_at,
            COALESCE(m.file_modified_at, unixepoch(m.updated_at) * 1000) AS modified_at,
-           m.rating, m.favorite, m.duration_ms,
+           m.rating, m.favorite, m.duration_ms, m.vr,
            (SELECT COUNT(*) FROM script_version sv WHERE sv.media_id = m.id) AS script_count,
            (SELECT MAX(sv.is_multi_axis) FROM script_version sv WHERE sv.media_id = m.id) AS multi_axis,
            (SELECT GROUP_CONCAT(t.name, char(31)) FROM media_tag t WHERE t.media_id = m.id) AS tags,
@@ -818,6 +848,7 @@ export class LibraryIndexDb {
       rating: number | null
       favorite: number
       duration_ms: number | null
+      vr: string | null
       script_count: number
       multi_axis: number | null
       tags: string | null
@@ -825,26 +856,30 @@ export class LibraryIndexDb {
       playlist_rank: string | null
     }[]
 
-    const items: MediaListItem[] = rows.map((r) => ({
-      id: r.id,
-      libraryId,
-      filePath: r.file_path,
-      fileName: r.file_path.split('/').pop() ?? r.file_path,
-      title: r.title,
-      fileSize: r.file_size,
-      missing: r.missing !== 0,
-      wanted: r.wanted !== 0,
-      tags: r.tags ? r.tags.split(SEP) : [],
-      rating: r.rating,
-      favorite: r.favorite !== 0,
-      durationMs: r.duration_ms,
-      scriptVersionCount: r.script_count,
-      hasMultiAxis: (r.multi_axis ?? 0) !== 0,
-      subtitleLanguages: r.sub_langs ? r.sub_langs.split(SEP).filter((l) => l !== '') : [],
-      addedAt: r.added_at,
-      modifiedAt: r.modified_at,
-      playlistRank: r.playlist_rank
-    }))
+    const items: MediaListItem[] = rows.map((r) => {
+      const tags = r.tags ? r.tags.split(SEP) : []
+      return {
+        id: r.id,
+        libraryId,
+        filePath: r.file_path,
+        fileName: r.file_path.split('/').pop() ?? r.file_path,
+        title: r.title,
+        fileSize: r.file_size,
+        missing: r.missing !== 0,
+        wanted: r.wanted !== 0,
+        tags,
+        rating: r.rating,
+        favorite: r.favorite !== 0,
+        durationMs: r.duration_ms,
+        vr: rowVrFormat(r.vr),
+        scriptVersionCount: r.script_count,
+        hasMultiAxis: (r.multi_axis ?? 0) !== 0,
+        subtitleLanguages: r.sub_langs ? r.sub_langs.split(SEP).filter((l) => l !== '') : [],
+        addedAt: r.added_at,
+        modifiedAt: r.modified_at,
+        playlistRank: r.playlist_rank
+      }
+    })
 
     return { items, total }
   }

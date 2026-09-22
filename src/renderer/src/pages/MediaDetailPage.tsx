@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight, DownloadCloud, ExternalLink, Heart, X } from 'lucide-react'
+import { ChevronRight, DownloadCloud, ExternalLink, Glasses, Heart, X } from 'lucide-react'
 import { funscriptAxisFromToken } from '@shared/constants'
 import type { MediaDetail, ScriptVersionInfo } from '@shared/schemas/media-index'
 import { SCRIPT_AXIS_KEYS, type NameField } from '@shared/schemas/media-meta'
+import { VR_LAYOUTS, VR_PROJECTIONS, type VrFormat } from '@shared/schemas/vr-video'
+import { DEFAULT_VR_FORMAT, FLAT_VR_FORMAT, isVrFormat } from '@shared/vr-video'
 import type { MediaSelection } from '../App'
 import WantedPanel from '../components/WantedPanel'
 import HosterBadge from '../components/HosterBadge'
@@ -11,6 +13,7 @@ import DeleteMediaDialog from '../components/DeleteMediaDialog'
 import RenameMediaDialog from '../components/RenameMediaDialog'
 import NameChips, { KIND_COLOR, type Taxonomy } from '../components/NameChips'
 import PostMatchFinder from '../components/PostMatchFinder'
+import PreviewVideo from '../components/PreviewVideo'
 import { NAME_FIELDS_UI, type NameFilter, type NamePick } from '../filters'
 import Select from '../components/Select'
 import { ipcInvoke, ipcOn } from '../ipc'
@@ -136,6 +139,8 @@ export default function MediaDetailPage({
   const [deleting, setDeleting] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [taxonomy, setTaxonomy] = useState<Taxonomy | null>(null)
+  /** "Later" on the VR suggestion: hidden until the panel is opened again. */
+  const [vrPromptLater, setVrPromptLater] = useState(false)
   const [titleDraft, setTitleDraft] = useState('')
   /** The title as the sidecar last reported it — what a draft is "clean" against. */
   const serverTitle = useRef('')
@@ -168,12 +173,10 @@ export default function MediaDetailPage({
     }
   }, [libraryId, mediaId, toMessage])
 
-  // Initial detail + thumbnail + current playing state.
+  // Initial detail + current playing state.
   useEffect(() => {
     void loadDetail()
-    ipcInvoke('media:getThumbnail', { libraryId, mediaId })
-      .then(({ dataUrl }) => setThumb(dataUrl))
-      .catch(() => setThumb(null))
+    setVrPromptLater(false)
     ipcInvoke('playback:status')
       .then((s) => {
         const mine = s.mediaId === mediaId
@@ -183,6 +186,16 @@ export default function MediaDetailPage({
       })
       .catch(() => {})
   }, [libraryId, mediaId, loadDetail])
+
+  // The thumbnail of a VR file is one eye flattened, so a new mark means a
+  // new thumbnail.
+  const vrKey = detail ? `${detail.vr.projection}-${detail.vr.layout}` : null
+  useEffect(() => {
+    if (vrKey === null) return
+    ipcInvoke('media:getThumbnail', { libraryId, mediaId })
+      .then(({ dataUrl }) => setThumb(dataUrl))
+      .catch(() => setThumb(null))
+  }, [libraryId, mediaId, vrKey])
 
   // Push events: index changes (scripts edited on disk) + playback state.
   useEffect(() => {
@@ -278,6 +291,18 @@ export default function MediaDetailPage({
     setBusy(true)
     try {
       setDetail(await ipcInvoke('media:setUserMeta', { libraryId, mediaId, rating }))
+    } catch (e) {
+      showToast({ message: toMessage(e) })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** Mark the file as VR in a format, or as not VR with `flat`. */
+  const saveVr = async (vr: VrFormat): Promise<void> => {
+    setBusy(true)
+    try {
+      setDetail(await ipcInvoke('media:setVr', { libraryId, mediaId, vr }))
     } catch (e) {
       showToast({ message: toMessage(e) })
     } finally {
@@ -668,6 +693,29 @@ export default function MediaDetailPage({
       <div className="panel-body">
         {loadError && <div className="error-banner">{loadError}</div>}
         {notice && <div className="detail-notice">{notice}</div>}
+        {detail.vrSuggestion && !detail.vrMarked && !vrPromptLater && (
+          <div className="vr-prompt">
+            <span className="vr-prompt-text">
+              <Glasses size={14} />
+              {t('detail.vrPrompt.text')}
+            </span>
+            <span className="vr-prompt-actions">
+              <button
+                className="primary"
+                disabled={busy}
+                onClick={() => detail.vrSuggestion && void saveVr(detail.vrSuggestion)}
+              >
+                {t('detail.vrPrompt.mark')}
+              </button>
+              <button className="ghost" onClick={() => setVrPromptLater(true)}>
+                {t('detail.vrPrompt.later')}
+              </button>
+              <button className="ghost" disabled={busy} onClick={() => void saveVr(FLAT_VR_FORMAT)}>
+                {t('detail.vrPrompt.notVr')}
+              </button>
+            </span>
+          </div>
+        )}
 
         <div className="detail-preview sfw">
           {thumb ? (
@@ -678,18 +726,10 @@ export default function MediaDetailPage({
             </span>
           )}
           {!detail.missing && isPreviewable(detail.fileName) && !previewFailed && (
-            <video
+            <PreviewVideo
               className="detail-preview-video"
               src={mediaPreviewUrl(libraryId, mediaId)}
-              muted
-              autoPlay
-              loop
-              playsInline
-              preload="metadata"
-              onLoadedMetadata={(e) => {
-                const v = e.currentTarget
-                if (Number.isFinite(v.duration)) v.currentTime = Math.min(v.duration * 0.1, 20)
-              }}
+              vr={detail.vr}
               onError={() => setPreviewFailed(true)}
             />
           )}
@@ -805,6 +845,13 @@ export default function MediaDetailPage({
             </ul>
           )}
           </div>
+
+          <VrMark
+            vr={detail.vr}
+            suggestion={detail.vrSuggestion}
+            disabled={busy}
+            onChange={(vr) => void saveVr(vr)}
+          />
 
           {/* One row per kind, edited in place. Six headings on their own
               lines was most of the panel. */}
@@ -1983,5 +2030,67 @@ function AddVersionForm({
         </button>
       </div>
     </form>
+  )
+}
+
+/**
+ * Whether the file plays as VR, and in which format. A switch; switched on,
+ * it shows the projection and eye layout.
+ */
+function VrMark({
+  vr,
+  suggestion,
+  disabled,
+  onChange
+}: {
+  vr: VrFormat
+  /** The format the file name points to; the starting format when switched on. */
+  suggestion: VrFormat | null
+  disabled: boolean
+  onChange: (vr: VrFormat) => void
+}): React.JSX.Element {
+  const { t } = useTranslation()
+  const on = isVrFormat(vr)
+  return (
+    <div className="vr-mark">
+      <div className="vr-mark-row">
+        <span className="vr-mark-label">
+          <Glasses size={13} />
+          {t('detail.vrToggle')}
+        </span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={on}
+          aria-label={t('detail.vrToggle')}
+          className={`switch${on ? ' on' : ''}`}
+          disabled={disabled}
+          onClick={() => onChange(on ? FLAT_VR_FORMAT : (suggestion ?? DEFAULT_VR_FORMAT))}
+        >
+          <span className="switch-knob" />
+        </button>
+      </div>
+      {on && (
+        <div className="vr-mark-format">
+          <Select
+            value={vr.projection}
+            ariaLabel={t('player.vr.projection')}
+            disabled={disabled}
+            options={VR_PROJECTIONS.filter((p) => p !== 'flat').map((p) => ({
+              value: p,
+              label: t(`player.vr.projections.${p}`)
+            }))}
+            onChange={(projection) => onChange({ ...vr, projection })}
+          />
+          <Select
+            value={vr.layout}
+            ariaLabel={t('player.vr.layout')}
+            disabled={disabled}
+            options={VR_LAYOUTS.map((l) => ({ value: l, label: t(`player.vr.layouts.${l}`) }))}
+            onChange={(layout) => onChange({ ...vr, layout })}
+          />
+        </div>
+      )}
+    </div>
   )
 }

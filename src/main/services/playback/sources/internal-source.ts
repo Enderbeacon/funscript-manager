@@ -138,7 +138,9 @@ export class InternalSource extends BaseMediaSource implements MediaSourceAdapte
       // so. Which subtitle this one gets is settled by the playback service,
       // which is the layer allowed to ask the library what this file has.
       subtitle: null,
-      subtitleOffsetMs: 0
+      subtitleOffsetMs: 0,
+      // Nor its VR mark: flat until the playback service reads this one's.
+      vr: { projection: 'flat', layout: 'mono' }
     })
     this.emit('path-changed', { path })
   }

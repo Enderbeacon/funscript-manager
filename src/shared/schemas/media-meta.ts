@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { FUNSCRIPT_EXTENSION } from '../constants'
+import { VrFormatSchema } from './vr-video'
 
 /**
  * Sidecar (`<full media filename>.meta.json`) schema.
@@ -152,6 +153,12 @@ export const MediaMetaSchema = z.looseObject({
   fileFingerprint: FileFingerprintSchema,
   /** Read from the file with ffmpeg; absent until it has been probed. */
   mediaInfo: MediaInfoSchema.optional(),
+  /**
+   * How the user marked this file: a VR format, or `flat` for "not VR".
+   * Absent when it has not been marked; it then plays as a flat video.
+   * A value that does not parse is dropped rather than failing the sidecar.
+   */
+  vr: VrFormatSchema.optional().catch(undefined),
   /** Present until the media file is supplied; see WantedSchema. */
   wanted: WantedSchema.optional(),
   /** Set once the forum has been searched for this entry; see PostMatchSchema. */

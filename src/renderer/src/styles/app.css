@@ -1722,6 +1722,82 @@ textarea:disabled { opacity: 0.55; cursor: default; }
 
 /* Script version editing (rename / notes / source / manual add) */
 
+/* An unmarked file whose name points to VR: offer to mark it. */
+.vr-prompt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-radius: var(--radius-md);
+  padding: 0.5rem 0.6rem 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+  font-size: 13px;
+}
+.vr-prompt-text {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--accent);
+}
+.vr-prompt-actions { display: flex; gap: 0.35rem; }
+.vr-prompt-actions button { padding: 0.25rem 0.65rem; font-size: 12px; }
+
+/* Flat or VR, above the information rows. */
+.vr-mark { margin-top: 14px; }
+.vr-mark-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.vr-mark-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.vr-mark-format {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.4rem;
+  margin-top: 0.45rem;
+}
+
+/* A two-state switch; `.on` slides the knob right and fills the track. */
+.switch {
+  position: relative;
+  flex: none;
+  width: 32px;
+  height: 18px;
+  padding: 0;
+  border-radius: 9px;
+  border: 0.5px solid var(--border-secondary);
+  background: var(--bg-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.switch.on {
+  background: linear-gradient(135deg, var(--grad-a), var(--grad-b));
+  border-color: transparent;
+}
+.switch.on .switch-knob {
+  transform: translateX(14px);
+  background: var(--accent-text);
+}
+
 .detail-notice {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--accent);
@@ -6754,6 +6830,24 @@ button.sp-connect-button.connected:hover:not(:disabled) {
   background: #05070c;
   display: block;
 }
+
+/*
+ * A VR file, flattened. Drawn over the element that is playing it: the video
+ * underneath keeps the sound and the clock, this is what is watched.
+ */
+.vr-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: #05070c;
+  /* Gestures belong to the layer above, as they do for a plain video. */
+  pointer-events: none;
+}
+
+.video-gestures.turnable { cursor: grab; }
+.video-gestures.turnable:active { cursor: grabbing; }
 
 .video-failed {
   position: absolute;

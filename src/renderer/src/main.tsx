@@ -7,6 +7,7 @@ import './styles/app.css'
 import { applyThemeSetting } from './theme'
 import ScriptPlayerStandalone from '@script-player/interface/renderer/ScriptPlayerStandalone'
 import VideoPlayerWindow from './components/VideoPlayerWindow'
+import { loadMediaAccessKey } from './mediaUrl'
 
 // Their own chunks: each VR page's stylesheet sizes the whole page for the
 // headset, and must never reach the main window.
@@ -18,6 +19,10 @@ const VrScriptPlayer = React.lazy(() => import('./vr/VrScriptPlayer'))
 applyThemeSetting('system')
 
 const query = new URLSearchParams(window.location.search)
+
+// Media URLs carry a key the main process hands out; every page that shows a
+// video needs it before its first render.
+await loadMediaAccessKey()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

@@ -18,9 +18,11 @@ import {
   SubtitleCueSchema,
   SubtitleTrackSchema,
   VideoRouteFallbackSchema,
-  VideoRouteSchema
+  VideoRouteSchema,
+  VrFormatPatchSchema
 } from '../schemas/playback'
 import { DeleteModeSchema, DeletePlanSchema, RenamePlanSchema } from '../schemas/media-lifecycle'
+import { VrFormatSchema } from '../schemas/vr-video'
 import { NAME_FIELDS, SCRIPT_AXIS_KEYS } from '../schemas/media-meta'
 import { ENTITY_KINDS, FilterNodeSchema } from '../schemas/taxonomy'
 import { QueuedOpSchema } from '../schemas/organise-queue'
@@ -588,6 +590,11 @@ export const ipcContract = {
     }),
     output: MediaDetailSchema
   },
+  'media:setVr': {
+    /** Mark a media as VR in the given format, or as not VR with `flat`. */
+    input: z.object({ libraryId: z.uuid(), mediaId: z.uuid(), vr: VrFormatSchema }),
+    output: MediaDetailSchema
+  },
   'media:setUserMeta': {
     input: z.object({
       libraryId: z.uuid(),
@@ -707,6 +714,11 @@ export const ipcContract = {
       scriptVersionId: z.uuid().optional()
     }),
     output: z.object({ dataUrl: z.string().nullable() })
+  },
+  /** The key `fsmgr-media://` URLs carry; see the protocol handler. */
+  'media:accessKey': {
+    input: z.void(),
+    output: z.object({ key: z.string() })
   },
   'media:getThumbnail': {
     /** null = not a video, file missing, or extraction failed. */
@@ -1021,6 +1033,15 @@ export const ipcContract = {
   },
   'video:streamClose': {
     input: z.object({ id: z.string() }),
+    output: z.void()
+  },
+
+  /**
+   * Change how the file on screen is marked, from the picture's menu. Kept
+   * in its sidecar; the thumbnail and inline previews read it from there.
+   */
+  'video:setVr': {
+    input: VrFormatPatchSchema,
     output: z.void()
   },
 

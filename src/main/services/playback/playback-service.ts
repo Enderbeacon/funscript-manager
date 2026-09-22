@@ -11,6 +11,7 @@ import { ensureMfp, type MfpStatus } from './mfp'
 import { pluginApply } from './mfp-bridge'
 import { prepareSession } from './playback-session'
 import { applyRememberedSubtitle } from './subtitles'
+import { applyVrFormat } from './vr-format'
 import {
   activeMediaSource,
   activeReading,
@@ -318,9 +319,15 @@ export async function play(opts: {
   openedPath = mediaAbs
   await target.adapter.open(mediaAbs, resumeAt !== null && resumeAt > 0 ? resumeAt : null)
   if (target.adapter.capabilities.pause) await target.adapter.setPaused(false)
-  // Only the picture we draw ourselves has subtitles to put on; every other
-  // player has its own. Not awaited — the video is already going.
-  if (target.adapter.kind === 'internal') void applyRememberedSubtitle(mediaAbs)
+  // Only the picture we draw ourselves has subtitles to put on, or a
+  // projection to undo; every other player has its own. The subtitle is not
+  // awaited — the video is already going — while the projection is settled
+  // here and now, from the sidecar already in hand, so a VR file is never
+  // drawn as two halves first.
+  if (target.adapter.kind === 'internal') {
+    applyVrFormat(sidecar.meta)
+    void applyRememberedSubtitle(mediaAbs)
+  }
 
   currentMediaId = opts.mediaId
   currentLibraryId = opts.libraryId ?? null

@@ -1,5 +1,7 @@
 import { z } from 'zod'
 import { MediaSourceKindSchema } from './app-config'
+import { FLAT_VR_FORMAT } from '../vr-video'
+import { VrFormatSchema, VrLayoutSchema, VrProjectionSchema } from './vr-video'
 
 /**
  * What the renderer is told about the video players.
@@ -122,7 +124,12 @@ export const InternalPlayerIntentSchema = z.object({
    */
   subtitle: SubtitleTrackSchema.nullable(),
   /** Nudge, in milliseconds: positive shows the line later. Per file. */
-  subtitleOffsetMs: z.number().int()
+  subtitleOffsetMs: z.number().int(),
+  /**
+   * How the file on screen is marked: a VR format, or `flat` for an ordinary
+   * video or one never marked. Read from the sidecar by the main process.
+   */
+  vr: VrFormatSchema.default(FLAT_VR_FORMAT)
 })
 
 export type InternalPlayerIntent = z.infer<typeof InternalPlayerIntentSchema>
@@ -184,3 +191,14 @@ export type StreamRoute = z.infer<typeof StreamRouteSchema>
  */
 export const VideoRouteFallbackSchema = z.enum(['none', 'stream', 'encode'])
 export type VideoRouteFallback = z.infer<typeof VideoRouteFallbackSchema>
+
+/**
+ * A change from the picture's menu to how the file on screen is marked. A
+ * field left out keeps its current value.
+ */
+export const VrFormatPatchSchema = z.object({
+  projection: VrProjectionSchema.optional(),
+  layout: VrLayoutSchema.optional()
+})
+
+export type VrFormatPatch = z.infer<typeof VrFormatPatchSchema>

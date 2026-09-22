@@ -14,6 +14,13 @@
     "about": "情報"
   },
   "detail": {
+    "vrToggle": "VR 動画",
+    "vrPrompt": {
+      "text": "VR 動画のようです。",
+      "mark": "VR としてマーク",
+      "later": "あとで",
+      "notVr": "VR ではない"
+    },
     "back": "戻る",
     "close": "閉じる",
     "notFound": "この項目は利用できなくなりました。",
@@ -1107,6 +1114,26 @@
     "missingRow": "ライブラリにありません"
   },
   "player": {
+    "vr": {
+      "title": "VR 動画",
+      "projection": "投影方式",
+      "layout": "映像の並び",
+      "recentre": "視点を戻す",
+      "projections": {
+        "flat": "VR ではない",
+        "eq180": "180°",
+        "eq360": "360°",
+        "fisheye190": "フィッシュアイ 190°",
+        "fisheye200": "フィッシュアイ 200°",
+        "fisheye220": "フィッシュアイ 220°",
+        "rf52": "RF52"
+      },
+      "layouts": {
+        "mono": "片目のみ",
+        "sbs": "左右",
+        "tb": "上下"
+      }
+    },
     "shrink": "小窓にする",
     "expand": "全体に広げる",
     "dock": "メインウィンドウに戻す",

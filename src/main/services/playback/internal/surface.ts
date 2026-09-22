@@ -25,7 +25,8 @@ const IDLE_INTENT: InternalPlayerIntent = {
   paused: true,
   volume: 100,
   subtitle: null,
-  subtitleOffsetMs: 0
+  subtitleOffsetMs: 0,
+  vr: { projection: 'flat', layout: 'mono' }
 }
 
 interface SurfaceEvents {

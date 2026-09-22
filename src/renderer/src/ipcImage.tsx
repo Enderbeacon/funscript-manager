@@ -29,7 +29,8 @@ export default function CachedIpcImage({
   channel,
   libraryId,
   mediaId,
-  epoch = 0
+  epoch = 0,
+  variant = ''
 }: {
   className: string
   cache: Map<string, string | null>
@@ -38,8 +39,13 @@ export default function CachedIpcImage({
   mediaId: string
   /** Bumped by the caller to force a refetch after the file changed. */
   epoch?: number
+  /**
+   * Part of the cache key, for a picture that depends on more than the file:
+   * a VR thumbnail depends on the format, and a new format fetches anew.
+   */
+  variant?: string
 }): React.JSX.Element | null {
-  const key = `${libraryId}/${mediaId}`
+  const key = `${libraryId}/${mediaId}/${variant}`
   const [src, setSrc] = useState<string | null>(() => cache.get(key) ?? null)
 
   useEffect(() => {
@@ -59,7 +65,7 @@ export default function CachedIpcImage({
     return () => {
       alive = false
     }
-  }, [cache, channel, key, libraryId, mediaId, epoch])
+  }, [cache, channel, key, libraryId, mediaId, epoch, variant])
 
   return src ? <img className={className} src={src} alt="" /> : null
 }

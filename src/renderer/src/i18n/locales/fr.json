@@ -14,6 +14,13 @@
     "about": "À propos"
   },
   "detail": {
+    "vrToggle": "Vidéo VR",
+    "vrPrompt": {
+      "text": "Cela ressemble à une vidéo VR.",
+      "mark": "Marquer comme VR",
+      "later": "Plus tard",
+      "notVr": "Pas de VR"
+    },
     "back": "Retour",
     "close": "Fermer",
     "notFound": "Cet élément n'est plus disponible.",
@@ -1128,6 +1135,26 @@
     "missingRow": "Absent de la bibliothèque"
   },
   "player": {
+    "vr": {
+      "title": "Vidéo VR",
+      "projection": "Projection",
+      "layout": "Disposition des yeux",
+      "recentre": "Recentrer la vue",
+      "projections": {
+        "flat": "Pas de VR",
+        "eq180": "180°",
+        "eq360": "360°",
+        "fisheye190": "Fisheye 190°",
+        "fisheye200": "Fisheye 200°",
+        "fisheye220": "Fisheye 220°",
+        "rf52": "RF52"
+      },
+      "layouts": {
+        "mono": "Un seul œil",
+        "sbs": "Côte à côte",
+        "tb": "Superposées"
+      }
+    },
     "shrink": "Réduire",
     "expand": "Remplir la fenêtre",
     "dock": "Remettre dans la fenêtre principale",

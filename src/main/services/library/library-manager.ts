@@ -24,7 +24,9 @@ import {
   type ScriptVersion
 } from '@shared/schemas/media-meta'
 import type { FilterNode } from '@shared/schemas/taxonomy'
+import type { VrFormat } from '@shared/schemas/vr-video'
 import { isRank } from '@shared/rank'
+import { FLAT_VR_FORMAT, guessVrFormat, isVrFormat } from '@shared/vr-video'
 import { AppError, type AppErrorCode } from '@shared/errors'
 import { LibraryIndexDb, isIndexCorruption, type MediaSort } from '../db/index-db'
 import { disposeHeatmapPool, getHeatmapDataUrl } from '../heatmap/heatmap-service'
@@ -392,8 +394,20 @@ export function getThumbnail(libraryId: string, mediaId: string): Promise<string
   return getThumbnailDataUrl({
     libraryRoot: handle.library.rootPath,
     mediaId,
-    mediaRelPath: relPath
+    mediaRelPath: relPath,
+    // A VR frame is two distorted halves; the thumbnail is one eye, flattened.
+    vr: handle.db.vrFormat(mediaId)
   })
+}
+
+/** The VR format an unmarked file's name and picture size point to, if any. */
+function vrSuggestionFor(relPath: string, meta: MediaMeta): VrFormat | null {
+  const guess = guessVrFormat({
+    path: relPath,
+    width: meta.mediaInfo?.width ?? null,
+    height: meta.mediaInfo?.height ?? null
+  })
+  return isVrFormat(guess) ? guess : null
 }
 
 /**
@@ -426,6 +440,9 @@ function toDetail(
         ? `${meta.mediaInfo.width}×${meta.mediaInfo.height}`
         : null,
     codec: [meta.mediaInfo?.videoCodec, meta.mediaInfo?.audioCodec].filter(Boolean).join(" / ") || null,
+    vr: meta.vr ?? FLAT_VR_FORMAT,
+    vrMarked: meta.vr !== undefined,
+    vrSuggestion: vrSuggestionFor(relPath, meta),
     missing: !existsSync(mediaAbs),
     // A placeholder is not a lost file: it has never arrived, and the page
     // offers a way to supply it rather than a warning about a broken library.

@@ -61,6 +61,8 @@ import {
   videoSurfaceEvents
 } from '../services/playback/internal/surface'
 import { routeVideo } from '../services/playback/internal/route'
+import { setPlayingVrFormat, showVrFormatIfPlaying } from '../services/playback/vr-format'
+import { mediaAccessKey } from '../services/media-protocol'
 import { closeStream, openStream, readStream } from '../services/playback/internal/stream'
 import {
   isMainWindowOpen,
@@ -639,6 +641,7 @@ export function registerIpcHandlers(): void {
     }
   })
 
+  handle('media:accessKey', () => ({ key: mediaAccessKey() }))
   handle('media:getThumbnail', async (input) => {
     try {
       return { dataUrl: await libraryManager.getThumbnail(input.libraryId, input.mediaId) }
@@ -816,6 +819,7 @@ export function registerIpcHandlers(): void {
   handle('video:surface', () => ({ detached: isVideoPlayerDetached() }))
 
   handle('video:route', ({ path, hevc, fallback }) => routeVideo(path, { hevc, fallback }))
+  handle('video:setVr', (patch) => setPlayingVrFormat(patch))
   handle('video:streamOpen', async (input, sender) => ({ id: await openStream(sender, input) }))
   handle('video:streamRead', async ({ id }, sender) => ({ chunk: await readStream(sender, id) }))
   handle('video:streamClose', ({ id }, sender) => {
@@ -1030,6 +1034,11 @@ export function registerIpcHandlers(): void {
     metadata.setNames({ libraryId, mediaId }, field, names)
   )
 
+  handle('media:setVr', async ({ libraryId, mediaId, vr }) => {
+    const detail = await metadata.setVr({ libraryId, mediaId }, vr)
+    showVrFormatIfPlaying(detail.absPath, detail.vr)
+    return detail
+  })
   handle('media:setUserMeta', ({ libraryId, mediaId, ...patch }) =>
     metadata.setUserMeta({ libraryId, mediaId }, patch)
   )

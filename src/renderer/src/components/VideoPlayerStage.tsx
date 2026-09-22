@@ -12,6 +12,8 @@ import {
   Shrink,
   SlidersHorizontal,
   SquareArrowOutUpRight,
+  Glasses,
+  RotateCcw,
   Volume2,
   VolumeX,
   X
@@ -23,16 +25,26 @@ import type {
   VideoRoute,
   VideoRouteFallback
 } from '@shared/schemas/playback'
+import type { VrLayout, VrProjection } from '@shared/schemas/vr-video'
+import { VR_LAYOUTS, VR_PROJECTIONS } from '@shared/schemas/vr-video'
+import {
+  DEFAULT_VR_FORMAT,
+  FLAT_VR_FORMAT,
+  isVrFormat,
+  vrProjectionShape
+} from '@shared/vr-video'
 import { ipcInvoke, ipcOn } from '../ipc'
 import { mediaFileUrl } from '../mediaUrl'
 import { languageName } from '../languageName'
 import { StreamFeed } from '../streamFeed'
 import { useErrorMessage } from '../useErrorMessage'
 import { useMainWindowOpen } from '../useMainWindow'
+import { DEFAULT_VR_LOOK, VR_FOV_MAX, VR_FOV_MIN, VR_PITCH_LIMIT, type VrLook } from '../vrView'
 import ContextMenu, { type MenuItem } from './ContextMenu'
 import NowPlayingBar from './NowPlayingBar'
 import SubtitleLayer, { type SubtitleLook } from './SubtitleLayer'
 import SubtitleSettings from './SubtitleSettings'
+import VrSurface from './VrSurface'
 
 /**
  * The built-in picture.
@@ -78,6 +90,17 @@ const NUDGES = [-0.5, -0.1, 0.1, 0.5]
 /** A load or seek quicker than this shows no spinner rather than a flicker. */
 const SPINNER_DELAY_MS = 300
 
+/** One wheel notch of field of view, in degrees. */
+const FOV_STEP = 5
+
+/**
+ * How far the pointer may move during a press and still be a click.
+ *
+ * Turning a VR picture and pausing it are the same button, so a hand that
+ * shifts by a pixel or two on the way up must not stop the video.
+ */
+const DRAG_SLOP = 4
+
 /**
  * Whether this machine decodes HEVC. It depends on the graphics hardware, and
  * a file the picture could take as it is would otherwise be converted.
@@ -92,6 +115,26 @@ function canDecodeHevc(): boolean {
 
 /** Why there is nothing on the picture, when there is nothing on it. */
 type Trouble = 'unsupported' | 'needs_ffmpeg'
+
+function clamp(value: number, low: number, high: number): number {
+  return Math.min(high, Math.max(low, value))
+}
+
+/**
+ * Keep the view inside the part of the sphere the file holds. A whole sphere
+ * has no edge to stop at and carries on round; half of one stops where the
+ * picture does, rather than letting the viewer turn into the black.
+ */
+function clampLook(look: VrLook, projection: VrProjection): VrLook {
+  const shape = vrProjectionShape(projection)
+  const half = shape ? shape.fovDeg / 2 : 0
+  const yaw = half >= 180 ? ((((look.yaw + 180) % 360) + 360) % 360) - 180 : clamp(look.yaw, -half, half)
+  return {
+    yaw,
+    pitch: clamp(look.pitch, -Math.min(VR_PITCH_LIMIT, half), Math.min(VR_PITCH_LIMIT, half)),
+    fov: clamp(look.fov, VR_FOV_MIN, VR_FOV_MAX)
+  }
+}
 
 export default function VideoPlayerStage({
   intent,
@@ -170,6 +213,15 @@ export default function VideoPlayerStage({
   /** How the subtitle looks. Null until the settings have been read. */
   const [look, setLook] = useState<SubtitleLook | null>(null)
   const saveLook = useRef<number | undefined>(undefined)
+  /** Where the viewer is facing in a VR file, and how wide a view. */
+  const [vrLook, setVrLook] = useState<VrLook>(DEFAULT_VR_LOOK)
+  /** No canvas to be had on this machine: show the file as it is stored. */
+  const [vrBroken, setVrBroken] = useState(false)
+  const vrOn = isVrFormat(intent.vr) && !vrBroken
+  /** A press being turned into a turn, and whether it has moved enough yet. */
+  const turningView = useRef<{ x: number; y: number; moved: boolean } | null>(null)
+  /** The press just finished turned the picture, so its click is not a pause. */
+  const turned = useRef(false)
   const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null)
   const [panelOpen, setPanelOpen] = useState(false)
   /** What this video offers. Null while we are still finding out. */
@@ -315,6 +367,9 @@ export default function VideoPlayerStage({
     feed.current = null
     setTrouble(null)
     setInstallError(null)
+    // A new file is faced from the front, and gets its own try at a canvas.
+    setVrLook(DEFAULT_VR_LOOK)
+    setVrBroken(false)
     el.removeAttribute('src')
     el.load()
     if (!intent.media) {
@@ -460,6 +515,64 @@ export default function VideoPlayerStage({
     void ipcInvoke('playback:setPaused', { paused: !intent.paused }).catch(() => {})
   }, [intent.paused])
 
+  const onVrUnavailable = useCallback((): void => setVrBroken(true), [])
+
+  /** Change how this file is marked; stored in its sidecar. */
+  const setVr = useCallback((patch: { projection?: VrProjection; layout?: VrLayout }): void => {
+    void ipcInvoke('video:setVr', patch).catch(() => {})
+  }, [])
+
+  /**
+   * Turning a VR picture: the pointer drags the scene along with it.
+   *
+   * A press is only a turn once it has moved; until then it is on its way to
+   * being the click that pauses, which is the same button on the same layer.
+   */
+  const startTurn = (event: React.PointerEvent<HTMLDivElement>): void => {
+    if (!vrOn || event.button !== 0) return
+    turningView.current = { x: event.clientX, y: event.clientY, moved: false }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  const turnView = (event: React.PointerEvent<HTMLDivElement>): void => {
+    const held = turningView.current
+    if (!held) return
+    const dx = event.clientX - held.x
+    const dy = event.clientY - held.y
+    if (!held.moved && Math.hypot(dx, dy) < DRAG_SLOP) return
+    held.moved = true
+    held.x = event.clientX
+    held.y = event.clientY
+    // A pixel is worth the angle it covers, so the same drag turns further
+    // when the view is wide and less when it is zoomed in.
+    const perPixel = vrLook.fov / Math.max(1, event.currentTarget.clientHeight)
+    setVrLook((now) =>
+      clampLook(
+        { ...now, yaw: now.yaw + dx * perPixel, pitch: now.pitch + dy * perPixel },
+        intent.vr.projection
+      )
+    )
+  }
+
+  const endTurn = (event: React.PointerEvent<HTMLDivElement>): void => {
+    const held = turningView.current
+    turningView.current = null
+    turned.current = held?.moved ?? false
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+  }
+
+  const onPictureClick = (): void => {
+    // The press that turned the picture ends in a click here; it has already
+    // done its job.
+    if (turned.current) {
+      turned.current = false
+      return
+    }
+    togglePaused()
+  }
+
   /**
    * The wheel, on the element rather than through React.
    *
@@ -472,6 +585,16 @@ export default function VideoPlayerStage({
     if (!el) return
     const onWheel = (event: WheelEvent): void => {
       event.preventDefault()
+      // Ctrl and the wheel is the field of view; the wheel alone is the volume.
+      if (vrOn && event.ctrlKey) {
+        setVrLook((now) =>
+          clampLook(
+            { ...now, fov: now.fov + (event.deltaY < 0 ? -FOV_STEP : FOV_STEP) },
+            intent.vr.projection
+          )
+        )
+        return
+      }
       const from = turning.current ?? intent.volume
       const next = Math.min(100, Math.max(0, from + (event.deltaY < 0 ? VOLUME_STEP : -VOLUME_STEP)))
       turning.current = next
@@ -483,7 +606,7 @@ export default function VideoPlayerStage({
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
-  }, [intent.volume])
+  }, [intent.volume, intent.vr.projection, vrOn])
 
   // Caught up: the next notch can start from the intent again.
   useEffect(() => {
@@ -585,8 +708,66 @@ export default function VideoPlayerStage({
       icon: <SlidersHorizontal size={13} />,
       onPick: () => setPanelOpen(true)
     })
+    items.push({
+      key: 'vr',
+      label: t('player.vr.title'),
+      icon: <Glasses size={13} />,
+      hint: isVrFormat(intent.vr) ? t(`player.vr.projections.${intent.vr.projection}`) : undefined,
+      children: [
+        {
+          key: 'projection',
+          label: t('player.vr.projection'),
+          children: VR_PROJECTIONS.map((projection) => ({
+            key: projection,
+            label: t(`player.vr.projections.${projection}`),
+            icon: intent.vr.projection === projection ? <Check size={13} /> : undefined,
+            // Leaving flat takes the usual eye layout with it; flat itself
+            // has one picture and no second eye.
+            onPick: () =>
+              setVr(
+                projection === 'flat'
+                  ? FLAT_VR_FORMAT
+                  : isVrFormat(intent.vr)
+                    ? { projection }
+                    : { projection, layout: DEFAULT_VR_FORMAT.layout }
+              )
+          }))
+        },
+        {
+          key: 'layout',
+          label: t('player.vr.layout'),
+          disabled: !isVrFormat(intent.vr),
+          children: [
+            ...VR_LAYOUTS.map((layout) => ({
+              key: layout,
+              label: t(`player.vr.layouts.${layout}`),
+              icon: intent.vr.layout === layout ? <Check size={13} /> : undefined,
+              onPick: () => setVr({ layout })
+            }))
+          ]
+        },
+        {
+          key: 'recentre',
+          label: t('player.vr.recentre'),
+          icon: <RotateCcw size={13} />,
+          disabled: !vrOn,
+          onPick: () => setVrLook(DEFAULT_VR_LOOK)
+        }
+      ]
+    })
     return items
-  }, [chooseTrack, i18n.language, intent.subtitle, intent.subtitleOffsetMs, nudge, t, tracks])
+  }, [
+    chooseTrack,
+    i18n.language,
+    intent.subtitle,
+    intent.subtitleOffsetMs,
+    intent.vr,
+    nudge,
+    setVr,
+    t,
+    tracks,
+    vrOn
+  ])
 
   /**
    * Dragging the floating picture around.
@@ -697,8 +878,20 @@ export default function VideoPlayerStage({
       </div>
 
       <div className="video-picture">
-        {/* Muted is never set: this player's volume is the one on the bar. */}
-        <video ref={video} playsInline />
+        {/*
+          Muted is never set: this player's volume is the one on the bar.
+          `crossOrigin` lets WebGL read the frames of a VR file; without it the
+          media scheme counts as another origin and the upload is refused.
+        */}
+        <video ref={video} playsInline crossOrigin="anonymous" />
+        {vrOn && (
+          <VrSurface
+            video={video}
+            format={intent.vr}
+            look={vrLook}
+            onUnavailable={onVrUnavailable}
+          />
+        )}
         {/*
           The gestures sit on their own layer under everything else in here, so
           the subtitle, the message and the full-screen bar are not in the way
@@ -707,10 +900,14 @@ export default function VideoPlayerStage({
         */}
         <div
           ref={gestures}
-          className="video-gestures"
-          onClick={togglePaused}
+          className={`video-gestures${vrOn ? ' turnable' : ''}`}
+          onClick={onPictureClick}
           onDoubleClick={toggleFullscreen}
           onContextMenu={openMenu}
+          onPointerDown={startTurn}
+          onPointerMove={turnView}
+          onPointerUp={endTurn}
+          onPointerCancel={endTurn}
         />
         {look && (
           <SubtitleLayer

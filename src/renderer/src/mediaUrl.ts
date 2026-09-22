@@ -1,3 +1,5 @@
+import { ipcInvoke } from './ipc'
+
 /**
  * Inline-preview source for a media item, served by the main-process
  * `fsmgr-media://` streaming protocol (see src/main/services/media-protocol.ts).
@@ -10,13 +12,25 @@
 
 const PREVIEWABLE = new Set(['mp4', 'm4v', 'mov', 'webm', 'mkv', 'ogv', 'ogg'])
 
+/** The key the handler requires on every URL; fetched once per page load. */
+let accessKey = ''
+
+/** Read the key. Awaited before the page first renders. */
+export async function loadMediaAccessKey(): Promise<void> {
+  try {
+    accessKey = (await ipcInvoke('media:accessKey')).key
+  } catch {
+    // No key: every URL is a 404, and each preview falls back to its still.
+  }
+}
+
 export function isPreviewable(fileName: string): boolean {
   const ext = fileName.split('.').pop()?.toLowerCase()
   return ext ? PREVIEWABLE.has(ext) : false
 }
 
 export function mediaPreviewUrl(libraryId: string, mediaId: string): string {
-  const q = new URLSearchParams({ lib: libraryId, id: mediaId })
+  const q = new URLSearchParams({ lib: libraryId, id: mediaId, k: accessKey })
   return `fsmgr-media://media/?${q.toString()}`
 }
 
@@ -27,6 +41,6 @@ export function mediaPreviewUrl(libraryId: string, mediaId: string): string {
  * way to read any file on the disk.
  */
 export function mediaFileUrl(path: string): string {
-  const q = new URLSearchParams({ p: path })
+  const q = new URLSearchParams({ p: path, k: accessKey })
   return `fsmgr-media://file/?${q.toString()}`
 }

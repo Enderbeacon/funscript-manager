@@ -1,5 +1,7 @@
 import { z } from 'zod'
 import { SCRIPT_AXIS_KEYS } from './media-meta'
+import { FLAT_VR_FORMAT } from '../vr-video'
+import { VrFormatSchema } from './vr-video'
 
 /**
  * Renderer-facing projections of the index layer (derived cache).
@@ -23,6 +25,8 @@ export const MediaListItemSchema = z.object({
   rating: z.number().int().min(0).max(5).nullable().default(null),
   favorite: z.boolean().default(false),
   durationMs: z.number().int().nonnegative().nullable().default(null),
+  /** How the file is marked, so an inline preview can flatten a VR file. */
+  vr: VrFormatSchema.default(FLAT_VR_FORMAT),
   scriptVersionCount: z.number().int().nonnegative(),
   hasMultiAxis: z.boolean(),
   subtitleLanguages: z.array(z.string()),
@@ -93,6 +97,16 @@ export const MediaDetailSchema = z.object({
   durationMs: z.number().int().nonnegative().nullable().default(null),
   resolution: z.string().nullable().default(null),
   codec: z.string().nullable().default(null),
+  /** How the file is marked; `flat` when not VR or not marked. */
+  vr: VrFormatSchema.default(FLAT_VR_FORMAT),
+  /** The user has marked the file, as VR or as not VR. */
+  vrMarked: z.boolean().default(false),
+  /**
+   * The VR format the file name and picture size point to; null when they do
+   * not point to VR. Offered to an unmarked file, and used as the starting
+   * format when the file is switched to VR.
+   */
+  vrSuggestion: VrFormatSchema.nullable().default(null),
   /** Head hash from the sidecar; empty for an entry whose file never arrived. */
   fingerprint: z.string().default(''),
   missing: z.boolean(),
