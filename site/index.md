@@ -20,7 +20,7 @@ features:
   - title: Manage
     details: Videos, script versions, axes and subtitles kept together, tagged and searchable. New ones come straight from forum posts.
   - title: Watch
-    details: A built-in video player with queues and playlists. mpv, MPC-HC and HereSphere work too, if you prefer them.
+    details: A built-in video player with queues and playlists, VR included. mpv, MPC-HC and HereSphere work too, if you prefer them.
   - title: Play
     details: A built-in script player drives TCode devices and The Handy in sync with the video. Nothing else to install.
 ---
@@ -61,7 +61,17 @@ Paste an EroScripts link. The post's scripts and video sources are listed with a
 
 </FeatureRow>
 
-<FeatureRow shot="devices" alt="The script player with a device connected and per-axis settings" title="Press play, and everything follows" flip>
+<FeatureRow shot="vr-panel" alt="The VR panel and the script player floating in front of a VR video" title="VR on your monitor, and your library in the headset" flip>
+
+VR videos play on your monitor as a view you can look around, with no headset needed. With one on, the library comes with you on a panel inside SteamVR.
+
+- 180°, 360° and fisheye files, MKX200, MKX220, VRCA220 and RF52
+- Thumbnails and previews show a normal picture, not two warped halves
+- Browse, search, queue and play from the headset, with the script player on its own panel
+
+</FeatureRow>
+
+<FeatureRow shot="devices" alt="The script player with a device connected and per-axis settings" title="Press play, and everything follows">
 
 The video plays and your device moves with it, from the script version you picked. No second program to start, no script to load by hand.
 

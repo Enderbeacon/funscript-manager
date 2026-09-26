@@ -40,7 +40,8 @@ export default defineConfig({
           text: 'Playing',
           items: [
             { text: 'Video players and the queue', link: '/guide/playback' },
-            { text: 'Devices and the script player', link: '/guide/devices' }
+            { text: 'Devices and the script player', link: '/guide/devices' },
+            { text: 'VR', link: '/guide/vr' }
           ]
         },
         {
