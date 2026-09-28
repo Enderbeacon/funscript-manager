@@ -141,7 +141,8 @@ export const MediaDetailSchema = z.object({
   notes: z.string().nullable()
 })
 
-export const SyncPhaseSchema = z.enum(['listing', 'sidecars', 'media', 'cleanup', 'done'])
+/** `moving`: sidecars on their way to the library's chosen location. */
+export const SyncPhaseSchema = z.enum(['listing', 'sidecars', 'media', 'cleanup', 'moving', 'done'])
 
 export const SyncProgressSchema = z.object({
   libraryId: z.uuid(),

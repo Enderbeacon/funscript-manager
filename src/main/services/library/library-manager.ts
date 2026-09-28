@@ -1,6 +1,7 @@
+import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { EventEmitter } from 'node:events'
-import { existsSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs'
 import { copyFile, readdir, rename, rm, stat } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { shell } from 'electron'
@@ -9,10 +10,13 @@ import {
   DEFAULT_COMPANION_MATCH,
   FUNSCRIPT_EXTENSION,
   LIBRARY_CACHE_DIR,
+  LIBRARY_DATA_DIR,
+  LIBRARY_META_DIR,
   funscriptAxisFromToken,
   type CompanionMatchLevel
 } from '@shared/constants'
 import type { RegisteredLibrary } from '@shared/schemas/app-config'
+import type { MetaLocation, MetaStatus } from '@shared/schemas/library-state'
 import type { MediaDetail, MediaListItem, MediaListPage, SyncProgress } from '@shared/schemas/media-index'
 import {
   MEDIA_META_VERSION,
@@ -31,7 +35,14 @@ import { AppError, type AppErrorCode } from '@shared/errors'
 import { LibraryIndexDb, isIndexCorruption, type MediaSort } from '../db/index-db'
 import { disposeHeatmapPool, getHeatmapDataUrl } from '../heatmap/heatmap-service'
 import { getThumbnailDataUrl } from '../thumbnails/thumbnail-service'
-import { readSidecar, sidecarPathFor, writeSidecar } from './sidecar'
+import { LibraryStateFile } from './library-state-file'
+import {
+  SidecarStore,
+  isWithin,
+  registerSidecarStore,
+  runningLibraryRoots,
+  unregisterSidecarStore
+} from './sidecar-store'
 import {
   isMultiAxis,
   mediaBasename,
@@ -47,6 +58,7 @@ import {
 import { disposeFingerprintPool } from './fingerprint'
 import { canonicalNames, normaliseNames } from '../taxonomy/taxonomy-service'
 import { IgnoreList } from './ignore-list'
+import { getSettings } from '../config/config-service'
 import { scriptAuthorsUpdate } from './script-authors'
 import { syncLibrary, type SyncSummary } from './scanner'
 import { compareBinary, compareNocase } from '../db/sql-order'
@@ -76,6 +88,8 @@ interface LibraryHandle {
    * lose one of the removals.
    */
   ignored: IgnoreList
+  /** Where this library's sidecars are read from and written to. */
+  store: SidecarStore
   watcher: FSWatcher | null
   /** Promise chain serializing syncs per library. */
   syncTail: Promise<void>
@@ -120,6 +134,7 @@ export const libraryEvents = new TypedEmitter()
  * screen would otherwise explain why the library never appears.
  */
 function libraryErrorCode(e: unknown): AppErrorCode | null {
+  if (e instanceof AppError && e.code === 'meta_folder_unavailable') return e.code
   const code = (e as { code?: string } | null)?.code
   return code === 'ENOSPC' || code === 'EDQUOT' || code === 'EFBIG' || code === 'SQLITE_FULL'
     ? 'disk_full'
@@ -179,13 +194,47 @@ export function recoverIndex(libraryId: string): boolean {
 
 const handles = new Map<string, LibraryHandle>()
 
-function watchIgnored(path: string): boolean {
-  const name = basename(path)
-  return (
-    name.startsWith('.') || // hidden files/dirs, including LIBRARY_CACHE_DIR
-    path.includes(LIBRARY_CACHE_DIR) ||
-    name.endsWith('.tmp')
-  )
+/**
+ * What the watcher skips: hidden files and folders, the cache, and temp files
+ * mid-write. The one hidden folder it does enter is the library's own sidecar
+ * mirror, since an edit to a sidecar there has to reach the index like one
+ * made beside the media.
+ */
+function watchIgnoredFor(root: string): (path: string) => boolean {
+  const dataDir = join(root, LIBRARY_DATA_DIR)
+  const mirror = join(dataDir, LIBRARY_META_DIR)
+  return (path) => {
+    const name = basename(path)
+    if (name.endsWith('.tmp')) return true
+    if (isWithin(mirror, path)) return false
+    // The data folder is entered only on the way to the mirror.
+    if (resolve(path).toLowerCase() === resolve(dataDir).toLowerCase()) return false
+    return (
+      name.startsWith('.') || // hidden files/dirs, including LIBRARY_CACHE_DIR
+      path.includes(LIBRARY_CACHE_DIR) ||
+      isWithin(dataDir, path)
+    )
+  }
+}
+
+/** Folders already given the hidden attribute this run. */
+const hiddenFolders = new Set<string>()
+
+/**
+ * Give the app's folders in a library the Windows hidden attribute. A leading
+ * dot hides nothing in Explorer, and these two sit at the top of a folder the
+ * user organises by hand. Once per folder per run: attrib is a process start.
+ */
+function hideAppFolders(root: string): void {
+  if (process.platform !== 'win32') return
+  for (const dir of [join(root, LIBRARY_DATA_DIR), join(root, LIBRARY_CACHE_DIR)]) {
+    const key = resolve(dir).toLowerCase()
+    if (hiddenFolders.has(key) || !existsSync(dir)) continue
+    hiddenFolders.add(key)
+    execFile('attrib', ['+h', dir], { windowsHide: true }, (e) => {
+      if (e) console.warn(`[library] could not hide ${dir}:`, e.message)
+    })
+  }
 }
 
 function scheduleResync(handle: LibraryHandle): void {
@@ -204,11 +253,17 @@ function runSync(handle: LibraryHandle): Promise<void> {
   handle.syncTail = handle.syncTail.then(async () => {
     try {
       if (handle.stopped) return
-      const { library, db, ignored } = handle
-      await syncLibrary(library, db, ignored, (p) =>
-        libraryEvents.emit('sync-progress', { libraryId: library.id, ...p })
+      const { library, db, ignored, store } = handle
+      await syncLibrary(
+        library,
+        db,
+        ignored,
+        store,
+        (p) => libraryEvents.emit('sync-progress', { libraryId: library.id, ...p }),
+        () => handle.stopped
       )
       libraryEvents.emit('media-changed', { libraryId: library.id })
+      hideAppFolders(library.rootPath)
     } catch (e) {
       console.error(`[library] sync failed for ${handle.library.rootPath}:`, e)
       // A damaged index cannot be scanned into; rebuilding it is what lets the
@@ -223,8 +278,12 @@ function runSync(handle: LibraryHandle): Promise<void> {
 }
 
 function startWatcher(handle: LibraryHandle): void {
-  const watcher = chokidar.watch(handle.library.rootPath, {
-    ignored: watchIgnored,
+  const root = handle.library.rootPath
+  // Mirror folders outside the library are watched too, whole.
+  const outside = handle.store.mirrors().filter((dir) => !isWithin(root, dir) && existsSync(dir))
+  const watcher = chokidar.watch([root, ...outside], {
+    ignored: (path: string) =>
+      outside.some((dir) => isWithin(dir, path)) ? path.endsWith('.tmp') : watchIgnoredFor(root)(path),
     persistent: true,
     // The startup sync already covered the initial state.
     ignoreInitial: true,
@@ -238,15 +297,29 @@ function startWatcher(handle: LibraryHandle): void {
   handle.watcher = watcher
 }
 
-/** Open the index, run the startup sync, then start watching. */
-export async function startLibrary(library: RegisteredLibrary): Promise<void> {
+/**
+ * Open the index, run the startup sync, then start watching.
+ *
+ * `added` is true for a library the user has just added. It takes the sidecar
+ * location new libraries start with, unless it already records one of its own.
+ * A library that was registered before locations existed has its sidecars
+ * beside the media, and is left that way.
+ */
+export async function startLibrary(library: RegisteredLibrary, added = false): Promise<void> {
   if (handles.has(library.id)) return
   let handle: LibraryHandle
   try {
+    const state = await LibraryStateFile.load(library.rootPath)
+    if (added && state.metadata === undefined) {
+      const location = (await getSettings()).library.newLibraryMetaLocation
+      await state.setMetadata({ location, customDir: '', leftoverDirs: [] })
+    }
+    const store = new SidecarStore(library.rootPath, state)
     handle = {
       library,
       db: LibraryIndexDb.open(library.rootPath),
-      ignored: await IgnoreList.load(library.rootPath),
+      ignored: new IgnoreList(state),
+      store,
       watcher: null,
       syncTail: Promise.resolve(),
       syncPending: 0,
@@ -260,6 +333,7 @@ export async function startLibrary(library: RegisteredLibrary): Promise<void> {
     throw e
   }
   handles.set(library.id, handle)
+  registerSidecarStore(handle.store)
   try {
     await runSync(handle)
   } finally {
@@ -272,6 +346,7 @@ export async function stopLibrary(libraryId: string): Promise<void> {
   if (!handle) return
   handle.stopped = true
   handles.delete(libraryId)
+  unregisterSidecarStore(handle.library.rootPath)
   if (handle.resyncTimer) clearTimeout(handle.resyncTimer)
   await handle.watcher?.close().catch(() => {})
   await handle.syncTail
@@ -331,13 +406,114 @@ export async function requestSync(libraryId: string): Promise<void> {
   await runSync(requireHandle(libraryId))
 }
 
+export function metaStatus(libraryId: string): MetaStatus {
+  const { store } = requireHandle(libraryId)
+  return { ...store.state, pending: store.pending, unreachable: store.unreachable() }
+}
+
+/**
+ * Change where a library keeps its sidecars. Nothing is moved here: the scan
+ * this starts moves them, a batch at a time, and a later change of mind turns
+ * the same scan around.
+ *
+ * `folder` is only for `custom`, and is the folder the user picked; the library
+ * gets a subfolder of its own in it, so several libraries can share one.
+ */
+export async function setMetaLocation(
+  libraryId: string,
+  location: MetaLocation,
+  folder?: string
+): Promise<MetaStatus> {
+  const handle = requireHandle(libraryId)
+  const { store } = handle
+  const prev = store.state
+  const customDir = location === 'custom' ? prepareCustomDir(handle, folder ?? '') : ''
+  const same = (a: string, b: string): boolean => resolve(a).toLowerCase() === resolve(b).toLowerCase()
+  if (location === prev.location && same(customDir || '.', prev.customDir || '.')) {
+    return metaStatus(libraryId)
+  }
+
+  // The folder being left still has sidecars in it until the scan has moved
+  // them out, and has to go on being read until then.
+  const leftovers = [...prev.leftoverDirs]
+  if (prev.location === 'custom' && prev.customDir && !leftovers.some((d) => same(d, prev.customDir))) {
+    leftovers.push(prev.customDir)
+  }
+  await store.setState({
+    location,
+    customDir,
+    leftoverDirs: leftovers.filter((d) => !(customDir && same(d, customDir)))
+  })
+  await restartWatcher(handle)
+  void runSync(handle)
+  return metaStatus(libraryId)
+}
+
+/**
+ * Stop waiting for a sidecar folder that cannot be reached. What was in it is
+ * given up on: its entries are scanned again as new. When it was the folder
+ * the library writes to, the library's own `.fsmgr` takes over.
+ */
+export async function forgetMetaFolder(libraryId: string, folder: string): Promise<MetaStatus> {
+  const handle = requireHandle(libraryId)
+  const { store } = handle
+  const prev = store.state
+  const same = (d: string): boolean => resolve(d).toLowerCase() === resolve(folder).toLowerCase()
+  const wasTarget = prev.location === 'custom' && same(prev.customDir)
+  await store.setState({
+    location: wasTarget ? 'library' : prev.location,
+    customDir: wasTarget ? '' : prev.customDir,
+    leftoverDirs: prev.leftoverDirs.filter((d) => !same(d))
+  })
+  await restartWatcher(handle)
+  void runSync(handle)
+  return metaStatus(libraryId)
+}
+
+/**
+ * The library's own folder inside the one the user picked: named after the
+ * library, and never one that already holds something else.
+ *
+ * It may not be inside any library. A library walk would find the sidecars in
+ * it and take them for sidecars of media that are not there.
+ */
+function prepareCustomDir(handle: LibraryHandle, picked: string): string {
+  const base = resolve(picked)
+  if (!picked || !existsSync(base) || !statSync(base).isDirectory()) {
+    throw new AppError('library_path_invalid', { path: base })
+  }
+  const { customDir, leftoverDirs } = handle.store.state
+  const known = [customDir, ...leftoverDirs].filter(Boolean)
+  const name = safeFileName(handle.library.name)
+  for (let n = 1; ; n++) {
+    const candidate = join(base, n === 1 ? name : `${name} (${n})`)
+    if (runningLibraryRoots().some((root) => isWithin(root, candidate))) {
+      throw new AppError('meta_folder_in_library')
+    }
+    const ours = known.some((d) => resolve(d).toLowerCase() === candidate.toLowerCase())
+    if (ours) return candidate
+    if (!existsSync(candidate)) {
+      mkdirSync(candidate, { recursive: true })
+      return candidate
+    }
+    if (statSync(candidate).isDirectory() && readdirSync(candidate).length === 0) return candidate
+  }
+}
+
+async function restartWatcher(handle: LibraryHandle): Promise<void> {
+  if (handle.stopped) return
+  await handle.watcher?.close().catch(() => {})
+  handle.watcher = null
+  startWatcher(handle)
+}
+
 /**
  * The parts of a started library that media-lifecycle (delete, rename) needs.
  * Those operations belong in their own file — they are the only ones that
  * touch the user's files — but they act on the same handle, and there must go
  * on being exactly one of it per library.
  */
-export type InternalLibraryHandle = Pick<LibraryHandle, 'library' | 'db' | 'ignored'>
+export type InternalLibraryHandle = Pick<LibraryHandle, 'library' | 'db' | 'ignored' | 'store'>
 
 export function internalHandle(libraryId: string): InternalLibraryHandle {
   return requireHandle(libraryId)
@@ -493,7 +669,7 @@ export async function getMediaDetail(
   const relPath = handle.db.getMediaRelPath(mediaId)
   if (!relPath) return null
   const mediaAbs = join(handle.library.rootPath, relPath)
-  const sidecar = await readSidecar(sidecarPathFor(mediaAbs))
+  const sidecar = await handle.store.read(mediaAbs)
   if (!sidecar.ok) return null
   return toDetail(libraryId, relPath, mediaAbs, sidecar.meta, handle.db.fileAddedAt(mediaId))
 }
@@ -511,7 +687,7 @@ async function openForEdit(libraryId: string, mediaId: string): Promise<EditTarg
   const relPath = handle.db.getMediaRelPath(mediaId)
   if (!relPath) throw new AppError('media_not_found')
   const mediaAbs = join(handle.library.rootPath, relPath)
-  const sidecar = await readSidecar(sidecarPathFor(mediaAbs))
+  const sidecar = await handle.store.read(mediaAbs)
   if (!sidecar.ok) throw new AppError('media_not_found')
   return { handle, relPath, mediaAbs, meta: sidecar.meta }
 }
@@ -551,8 +727,7 @@ function reconcileRanks(meta: MediaMeta): MediaMeta {
 async function commitSidecar(target: EditTarget, raw: MediaMeta): Promise<MediaDetail> {
   const meta = reconcileRanks(raw)
   const { handle, relPath, mediaAbs } = target
-  const sidecarPath = sidecarPathFor(mediaAbs)
-  await writeSidecar(sidecarPath, meta)
+  const sidecarPath = await handle.store.write(mediaAbs, meta)
   try {
     handle.db.upsertFromSidecar(meta, relPath, Math.floor((await stat(sidecarPath)).mtimeMs))
   } catch (e) {
@@ -1670,17 +1845,25 @@ function safeFileName(name: string): string {
 /**
  * A name not already taken in the folder; never overwrite what is there.
  *
- * `ownSidecar` is the caller's own placeholder sidecar, which is expected to be
+ * A name is taken by a sidecar too, wherever the library keeps it: a
+ * placeholder has nothing else to show for its name.
+ *
+ * `ownMedia` is the caller's own placeholder, whose sidecar is expected to be
  * sitting on the name being asked for — without it, filling in a placeholder
  * collides with itself and the file lands as "… (2)".
  */
-function freeName(dir: string, base: string, ext: string, ownSidecar?: string): string {
+function freeName(
+  store: SidecarStore,
+  dir: string,
+  base: string,
+  ext: string,
+  ownMedia?: string
+): string {
   const taken = (name: string): boolean => {
     const abs = join(dir, name)
     if (existsSync(abs)) return true
-    const sidecar = sidecarPathFor(abs)
-    if (ownSidecar && sidecar.toLowerCase() === ownSidecar.toLowerCase()) return false
-    return existsSync(sidecar)
+    if (ownMedia && abs.toLowerCase() === ownMedia.toLowerCase()) return false
+    return store.exists(abs)
   }
   let candidate = `${base}${ext}`
   for (let n = 2; taken(candidate); n++) candidate = `${base} (${n})${ext}`
@@ -1716,7 +1899,7 @@ export async function addWantedMedia(
   const root = handle.library.rootPath
   // `.mp4` is a placeholder extension: whatever the user supplies later wins,
   // and the sidecar is renamed to match it.
-  const fileName = freeName(root, safeFileName(post.title), '.mp4')
+  const fileName = freeName(handle.store, root, safeFileName(post.title), '.mp4')
   const mediaAbs = join(root, fileName)
   const now = new Date().toISOString()
 
@@ -1747,8 +1930,7 @@ export async function addWantedMedia(
     updatedAt: now
   }
 
-  const sidecarAbs = sidecarPathFor(mediaAbs)
-  await writeSidecar(sidecarAbs, meta)
+  const sidecarAbs = await handle.store.write(mediaAbs, meta)
   const mtime = Math.floor((await stat(sidecarAbs)).mtimeMs)
   handle.db.upsertFromSidecar(meta, fileName, mtime)
   libraryEvents.emit('media-changed', { libraryId })
@@ -1839,13 +2021,11 @@ async function fillWanted(
   const libraryId = handle.library.id
   const dir = dirname(target.mediaAbs)
   const base = mediaBasename(basename(target.mediaAbs))
-  const finalName = freeName(dir, base, ext || '.mp4', sidecarPathFor(target.mediaAbs))
+  const finalName = freeName(handle.store, dir, base, ext || '.mp4', target.mediaAbs)
   const finalAbs = join(dir, finalName)
 
   await put(finalAbs)
 
-  // The sidecar is named after its media file, so it moves with the extension.
-  const oldSidecar = sidecarPathFor(target.mediaAbs)
   const size = (await stat(finalAbs)).size
   const { wanted: _wanted, ...rest } = meta
   const filled: MediaMeta = {
@@ -1855,11 +2035,14 @@ async function fillWanted(
     fileFingerprint: { size, blake3Head: '' },
     updatedAt: new Date().toISOString()
   }
-  await writeSidecar(sidecarPathFor(finalAbs), filled)
-  if (oldSidecar !== sidecarPathFor(finalAbs)) await rm(oldSidecar, { force: true })
+  const sidecarAbs = await handle.store.write(finalAbs, filled)
+  // The sidecar is named after its media file, so it moves with the extension.
+  if (finalAbs.toLowerCase() !== target.mediaAbs.toLowerCase()) {
+    await handle.store.removeAll(target.mediaAbs)
+  }
 
   const relPath = relative(handle.library.rootPath, finalAbs).split('\\').join('/')
-  const mtime = Math.floor((await stat(sidecarPathFor(finalAbs))).mtimeMs)
+  const mtime = Math.floor((await stat(sidecarAbs)).mtimeMs)
   handle.db.upsertFromSidecar(filled, relPath, mtime)
   libraryEvents.emit('media-changed', { libraryId })
   return {
@@ -2018,7 +2201,7 @@ export async function mergeWantedInto(
   // The placeholders have served their purpose; leaving them would show the
   // library the same scene several times over.
   for (const source of sources) {
-    await rm(sidecarPathFor(source.mediaAbs), { force: true })
+    await handle.store.removeAll(source.mediaAbs)
     handle.db.remove(source.id)
   }
   libraryEvents.emit('media-changed', { libraryId })

@@ -359,7 +359,7 @@ export function registerIpcHandlers(): void {
     broadcast('event:libraries-changed', { libraries })
     // Fire-and-forget: first scan can be long; progress arrives via events.
     void libraryManager
-      .startLibrary(library)
+      .startLibrary(library, true)
       .then(async () => {
         const settings = await config.getSettings()
         scheduleStartupArtworkPreparation(settings.ui, await config.listLibraries())
@@ -379,6 +379,16 @@ export function registerIpcHandlers(): void {
   handle('library:sync', async (input) => {
     await libraryManager.requestSync(input.id)
   })
+
+  handle('library:metaStatus', ({ libraryId }) => libraryManager.metaStatus(libraryId))
+
+  handle('library:setMetaLocation', ({ libraryId, location, folder }) =>
+    libraryManager.setMetaLocation(libraryId, location, folder)
+  )
+
+  handle('library:forgetMetaFolder', ({ libraryId, folder }) =>
+    libraryManager.forgetMetaFolder(libraryId, folder)
+  )
 
   handle('library:addWanted', ({ libraryId, post }) =>
     libraryManager.addWantedMedia(libraryId, {

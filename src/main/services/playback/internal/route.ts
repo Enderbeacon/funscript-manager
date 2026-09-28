@@ -6,7 +6,7 @@ import type { VideoRoute, VideoRouteFallback } from '@shared/schemas/playback'
 import { runnableFfmpeg } from '../../deps/binaries'
 import { findByAbsPath } from '../../library/library-manager'
 import { probeMedia } from '../../library/probe'
-import { readSidecar, sidecarPathFor } from '../../library/sidecar'
+import { readMediaSidecar } from '../../library/sidecar-store'
 
 /**
  * Decides how the built-in picture gets at a file: as it is, or rewritten by
@@ -93,7 +93,7 @@ export async function routeVideo(
  * nothing is not enough to decide on.
  */
 async function knownInfo(abs: string): Promise<MediaInfo | null> {
-  const sidecar = await readSidecar(sidecarPathFor(abs))
+  const sidecar = await readMediaSidecar(abs)
   const info = sidecar.ok ? sidecar.meta.mediaInfo : undefined
   return info && (info.videoCodec || info.audioCodec) ? info : null
 }

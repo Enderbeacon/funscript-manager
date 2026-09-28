@@ -331,7 +331,14 @@ export const SettingsSchema = z.object({
        * library; `loose` is offered for people whose scripts and videos are
        * named further apart, and it does sometimes pick the wrong one.
        */
-      companionMatch: z.enum(COMPANION_MATCH_LEVELS).default(DEFAULT_COMPANION_MATCH)
+      companionMatch: z.enum(COMPANION_MATCH_LEVELS).default(DEFAULT_COMPANION_MATCH),
+      /**
+       * Where a library added from now on keeps its sidecars. Each library
+       * then has its own setting; this only picks the one it starts with. A
+       * folder outside the library is not offered here, since every library
+       * needs its own and that is chosen per library.
+       */
+      newLibraryMetaLocation: z.enum(['beside', 'library']).default('beside')
     })
     .prefault({}),
   updates: z

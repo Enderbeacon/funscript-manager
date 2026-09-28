@@ -5,14 +5,28 @@ export const LIBRARY_CACHE_DIR = '.fsmgr-cache'
 export const LIBRARY_JSON = 'library.json'
 
 /**
- * Library state that is NOT derived from anything and cannot be rebuilt by
- * scanning — currently the list of files the user removed from the library
- * while leaving them on disk. It sits at the library root rather than in
- * `.fsmgr-cache/`, because that directory is documented as safe to delete and
- * losing this file would silently re-add everything the user removed.
- * Dot-prefixed, so the scanner's own walk steps over it.
+ * The library's own data directory: what cannot be rebuilt by scanning. It is
+ * kept apart from `.fsmgr-cache/` because that directory is documented as safe
+ * to delete, and nothing in here is. Dot-prefixed, so the scanner's own walk
+ * steps over it.
  */
-export const LIBRARY_STATE_JSON = '.fsmgr-library.json'
+export const LIBRARY_DATA_DIR = '.fsmgr'
+
+/**
+ * Library state inside LIBRARY_DATA_DIR: the files the user removed from the
+ * library while leaving them on disk, and where the library keeps its sidecars.
+ */
+export const LIBRARY_STATE_JSON = 'state.json'
+
+/** Where the state file sat before LIBRARY_DATA_DIR existed; moved on first load. */
+export const LEGACY_LIBRARY_STATE_JSON = '.fsmgr-library.json'
+
+/**
+ * Sidecars kept away from the media, inside LIBRARY_DATA_DIR. The folders under
+ * it mirror the library's own, so `a/b/clip.mp4` has its sidecar at
+ * `.fsmgr/meta/a/b/clip.mp4.meta.json`.
+ */
+export const LIBRARY_META_DIR = 'meta'
 
 /** Library-level index database file. */
 export const INDEX_DB = 'index.db'

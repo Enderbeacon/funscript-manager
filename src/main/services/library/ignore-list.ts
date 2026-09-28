@@ -1,11 +1,5 @@
-import { join } from 'node:path'
-import { LIBRARY_STATE_JSON } from '@shared/constants'
-import {
-  LibraryStateSchema,
-  type IgnoredEntry,
-  type LibraryState
-} from '@shared/schemas/library-state'
-import { atomicWriteJson, readJsonOr } from '../../util/atomic-json'
+import type { IgnoredEntry } from '@shared/schemas/library-state'
+import type { LibraryStateFile } from './library-state-file'
 
 /**
  * The list of entries the user removed from the library without deleting their
@@ -15,10 +9,6 @@ import { atomicWriteJson, readJsonOr } from '../../util/atomic-json'
  * asks it once per file, and going to disk for that would make a scan of a big
  * library thousands of reads slower for no reason.
  */
-
-export function libraryStatePath(libraryRoot: string): string {
-  return join(libraryRoot, LIBRARY_STATE_JSON)
-}
 
 /** Case-insensitive, forward slashes — the form paths are compared in. */
 function key(relPath: string): string {
@@ -30,20 +20,11 @@ export class IgnoreList {
   private byPath = new Map<string, IgnoredEntry>()
   private companions = new Set<string>()
 
-  private constructor(
-    private readonly libraryRoot: string,
-    private entries: IgnoredEntry[]
-  ) {
-    this.reindex()
-  }
+  private entries: IgnoredEntry[]
 
-  static async load(libraryRoot: string): Promise<IgnoreList> {
-    const raw = await readJsonOr(libraryStatePath(libraryRoot), null)
-    if (raw === null) return new IgnoreList(libraryRoot, [])
-    const parsed = LibraryStateSchema.safeParse(raw)
-    // An unreadable state file must not be overwritten — it is the only copy of
-    // a decision the user made — but it also must not stop the library opening.
-    return new IgnoreList(libraryRoot, parsed.success ? parsed.data.ignored : [])
+  constructor(private readonly state: LibraryStateFile) {
+    this.entries = [...state.ignored]
+    this.reindex()
   }
 
   private reindex(): void {
@@ -57,17 +38,8 @@ export class IgnoreList {
     }
   }
 
-  // One write at a time, so a slow one cannot land on top of a newer one.
-  private writes: Promise<unknown> = Promise.resolve()
-
   private save(): Promise<void> {
-    const state: LibraryState = { schemaVersion: 1, ignored: [...this.entries] }
-    const run = this.writes.then(() =>
-      atomicWriteJson(libraryStatePath(this.libraryRoot), LibraryStateSchema.parse(state))
-    )
-    // The chain survives a failed write; the caller still sees the rejection.
-    this.writes = run.catch(() => undefined)
-    return run
+    return this.state.setIgnored([...this.entries])
   }
 
   list(): IgnoredEntry[] {

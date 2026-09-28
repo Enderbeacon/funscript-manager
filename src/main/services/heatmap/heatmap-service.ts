@@ -4,7 +4,7 @@ import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { LIBRARY_CACHE_DIR } from '@shared/constants'
 import type { MediaMeta, ScriptVersion } from '@shared/schemas/media-meta'
 import { WorkerPool } from '../../util/worker-pool'
-import { readSidecar, sidecarPathFor } from '../library/sidecar'
+import { readMediaSidecar } from '../library/sidecar-store'
 import type { HeatmapTask, HeatmapResult } from '../../workers/heatmap.worker'
 import heatmapWorkerPath from '../../workers/heatmap.worker?modulePath'
 
@@ -42,7 +42,7 @@ export async function getHeatmapDataUrl(opts: {
   scriptVersionId?: string
 }): Promise<string | null> {
   const mediaAbs = join(opts.libraryRoot, opts.mediaRelPath)
-  const sidecar = await readSidecar(sidecarPathFor(mediaAbs))
+  const sidecar = await readMediaSidecar(mediaAbs)
   if (!sidecar.ok) return null
   const version = pickVersion(sidecar.meta, opts.scriptVersionId)
   const mainRel = version?.files.main

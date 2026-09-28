@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { readdir, rename, rm, stat } from 'node:fs/promises'
+import { readdir, rm, stat } from 'node:fs/promises'
 import { shell } from 'electron'
-import { dirname, join, relative, sep } from 'node:path'
-import { LIBRARY_CACHE_DIR, type CompanionMatchLevel } from '@shared/constants'
+import { basename, dirname, join, relative, sep } from 'node:path'
+import { LIBRARY_CACHE_DIR, SIDECAR_SUFFIX, type CompanionMatchLevel } from '@shared/constants'
+import { AppError } from '@shared/errors'
 import type { RegisteredLibrary } from '@shared/schemas/app-config'
 import type { SyncPhase } from '@shared/schemas/media-index'
 import { MEDIA_META_VERSION, type MediaMeta } from '@shared/schemas/media-meta'
@@ -18,23 +19,20 @@ import { mergeLateCompanions, orphanScriptGroups } from './late-companions'
 import { probeMedia } from './probe'
 import { scriptAuthorsUpdate } from './script-authors'
 import { loadOrCreateLibraryJson } from './library-json'
-import {
-  buildNewSidecar,
-  isSidecarFile,
-  mediaPathForSidecar,
-  readSidecar,
-  sidecarPathFor,
-  writeSidecar
-} from './sidecar'
+import { buildNewSidecar, isSidecarFile, mediaPathForSidecar, readSidecar } from './sidecar'
+import { isOutsideMirror, type SidecarStore } from './sidecar-store'
 
 /**
  * Startup sync:
  *   1. load/create library.json
- *   2. list all sidecars (and media files) under the library root
+ *   2. list the media files, and the sidecars wherever the library may keep
+ *      them (beside the media, or in a mirror folder: see SidecarStore)
  *   3. changed/new sidecars → reparse → update index
  *   4. media files: no sidecar → create one; moved (fingerprint match against
  *      an orphaned sidecar) → relocate the sidecar and update the path
  *   5. index rows whose files are gone → missing (sidecar kept) or removed
+ *   6–7. placeholders and scripts without a video (see there)
+ *   8. sidecars not in the library's chosen location → moved there
  *
  * The same code path doubles as the full rebuild: with an empty index.db
  * every sidecar reads as "new".
@@ -68,6 +66,10 @@ export interface SyncSummary {
   placeholdersReclaimed: number
   /** Media whose script-author list was derived from their versions. */
   scriptAuthorsFilled: number
+  /** Sidecars moved to the library's chosen location. */
+  sidecarsMoved: number
+  /** Sidecars still to move: the move was cut short, or a file could not be moved. */
+  sidecarsPending: number
 }
 
 const FINGERPRINT_CONCURRENCY = 8
@@ -75,8 +77,15 @@ const FINGERPRINT_CONCURRENCY = 8
 interface WalkResult {
   /** rel media path → absolute path */
   mediaFiles: Map<string, string>
-  /** rel media path (sidecar minus suffix) → sidecar absolute path */
+  /** rel media path (sidecar minus suffix) → the sidecar the library reads */
   sidecars: Map<string, string>
+  /**
+   * rel media path → every copy of its sidecar, the one read first. More than
+   * one only while the library is moving them, or when a copy was left behind.
+   * Includes entries the user removed from the library: their sidecars are
+   * never read, but they still move with the rest.
+   */
+  copies: Map<string, string[]>
   /** rel dir path → filenames in that dir (for companion grouping) */
   dirListings: Map<string, string[]>
 }
@@ -95,8 +104,20 @@ function toRel(root: string, absPath: string): string {
  * to keep them. Ignored by path only — a fingerprint needs the file read, which
  * is what step 4 is for.
  */
-async function walk(root: string, ignored: IgnoreList): Promise<WalkResult> {
-  const result: WalkResult = { mediaFiles: new Map(), sidecars: new Map(), dirListings: new Map() }
+async function walk(root: string, ignored: IgnoreList, store: SidecarStore): Promise<WalkResult> {
+  const result: WalkResult = {
+    mediaFiles: new Map(),
+    sidecars: new Map(),
+    copies: new Map(),
+    dirListings: new Map()
+  }
+  /** rel media path → sidecar copies found, in no particular order yet. */
+  const found = new Map<string, string[]>()
+  const note = (mediaRel: string, sidecarAbs: string): void => {
+    found.set(mediaRel, [...(found.get(mediaRel) ?? []), sidecarAbs])
+  }
+  /** Removed entries' sidecars: moved with the rest, never read. */
+  const ignoredRels = new Set<string>()
   const stack = [root]
   while (stack.length > 0) {
     const dir = stack.pop()!
@@ -111,7 +132,9 @@ async function walk(root: string, ignored: IgnoreList): Promise<WalkResult> {
       // Hidden entries and the cache dir are invisible to the scanner.
       if (entry.name.startsWith('.') || entry.name === LIBRARY_CACHE_DIR) continue
       if (entry.isDirectory()) {
-        stack.push(join(dir, entry.name))
+        const sub = join(dir, entry.name)
+        // Another library's sidecar folder is its business, not media of ours.
+        if (!isOutsideMirror(sub)) stack.push(sub)
         continue
       }
       if (!entry.isFile()) continue
@@ -123,9 +146,9 @@ async function walk(root: string, ignored: IgnoreList): Promise<WalkResult> {
         // Which means the sidecar has to be stepped over here too, or the very
         // next scan would read it and index the entry straight back in.
         const mediaRel = toRel(root, mediaPathForSidecar(abs))
-        if (ignored.hasPath(mediaRel)) continue
-        names.push(entry.name)
-        result.sidecars.set(mediaRel, abs)
+        note(mediaRel, abs)
+        if (ignored.hasPath(mediaRel)) ignoredRels.add(mediaRel)
+        else names.push(entry.name)
         continue
       }
       if (ignored.hasPath(rel) || ignored.hasCompanion(rel)) continue
@@ -134,7 +157,63 @@ async function walk(root: string, ignored: IgnoreList): Promise<WalkResult> {
     }
     result.dirListings.set(toRel(root, dir), names)
   }
+
+  // Sidecars kept in mirror folders. Their names go into the listing of the
+  // folder their media is in, as if they sat beside it: a placeholder claims
+  // the scripts next to it by its sidecar's name, wherever the file itself is.
+  for (const mirror of store.mirrors()) {
+    for (const [mediaRel, abs] of await walkMirror(mirror)) {
+      note(mediaRel, abs)
+      if (ignored.hasPath(mediaRel)) {
+        ignoredRels.add(mediaRel)
+        continue
+      }
+      const cut = mediaRel.lastIndexOf('/')
+      const listing = result.dirListings.get(cut === -1 ? '' : mediaRel.slice(0, cut))
+      const name = basename(abs)
+      if (listing && !listing.includes(name)) listing.push(name)
+    }
+  }
+
+  for (const [mediaRel, paths] of found) {
+    const mediaAbs = join(root, ...mediaRel.split('/'))
+    const order = store.candidates(mediaAbs).map((p) => p.toLowerCase())
+    const rank = (p: string): number => {
+      const at = order.indexOf(p.toLowerCase())
+      return at === -1 ? order.length : at
+    }
+    const sorted = [...paths].sort((a, b) => rank(a) - rank(b))
+    result.copies.set(mediaRel, sorted)
+    if (!ignoredRels.has(mediaRel)) result.sidecars.set(mediaRel, sorted[0]!)
+  }
   return result
+}
+
+/**
+ * Sidecars under a mirror folder, by the library-relative path of their media.
+ * Unlike the library walk, dot-folders are entered: the mirror has one wherever
+ * the library does.
+ */
+async function walkMirror(mirror: string): Promise<Map<string, string>> {
+  const out = new Map<string, string>()
+  const stack = [mirror]
+  while (stack.length > 0) {
+    const dir = stack.pop()!
+    let entries
+    try {
+      entries = await readdir(dir, { withFileTypes: true })
+    } catch {
+      continue // a mirror folder that does not exist yet has nothing in it
+    }
+    for (const entry of entries) {
+      const abs = join(dir, entry.name)
+      if (entry.isDirectory()) stack.push(abs)
+      else if (entry.isFile() && isSidecarFile(entry.name)) {
+        out.set(toRel(mirror, abs.slice(0, abs.length - SIDECAR_SUFFIX.length)), abs)
+      }
+    }
+  }
+  return out
 }
 
 /** Map with bounded concurrency (fingerprint batches). */
@@ -153,9 +232,21 @@ export async function syncLibrary(
   library: RegisteredLibrary,
   db: LibraryIndexDb,
   ignored: IgnoreList,
-  onProgress?: (p: ScanProgress) => void
+  store: SidecarStore,
+  onProgress?: (p: ScanProgress) => void,
+  /** Checked between sidecar moves, the one step long enough to need it. */
+  shouldStop: () => boolean = () => false
 ): Promise<SyncSummary> {
   const root = library.rootPath
+
+  // Without every sidecar in view, the entries whose sidecars are missing from
+  // it would be taken for new files and given blank ones.
+  await store.dropVanishedLeftovers()
+  const unreachable = store.unreachable()
+  if (unreachable.length > 0) {
+    throw new AppError('meta_folder_unavailable', { folder: unreachable[0]! })
+  }
+
   // Read once: a setting that changed mid-scan would file half the library by
   // one rule and half by another.
   const matchLevel = (await getSettings()).library.companionMatch
@@ -173,7 +264,9 @@ export async function syncLibrary(
     scriptOnlyEntries: 0,
     wantedFilled: 0,
     placeholdersReclaimed: 0,
-    scriptAuthorsFilled: 0
+    scriptAuthorsFilled: 0,
+    sidecarsMoved: 0,
+    sidecarsPending: 0
   }
 
   // Step 1: library.json, plus the list of things the user removed from the
@@ -182,7 +275,7 @@ export async function syncLibrary(
 
   // Step 2: enumerate the tree
   onProgress?.({ phase: 'listing', processed: 0, total: 0 })
-  const tree = await walk(root, ignored)
+  const tree = await walk(root, ignored, store)
   summary.mediaTotal = tree.mediaFiles.size
 
   const indexed = db.listIndexed()
@@ -295,11 +388,12 @@ export async function syncLibrary(
           ? { fileFingerprint: await computeFingerprint(abs), updatedAt: new Date().toISOString() }
           : {})
       }
-      await writeSidecar(sidecarAbs, meta)
+      const written = await store.write(abs, meta)
+      tree.sidecars.set(relPath, written)
       db.upsertFromSidecar(
         meta,
         relPath,
-        Math.floor((await stat(sidecarAbs)).mtimeMs),
+        Math.floor((await stat(written)).mtimeMs),
         await entryFileTimes(root, relPath, meta)
       )
       summary.updated += 1
@@ -321,14 +415,18 @@ export async function syncLibrary(
 
     const orphan = orphansByFingerprint.get(key)
     if (orphan) {
-      // The media file moved without its sidecar: move the sidecar alongside it.
+      // The media file moved without its sidecar: move the sidecar to the
+      // media's new path, and drop any other copy at the old one.
       orphansByFingerprint.delete(key)
-      const newSidecarAbs = sidecarPathFor(abs)
-      try {
-        await rename(orphan.sidecarAbs, newSidecarAbs)
-      } catch {
-        await writeSidecar(newSidecarAbs, orphan.meta)
+      const newSidecarAbs = store.target(abs)
+      const moved = await store.move(orphan.sidecarAbs, newSidecarAbs).catch(() => 'failed' as const)
+      if (moved !== 'moved') await store.write(abs, orphan.meta)
+      for (const copy of tree.copies.get(orphan.relPath) ?? []) {
+        if (copy !== orphan.sidecarAbs) await store.dropCopy(copy, orphan.meta.id)
       }
+      tree.copies.delete(orphan.relPath)
+      tree.sidecars.delete(orphan.relPath)
+      tree.sidecars.set(relPath, newSidecarAbs)
       db.upsertFromSidecar(
         orphan.meta,
         relPath,
@@ -342,8 +440,8 @@ export async function syncLibrary(
     // Fresh ingest: group companions in the same directory, write the sidecar.
     const probed = await probeMedia(abs)
     const meta = buildNewSidecar(fp, groupCompanions(mediaName, siblings, matchLevel), probed)
-    const newSidecarAbs = sidecarPathFor(abs)
-    await writeSidecar(newSidecarAbs, meta)
+    const newSidecarAbs = await store.write(abs, meta)
+    tree.sidecars.set(relPath, newSidecarAbs)
     db.upsertFromSidecar(
       meta,
       relPath,
@@ -415,7 +513,11 @@ export async function syncLibrary(
         continue
       }
     }
+    for (const copy of tree.copies.get(relPath) ?? []) {
+      if (copy !== sidecarAbs) await store.discard(copy)
+    }
     tree.sidecars.delete(relPath)
+    tree.copies.delete(relPath)
     db.remove(placeholderId)
     summary.placeholdersReclaimed += 1
   }
@@ -439,7 +541,7 @@ export async function syncLibrary(
     const isClaimed = (name: string): boolean =>
       claimed.has((dirRel ? `${dirRel}/${name}` : name).toLowerCase())
     for (const [base, scripts] of orphanScriptGroups(names, isClaimed, matchLevel)) {
-      const created = await createScriptOnlyEntry(dirAbs, base, names, matchLevel).catch((e) => {
+      const created = await createScriptOnlyEntry(store, dirAbs, base, names, matchLevel).catch((e) => {
         console.error(`[library] could not file ${scripts[0]}:`, e)
         return null
       })
@@ -454,6 +556,11 @@ export async function syncLibrary(
       summary.scriptOnlyEntries += 1
     }
   }
+
+  // Step 8: sidecars not where the library keeps them now. Last, so that the
+  // library is complete on screen before any of this starts: nothing needs a
+  // sidecar to be in its new place to be read, only to be written.
+  await moveMisplacedSidecars(root, tree, store, summary, onProgress, shouldStop)
 
   if (summary.newerSidecars > 0) {
     // Their media is missing from the library until a build that understands
@@ -478,6 +585,7 @@ export async function syncLibrary(
  * all handle it without knowing where it came from.
  */
 async function createScriptOnlyEntry(
+  store: SidecarStore,
   dirAbs: string,
   base: string,
   siblingNames: string[],
@@ -487,10 +595,9 @@ async function createScriptOnlyEntry(
   // supplies later, and the sidecar is renamed to match.
   const mediaName = `${base}.mp4`
   const mediaAbs = join(dirAbs, mediaName)
-  const sidecarAbs = sidecarPathFor(mediaAbs)
   // Nothing here should exist — an owner would have claimed the scripts — but
   // never write over a file on the strength of that.
-  if (existsSync(mediaAbs) || existsSync(sidecarAbs)) return null
+  if (existsSync(mediaAbs) || store.exists(mediaAbs)) return null
 
   const companions = groupCompanions(mediaName, siblingNames, level)
   if (companions.scriptVersions.length === 0) return null
@@ -519,6 +626,50 @@ async function createScriptOnlyEntry(
     createdAt: now,
     updatedAt: now
   }
-  await writeSidecar(sidecarAbs, meta)
+  const sidecarAbs = await store.write(mediaAbs, meta)
   return { mediaName, meta, sidecarMtime: Math.floor((await stat(sidecarAbs)).mtimeMs) }
+}
+
+/**
+ * Move every sidecar copy that is not in the library's chosen location there.
+ *
+ * A copy whose place is already taken is dropped instead (see
+ * SidecarStore.move). The move stops as soon as the location changes again or
+ * the library is closed; what is left is found by the next scan, which carries
+ * on from there — the files are their own record of what remains.
+ */
+async function moveMisplacedSidecars(
+  root: string,
+  tree: WalkResult,
+  store: SidecarStore,
+  summary: SyncSummary,
+  onProgress: ((p: ScanProgress) => void) | undefined,
+  shouldStop: () => boolean
+): Promise<void> {
+  const generation = store.generation
+  const moves: { from: string; to: string }[] = []
+  for (const [mediaRel, copies] of tree.copies) {
+    const target = store.target(join(root, ...mediaRel.split('/')))
+    for (const copy of copies) {
+      if (copy.toLowerCase() !== target.toLowerCase()) moves.push({ from: copy, to: target })
+    }
+  }
+
+  let done = 0
+  for (const { from, to } of moves) {
+    if (shouldStop() || store.generation !== generation) break
+    if (done % 50 === 0) onProgress?.({ phase: 'moving', processed: done, total: moves.length })
+    try {
+      if ((await store.move(from, to)) === 'moved') summary.sidecarsMoved += 1
+    } catch (e) {
+      console.error(`[library] could not move ${from} to ${to}:`, e)
+    }
+    done += 1
+  }
+  // Recounted rather than subtracted: a failed move leaves its file in place.
+  summary.sidecarsPending = moves.filter(({ from }) => existsSync(from)).length
+  store.pending = summary.sidecarsPending
+  if (summary.sidecarsPending === 0 && store.generation === generation) {
+    await store.retireEmptyMirrors()
+  }
 }

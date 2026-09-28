@@ -15,7 +15,6 @@ import type {
 import { companionRefs } from '../db/index-db'
 import { foldersOf, isUnder, type LibraryFolder } from './library-folders'
 import { mediaBasename } from './companion-grouping'
-import { readSidecar, sidecarPathFor, writeSidecar } from './sidecar'
 import {
   getMediaDetail,
   internalHandle,
@@ -56,7 +55,7 @@ async function resolveEntries(
     const relPath = handle.db.getMediaRelPath(mediaId)
     if (!relPath) continue
     const mediaAbs = join(handle.library.rootPath, relPath)
-    const sidecar = await readSidecar(sidecarPathFor(mediaAbs))
+    const sidecar = await handle.store.read(mediaAbs)
     if (!sidecar.ok) continue
     out.push({
       mediaId,
@@ -106,7 +105,9 @@ export async function planDelete(
         if (!existsSync(join(handle.library.rootPath, companion.path))) continue
         files.push({ path: companion.path, kind: companion.kind })
       }
-      files.push({ path: `${entry.relPath}.meta.json`, kind: 'sidecar' })
+      for (const sidecar of handle.store.existing(entry.mediaAbs)) {
+        files.push({ path: handle.store.displayPath(sidecar), kind: 'sidecar' })
+      }
     }
   }
 
@@ -174,17 +175,17 @@ export async function deleteMedia(
 
   const result: DeleteResult = { removed: 0, trashed: [], failed: [], skippedShared: [] }
 
-  const trash = async (relPath: string): Promise<void> => {
-    const abs = join(root, relPath)
+  const trashAbs = async (abs: string, shown: string): Promise<void> => {
     if (!existsSync(abs)) return
     try {
       await shell.trashItem(abs)
-      result.trashed.push(relPath)
+      result.trashed.push(shown)
     } catch (e) {
       console.error(`[library] trash failed for ${abs}:`, e)
-      result.failed.push(relPath)
+      result.failed.push(shown)
     }
   }
+  const trash = (relPath: string): Promise<void> => trashAbs(join(root, relPath), relPath)
 
   // Collected, then written in one go: a folder of a hundred entries used to
   // rewrite the whole ignore list a hundred times over.
@@ -200,7 +201,9 @@ export async function deleteMedia(
         await trash(companion.path)
       }
       await trash(entry.relPath)
-      await trash(`${entry.relPath}.meta.json`)
+      for (const sidecar of handle.store.existing(entry.mediaAbs)) {
+        await trashAbs(sidecar, handle.store.displayPath(sidecar))
+      }
     } else {
       // A placeholder's scripts have nowhere else to go: keeping them out of
       // the ignore list would rebuild the very entry just removed.
@@ -357,7 +360,7 @@ async function openForRename(
   const relPath = handle.db.getMediaRelPath(mediaId)
   if (!relPath) throw new AppError('media_not_found')
   const mediaAbs = join(handle.library.rootPath, relPath)
-  const sidecar = await readSidecar(sidecarPathFor(mediaAbs))
+  const sidecar = await handle.store.read(mediaAbs)
   if (!sidecar.ok) throw new AppError('media_not_found')
   return {
     handle,
@@ -513,12 +516,11 @@ export async function renameMedia(
 
   const meta = applyRenames(ctx.meta, renames)
   const newRelPath = relative(ctx.handle.library.rootPath, newAbs).split('\\').join('/')
-  const newSidecar = sidecarPathFor(newAbs)
-
-  await writeSidecar(newSidecar, meta)
-  const oldSidecar = sidecarPathFor(ctx.mediaAbs)
-  if (oldSidecar.toLowerCase() !== newSidecar.toLowerCase() && existsSync(oldSidecar)) {
-    await shell.trashItem(oldSidecar).catch(() => {})
+  const newSidecar = await ctx.handle.store.write(newAbs, meta)
+  if (newAbs.toLowerCase() !== ctx.mediaAbs.toLowerCase()) {
+    for (const oldSidecar of ctx.handle.store.existing(ctx.mediaAbs)) {
+      await ctx.handle.store.discard(oldSidecar)
+    }
   }
 
   try {

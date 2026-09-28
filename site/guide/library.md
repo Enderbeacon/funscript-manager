@@ -43,4 +43,8 @@ When a post's scripts are available but the video has to come from somewhere els
 
 ## Where the information is kept
 
-Everything you set on a video is written to a small file beside it, named `<video file name>.meta.json`. Move a folder to another drive or another computer and the tags, versions and ratings go with it. See [Your data and FAQ](./data).
+Everything you set on a video is written to a small file named `<video file name>.meta.json`. By default it sits beside the video.
+
+A library can keep these files together in its own hidden `.fsmgr` folder instead, so your video folders hold only videos, scripts and subtitles. Choose this per library on the **Libraries** page; the existing files move over in the background. **Settings → General → Library → Metadata files for new libraries** sets where new libraries start.
+
+Either way the files stay inside the library. Move it to another drive or another computer and the tags, versions and ratings go with it. See [Your data and FAQ](./data).

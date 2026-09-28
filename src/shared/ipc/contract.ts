@@ -8,7 +8,7 @@ import {
   MediaListPageSchema,
   SyncProgressSchema
 } from '../schemas/media-index'
-import { IgnoredEntrySchema } from '../schemas/library-state'
+import { IgnoredEntrySchema, MetaLocationSchema, MetaStatusSchema } from '../schemas/library-state'
 import {
   InternalPlayerIntentSchema,
   InternalPlayerReportSchema,
@@ -291,8 +291,31 @@ export const ipcContract = {
     output: z.void()
   },
 
+  'library:metaStatus': {
+    /** Where the library keeps its sidecars, and how far a change of that has got. */
+    input: z.object({ libraryId: z.uuid() }),
+    output: MetaStatusSchema
+  },
+  'library:setMetaLocation': {
+    /**
+     * Keep the sidecars somewhere else from now on. The scan this starts moves
+     * the existing ones; `folder` is the folder picked for `custom`.
+     */
+    input: z.object({
+      libraryId: z.uuid(),
+      location: MetaLocationSchema,
+      folder: z.string().min(1).optional()
+    }),
+    output: MetaStatusSchema
+  },
+  'library:forgetMetaFolder': {
+    /** Stop waiting for a sidecar folder that cannot be reached; its entries scan as new. */
+    input: z.object({ libraryId: z.uuid(), folder: z.string().min(1) }),
+    output: MetaStatusSchema
+  },
+
   'library:listIgnored': {
-    /** Entries the user removed while keeping their files (`.fsmgr-library.json`). */
+    /** Entries the user removed while keeping their files (`.fsmgr/state.json`). */
     input: z.object({ libraryId: z.uuid() }),
     output: z.object({ entries: z.array(IgnoredEntrySchema) })
   },

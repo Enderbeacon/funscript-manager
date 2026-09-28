@@ -275,6 +275,19 @@ export default function SettingsPage({
               />
               <p className="settings-hint">{t('settings.library.companionMatchHint')}</p>
             </div>
+            <div className="settings-field">
+              <span className="settings-label">{t('settings.library.newLibraryMeta')}</span>
+              <Select
+                className="block"
+                value={settings.library.newLibraryMetaLocation}
+                onChange={(v) => void patch({ library: { newLibraryMetaLocation: v } })}
+                options={[
+                  { value: 'beside', label: t('libraries.meta.beside') },
+                  { value: 'library', label: t('libraries.meta.library') }
+                ]}
+              />
+              <p className="settings-hint">{t('settings.library.newLibraryMetaHint')}</p>
+            </div>
           </div>
 
         <div className="card">

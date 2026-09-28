@@ -50,6 +50,13 @@ export const APP_ERROR_CODES = [
   'disk_full',
   /** Not a failure to act on: a damaged index was rebuilt and is refilling. */
   'index_rebuilt',
+  /**
+   * A folder holding this library's sidecars cannot be reached, so the library
+   * is not scanned: every entry would look new without them.
+   */
+  'meta_folder_unavailable',
+  /** A sidecar folder cannot sit inside a library, or hold one. */
+  'meta_folder_in_library',
   /** GitHub could not be reached, or answered with something unusable. */
   'update_check_failed',
   /** GitHub's hourly limit for unauthenticated requests from this address. */

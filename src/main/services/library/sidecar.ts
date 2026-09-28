@@ -1,7 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
-import { basename, dirname } from 'node:path'
 import { SIDECAR_SUFFIX } from '@shared/constants'
 import {
   AnyMediaMetaSchema,
@@ -18,9 +16,17 @@ import type { GroupedCompanions } from './companion-grouping'
  * Sidecar (`<media filename>.meta.json`) I/O. The sidecar is the source of
  * truth: every write validates against MediaMetaSchema and lands
  * via `.tmp` + atomic rename so a crash never leaves a corrupt file.
+ *
+ * Where a library keeps its sidecars is SidecarStore's business; this file
+ * only reads and writes the one it is given.
  */
 
-export function sidecarPathFor(mediaPath: string): string {
+/**
+ * The sidecar path next to the media file. Only one of the places a sidecar
+ * can be — a library may keep them elsewhere, so anything that means "this
+ * media's sidecar" asks the library's SidecarStore instead.
+ */
+export function besideSidecarPath(mediaPath: string): string {
   return mediaPath + SIDECAR_SUFFIX
 }
 
@@ -79,19 +85,4 @@ export function buildNewSidecar(
     createdAt: now,
     updatedAt: now
   })
-}
-
-/**
- * A sidecar is orphaned when its companion media file no longer exists
- * (the user moved/deleted the video without its sidecar). The caller
- * decides what to do (mark missing, offer re-association).
- */
-export function isOrphanSidecar(sidecarPath: string): boolean {
-  return !existsSync(mediaPathForSidecar(sidecarPath))
-}
-
-/** Convenience: sidecar's directory + media filename for grouping calls. */
-export function mediaNameForSidecar(sidecarPath: string): { dir: string; mediaName: string } {
-  const mediaPath = mediaPathForSidecar(sidecarPath)
-  return { dir: dirname(mediaPath), mediaName: basename(mediaPath) }
 }

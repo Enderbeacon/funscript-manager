@@ -36,7 +36,8 @@ device from the same window.
 ## Design
 
 - **Sidecars are the source of truth.** Every media file gets a
-  `<file name>.meta.json` next to it. The per-library `index.db` (SQLite) is a
+  `<file name>.meta.json`, next to it or, per library, in a `.fsmgr/meta` folder
+  that mirrors the library's own. The per-library `index.db` (SQLite) is a
   cache that can be deleted at any time and is rebuilt from the sidecars.
 - **Typed IPC.** Every renderer → main call is declared once in
   `src/shared/ipc/contract.ts` with Zod schemas and validated on both sides.

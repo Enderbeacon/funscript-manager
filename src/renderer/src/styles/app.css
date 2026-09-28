@@ -4750,8 +4750,32 @@ button.lk-check:hover { color: var(--text-primary); border-color: var(--accent);
 .delete-shared-who { color: var(--text-tertiary); font-size: 11px; }
 .delete-shared-note { margin-top: 0.35rem; font-size: 11px; color: var(--text-tertiary); }
 
+/* ---- a library card: settings and upkeep side by side, lists below ---- */
+.lib-sections {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1rem 2rem;
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 0.5px solid var(--border-tertiary);
+}
+.lib-section { display: flex; flex-direction: column; gap: 0.45rem; min-width: 0; }
+.lib-section-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.lib-section .settings-hint { margin: 0; }
+.lib-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.lib-actions button[aria-expanded='true'] { background: var(--border-tertiary); }
+.lib-panel { margin-top: 0.75rem; display: flex; flex-direction: column; align-items: flex-start; gap: 0.4rem; }
+.lib-panel > .box { align-self: stretch; }
+.meta-custom { display: flex; flex-direction: column; gap: 0.4rem; }
+.meta-custom .lib-path { white-space: normal; overflow-wrap: anywhere; }
+.meta-unreachable { display: flex; flex-direction: column; gap: 0.4rem; }
+
 /* ---- ignored entries, on the libraries page ---- */
-.ignored-block { margin-top: 0.6rem; }
 .ignored-rows { margin-top: 0.4rem; max-height: 40vh; overflow-y: auto; }
 .ignored-row {
   display: flex;

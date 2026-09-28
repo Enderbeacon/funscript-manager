@@ -2,9 +2,13 @@
 
 ## Where things are stored
 
-**Beside each video**, in `<video file name>.meta.json`: its tags, authors, studios, playlists, rating, script versions, subtitles and sources. This file is the source of truth.
+**For each video**, in `<video file name>.meta.json`: its tags, authors, studios, playlists, rating, script versions, subtitles and sources. These files are the source of truth. They sit beside each video, or, for a library set to keep them apart, in its `.fsmgr\meta` folder, laid out like the library's own folders.
+
+**In each library folder**, in `.fsmgr`: the entries removed from the library, where it keeps its `.meta.json` files, and those files when they are kept there. Do not delete it.
 
 **In each library folder**, in `.fsmgr-cache`: an index and thumbnails. It is a cache. Delete it and the app rebuilds it from the files above on the next scan.
+
+A library can also keep its `.meta.json` files in a folder outside it, as an experimental option on the **Libraries** page. That library is not scanned while the folder cannot be reached.
 
 **In the app's data folder** (shown on the **About** page): settings, the definitions of tags and other names (parents, aliases, descriptions, covers), saved filters, the download queue and site sign-ins.
 
@@ -12,7 +16,7 @@
 
 ### Can I move or rename files outside the app?
 
-Yes. A moved or renamed video is recognised by its content and keeps its information, as long as the `.meta.json` file is still there or was moved with it. Renaming inside the app, with **Rename**, also renames its scripts and subtitles.
+Yes. A moved or renamed video is recognised by its content and keeps its information, as long as it stays in the same library. To move a video to another library, take its `.meta.json` file with it. Renaming inside the app, with **Rename**, also renames its scripts and subtitles.
 
 ### Is anything uploaded?
 

@@ -5,7 +5,7 @@ import type { MediaMeta, ScriptVersion } from '@shared/schemas/media-meta'
 import type { ScriptRoute } from '@shared/schemas/app-config'
 import { getSettings } from '../config/config-service'
 import { findByAbsPath } from '../library/library-manager'
-import { readSidecar, sidecarPathFor, writeSidecar } from '../library/sidecar'
+import { readMediaSidecar, writeMediaSidecar } from '../library/sidecar-store'
 import { effectiveScriptFiles } from '../library/script-axes'
 import { ensureMfp, type MfpStatus } from './mfp'
 import { pluginApply } from './mfp-bridge'
@@ -250,7 +250,7 @@ async function followActive(): Promise<void> {
   }
   if (found.mediaId === currentMediaId) return
   const mediaAbs = join(found.libraryRoot, found.mediaRelPath)
-  const sidecar = await readSidecar(sidecarPathFor(mediaAbs))
+  const sidecar = await readMediaSidecar(mediaAbs)
   const version = sidecar.ok ? pickVersion(sidecar.meta) : null
   currentMediaId = found.mediaId
   currentLibraryId = found.libraryId
@@ -292,7 +292,7 @@ export async function play(opts: {
   resumePosition?: boolean
 }): Promise<PlayResult> {
   const mediaAbs = join(opts.libraryRoot, opts.mediaRelPath)
-  const sidecar = await readSidecar(sidecarPathFor(mediaAbs))
+  const sidecar = await readMediaSidecar(mediaAbs)
   if (!sidecar.ok) throw new AppError('media_not_found')
   const picked = opts.noScript ? null : pickVersion(sidecar.meta, opts.scriptVersionId)
   // A single-axis version may borrow the other axes from the default
@@ -351,7 +351,7 @@ export async function play(opts: {
       userMeta: { ...sidecar.meta.userMeta, lastUsedScriptVersionId: version.id },
       updatedAt: new Date().toISOString()
     }
-    await writeSidecar(sidecarPathFor(mediaAbs), updated).catch((e) =>
+    await writeMediaSidecar(mediaAbs, updated).catch((e) =>
       console.error('[playback] failed to persist lastUsedScriptVersionId:', e)
     )
   }
