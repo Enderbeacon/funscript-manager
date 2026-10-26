@@ -11,6 +11,7 @@ import * as libraryManager from '../services/library/library-manager'
 import { libraryEvents } from '../services/library/library-manager'
 import * as lifecycle from '../services/library/media-lifecycle'
 import * as playlists from '../services/library/playlists'
+import * as scriptMatching from '../services/library/script-match-service'
 import { isSitePageNotVideo } from '../services/downloaders/base'
 import { checkLinks } from '../services/downloaders/link-check'
 import * as downloads from '../services/downloaders/queue'
@@ -379,6 +380,10 @@ export function registerIpcHandlers(): void {
   handle('library:sync', async (input) => {
     await libraryManager.requestSync(input.id)
   })
+
+  handle('library:scriptMatches', ({ libraryId }) => scriptMatching.previewScriptMatches(libraryId))
+  handle('library:setScriptFolders', ({ libraryId, folders }) => scriptMatching.setScriptFolders(libraryId, folders))
+  handle('library:applyScriptMatches', ({ libraryId, choices }) => scriptMatching.applyScriptMatches(libraryId, choices))
 
   handle('library:metaStatus', ({ libraryId }) => libraryManager.metaStatus(libraryId))
 

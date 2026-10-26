@@ -13,6 +13,7 @@ export const APP_ERROR_CODES = [
   'library_path_invalid',
   'library_already_registered',
   'library_not_found',
+  'library_unavailable',
   'media_not_found',
   'script_version_not_found',
   'script_version_merge_invalid',

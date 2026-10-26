@@ -24,8 +24,8 @@ export const SCRIPT_AXIS_KEYS = ['main', 'roll', 'pitch', 'surge', 'sway', 'twis
 
 /**
  * Axis → script file path map within one script version.
- * Paths are relative to the sidecar's directory; `..` escaping the library
- * root is rejected at write time.
+ * Paths are relative to the media's directory, even when its sidecar lives in
+ * a mirror folder. Playback rejects paths resolving outside the library root.
  */
 export const ScriptFilesSchema = z
   .partialRecord(z.enum(SCRIPT_AXIS_KEYS), z.string())
@@ -46,7 +46,9 @@ export const ScriptVersionSchema = z.looseObject({
    * borrow, which is what most people expect from a main-axis-only script.
    */
   inheritAxes: z.boolean().optional(),
-  files: ScriptFilesSchema
+  files: ScriptFilesSchema,
+  /** Original axis paths for imported copies, used to avoid importing twice. */
+  importedFrom: z.partialRecord(z.enum(SCRIPT_AXIS_KEYS), z.string()).optional()
 })
 
 export const SubtitleSchema = z.looseObject({

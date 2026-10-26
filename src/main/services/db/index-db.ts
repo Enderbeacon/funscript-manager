@@ -1,14 +1,15 @@
 import { mkdirSync, rmSync } from 'node:fs'
 import { dirname, join, posix } from 'node:path'
 import Database from 'better-sqlite3'
-import { INDEX_DB, LIBRARY_CACHE_DIR } from '@shared/constants'
+import { INDEX_DB, LIBRARY_CACHE_DIR, type CompanionMatchLevel } from '@shared/constants'
 import type { MediaListItem, MediaListPage } from '@shared/schemas/media-index'
 import type { MediaMeta, NameField } from '@shared/schemas/media-meta'
 import type { FilterNode } from '@shared/schemas/taxonomy'
 import { VrFormatSchema, type VrFormat } from '@shared/schemas/vr-video'
 import { FLAT_VR_FORMAT } from '@shared/vr-video'
-import { isMultiAxis } from '../library/companion-grouping'
+import { isMultiAxis, matchCompanion } from '../library/companion-grouping'
 import { compileFilter } from './filter-sql'
+import { LibraryScanCache } from './scan-cache'
 
 /**
  * Per-library SQLite index. Strictly a derived cache: every row is
@@ -248,14 +249,18 @@ export interface IndexedMediaRow {
  */
 export function isIndexCorruption(e: unknown): boolean {
   const code = (e as { code?: string } | null)?.code
-  return code === 'SQLITE_CORRUPT' || code === 'SQLITE_NOTADB'
+  return code === 'SQLITE_NOTADB' || code === 'SQLITE_CORRUPT' || code?.startsWith('SQLITE_CORRUPT_') === true
 }
 
 export class LibraryIndexDb {
+  scanCache: LibraryScanCache
   private constructor(
     private db: Database.Database,
     private readonly dbPath: string
-  ) {}
+  ) {
+    try { this.scanCache = new LibraryScanCache(db) }
+    catch (error) { db.close(); throw error }
+  }
 
   /** Open (or recreate, if absent/corrupt/outdated) `<root>/.fsmgr-cache/index.db`. */
   static open(libraryRoot: string): LibraryIndexDb {
@@ -264,6 +269,7 @@ export class LibraryIndexDb {
     try {
       return new LibraryIndexDb(LibraryIndexDb.openAt(dbPath), dbPath)
     } catch (e) {
+      if (!isIndexCorruption(e)) throw e
       // Disposable cache: nuke and start empty; the next scan rebuilds it from sidecars.
       // openAt closed its handle before re-throwing, so the files are free to
       // unlink; log the original error too — a silent catch would otherwise
@@ -285,6 +291,7 @@ export class LibraryIndexDb {
       // Already unusable; the files are what matter.
     }
     this.db = LibraryIndexDb.recreate(this.dbPath)
+    this.scanCache = new LibraryScanCache(this.db)
   }
 
   /** Delete the index files and open a fresh, empty database in their place. */
@@ -303,14 +310,10 @@ export class LibraryIndexDb {
    * fresh file. A stamp is a claim; a column is the fact.
    */
   private static hasCurrentShape(db: Database.Database): boolean {
-    try {
-      const columns = db.pragma('table_info(media)') as { name: string }[]
-      if (!columns.some((c) => c.name === 'file_added_at')) return false
-      const refs = db.pragma('table_info(media_file_ref)') as { name: string }[]
-      return refs.length > 0
-    } catch {
-      return false
-    }
+    const columns = db.pragma('table_info(media)') as { name: string }[]
+    if (!columns.some((c) => c.name === 'file_added_at')) return false
+    const refs = db.pragma('table_info(media_file_ref)') as { name: string }[]
+    return refs.length > 0
   }
 
   /**
@@ -341,18 +344,20 @@ export class LibraryIndexDb {
       db.pragma('journal_mode = WAL')
       const version = db.pragma('user_version', { simple: true }) as number
       if (version === 0 && !LibraryIndexDb.hasCurrentShape(db)) {
-        db.exec(SCHEMA)
-        db.pragma(`user_version = ${SCHEMA_VERSION}`)
+        const existing = db.prepare("SELECT 1 FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' LIMIT 1").get()
+        if (existing) LibraryIndexDb.resetSchema(db)
+        else db.transaction(() => {
+          db.exec(SCHEMA)
+          db.pragma(`user_version = ${SCHEMA_VERSION}`)
+        })()
       } else if (version !== SCHEMA_VERSION || !LibraryIndexDb.hasCurrentShape(db)) {
         console.log(`[index] rebuilding: version ${version}, expected ${SCHEMA_VERSION}`)
         LibraryIndexDb.resetSchema(db)
       }
-      // Read every page, not just one row of one table. A count over `media`
-      // was the old probe, and it waved through a file whose damage lay in
-      // another tree — the library opened fine and then threw SQLITE_CORRUPT
-      // on the first listing, every run, with nothing ever repairing it.
-      const check = db.pragma('quick_check', { simple: true }) as string
-      if (check !== 'ok') throw new Error(`quick_check: ${check.split('\n')[0]}`)
+      // Open from the existing index promptly. Corruption encountered by a
+      // later query is handled by the manager/IPC recovery path; reading every
+      // page with quick_check here blocks startup on a cold external disk.
+      db.prepare('SELECT id FROM media LIMIT 1').get()
       return db
     } catch (e) {
       // Drop the handle before re-throwing: better-sqlite3 keeps the file
@@ -629,17 +634,18 @@ export class LibraryIndexDb {
       .all() as { id: string; filePath: string }[]
   }
 
-  findByBaseNames(bases: string[], excludeId: string): { id: string; filePath: string }[] {
+  findByBaseNames(bases: string[], excludeId: string, level: CompanionMatchLevel = 'exact'): { id: string; filePath: string }[] {
     if (bases.length === 0) return []
     const wanted = new Set(bases.map((b) => b.toLowerCase()))
     const rows = this.db
-      .prepare('SELECT id, file_path FROM media WHERE wanted = 0 AND id <> ?')
+      .prepare('SELECT id, file_path FROM media WHERE wanted = 0 AND missing = 0 AND id <> ?')
       .all(excludeId) as { id: string; file_path: string }[]
     return rows
       .filter((r) => {
         const name = r.file_path.split('/').pop() ?? r.file_path
         const dot = name.lastIndexOf('.')
-        return wanted.has((dot === -1 ? name : name.slice(0, dot)).toLowerCase())
+        const base = dot === -1 ? name : name.slice(0, dot)
+        return wanted.has(base.toLowerCase()) || bases.some((script) => matchCompanion(base, script, level) !== null)
       })
       .map((r) => ({ id: r.id, filePath: r.file_path }))
   }
@@ -717,6 +723,21 @@ export class LibraryIndexDb {
       path_key: string
     }[]
     return new Set(rows.map((r) => r.path_key))
+  }
+
+  /** Real entries' assignments take precedence over scan-time filename guesses. */
+  scriptOwners(): Map<string, Set<string>> {
+    const rows = this.db.prepare(
+      `SELECT r.path_key, r.media_id FROM media_file_ref r JOIN media m ON m.id = r.media_id
+        WHERE r.kind = 'script' AND m.wanted = 0`
+    ).all() as { path_key: string; media_id: string }[]
+    const owners = new Map<string, Set<string>>()
+    for (const row of rows) {
+      const ids = owners.get(row.path_key) ?? new Set<string>()
+      ids.add(row.media_id)
+      owners.set(row.path_key, ids)
+    }
+    return owners
   }
 
   /**
@@ -943,7 +964,9 @@ export class LibraryIndexDb {
   }
 
   close(): void {
-    this.db.close()
+    try { this.scanCache.flush() }
+    catch (error) { console.warn('[index] could not save disposable scan cache:', error) }
+    finally { this.db.close() }
   }
 }
 

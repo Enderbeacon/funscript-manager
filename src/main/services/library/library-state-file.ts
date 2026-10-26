@@ -89,6 +89,15 @@ export class LibraryStateFile {
     return this.state.metadata
   }
 
+  get scriptFolders(): string[] {
+    return [...this.state.scriptFolders]
+  }
+
+  async setScriptFolders(scriptFolders: string[]): Promise<void> {
+    this.state = { ...this.state, scriptFolders }
+    await this.save()
+  }
+
   async setIgnored(ignored: IgnoredEntry[]): Promise<void> {
     this.state = { ...this.state, ignored }
     await this.save()

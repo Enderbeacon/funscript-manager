@@ -1,5 +1,5 @@
 import { constants as fsConstants, existsSync } from 'node:fs'
-import { copyFile, mkdir, readFile, readdir, rm, rmdir } from 'node:fs/promises'
+import { copyFile, mkdir, readFile, readdir, rm, rmdir, stat } from 'node:fs/promises'
 import { dirname, isAbsolute, join, parse, relative, resolve, sep } from 'node:path'
 import { shell } from 'electron'
 import { LIBRARY_META_DIR, SIDECAR_SUFFIX } from '@shared/constants'
@@ -7,6 +7,8 @@ import type { MediaMeta } from '@shared/schemas/media-meta'
 import type { MetaLocation, MetaState } from '@shared/schemas/library-state'
 import { libraryDataDir, type LibraryStateFile } from './library-state-file'
 import { besideSidecarPath, readSidecar, writeSidecar, type SidecarReadResult } from './sidecar'
+import type { LibraryIndexDb } from '../db/index-db'
+import { sidecarStamp } from '../db/scan-cache'
 
 /**
  * Where one library's sidecars are, and where they go.
@@ -48,7 +50,8 @@ export class SidecarStore {
 
   constructor(
     readonly libraryRoot: string,
-    private readonly stateFile: LibraryStateFile
+    private readonly stateFile: LibraryStateFile,
+    private readonly index?: LibraryIndexDb
   ) {}
 
   get state(): MetaState {
@@ -186,7 +189,23 @@ export class SidecarStore {
   }
 
   read(mediaAbs: string): Promise<SidecarReadResult> {
-    return readSidecar(this.locate(mediaAbs))
+    return this.readAt(this.locate(mediaAbs))
+  }
+
+  async readAt(sidecarAbs: string, known?: { mtimeMs: number; ctimeMs: number; size: number }): Promise<SidecarReadResult> {
+    const info = known ?? await stat(sidecarAbs).catch(() => null)
+    if (!info) return { ok: false, error: 'unreadable' }
+    const stamp = sidecarStamp(info)
+    const cache = this.index?.scanCache
+    const cached = cache?.sidecar(sidecarAbs, stamp)
+    if (cached) {
+      cache!.counters.sidecarsReused++
+      return { ok: true, meta: cached }
+    }
+    if (cache) cache.counters.sidecarsRead++
+    const read = await readSidecar(sidecarAbs)
+    if (read.ok) cache?.setSidecar(sidecarAbs, stamp, read.meta)
+    return read
   }
 
   /**
@@ -196,6 +215,10 @@ export class SidecarStore {
   async write(mediaAbs: string, meta: MediaMeta): Promise<string> {
     const target = this.target(mediaAbs)
     await writeSidecar(target, meta)
+    if (this.index) {
+      const info = await stat(target)
+      this.index.scanCache.setSidecar(target, sidecarStamp(info), meta)
+    }
     for (const path of this.candidates(mediaAbs).slice(1)) await this.dropCopy(path, meta.id)
     return target
   }

@@ -58,10 +58,12 @@ import {
 import { disposeFingerprintPool } from './fingerprint'
 import { canonicalNames, normaliseNames } from '../taxonomy/taxonomy-service'
 import { IgnoreList } from './ignore-list'
-import { getSettings } from '../config/config-service'
+import { getSettings, listLibraries } from '../config/config-service'
 import { scriptAuthorsUpdate } from './script-authors'
 import { syncLibrary, type SyncSummary } from './scanner'
 import { compareBinary, compareNocase } from '../db/sql-order'
+import { autoMatchLibraryScripts } from './script-match-service'
+import { assertLibraryAvailable } from './directory-reader'
 
 /**
  * Per-library lifecycle: index.db handle + startup sync + chokidar watcher.
@@ -88,6 +90,7 @@ interface LibraryHandle {
    * lose one of the removals.
    */
   ignored: IgnoreList
+  state: LibraryStateFile
   /** Where this library's sidecars are read from and written to. */
   store: SidecarStore
   watcher: FSWatcher | null
@@ -95,6 +98,7 @@ interface LibraryHandle {
   syncTail: Promise<void>
   /** Running + queued syncs; capped at 2 (one queued sync sees the latest state). */
   syncPending: number
+  fullSyncRequested: boolean
   resyncTimer: NodeJS.Timeout | null
   stopped: boolean
   /** Index rebuilds this run; capped, see MAX_INDEX_REBUILDS. */
@@ -134,7 +138,7 @@ export const libraryEvents = new TypedEmitter()
  * screen would otherwise explain why the library never appears.
  */
 function libraryErrorCode(e: unknown): AppErrorCode | null {
-  if (e instanceof AppError && e.code === 'meta_folder_unavailable') return e.code
+  if (e instanceof AppError && ['meta_folder_unavailable', 'library_unavailable'].includes(e.code)) return e.code
   const code = (e as { code?: string } | null)?.code
   return code === 'ENOSPC' || code === 'EDQUOT' || code === 'EFBIG' || code === 'SQLITE_FULL'
     ? 'disk_full'
@@ -194,6 +198,15 @@ export function recoverIndex(libraryId: string): boolean {
 
 const handles = new Map<string, LibraryHandle>()
 
+/** Aggregated queries have no single libraryId for IPC recovery to inspect. */
+function readIndex<T>(handle: LibraryHandle, query: () => T): T {
+  try { return query() }
+  catch (error) {
+    if (!isIndexCorruption(error) || !recoverIndex(handle.library.id)) throw error
+    return query()
+  }
+}
+
 /**
  * What the watcher skips: hidden files and folders, the cache, and temp files
  * mid-write. The one hidden folder it does enter is the library's own sidecar
@@ -246,7 +259,8 @@ function scheduleResync(handle: LibraryHandle): void {
   }, RESYNC_DEBOUNCE_MS)
 }
 
-function runSync(handle: LibraryHandle): Promise<void> {
+function runSync(handle: LibraryHandle, force = false): Promise<void> {
+  if (force) handle.fullSyncRequested = true
   // Coalesce: one waiting sync is enough — it will see the latest disk state.
   if (handle.stopped || handle.syncPending > 1) return handle.syncTail
   handle.syncPending += 1
@@ -254,14 +268,20 @@ function runSync(handle: LibraryHandle): Promise<void> {
     try {
       if (handle.stopped) return
       const { library, db, ignored, store } = handle
+      db.scanCache.begin(handle.fullSyncRequested)
+      handle.fullSyncRequested = false
+      let inventory: Map<string, string[]> | undefined
       await syncLibrary(
         library,
         db,
         ignored,
         store,
         (p) => libraryEvents.emit('sync-progress', { libraryId: library.id, ...p }),
-        () => handle.stopped
+        () => handle.stopped,
+        (directories) => { inventory = directories }
       )
+      db.scanCache.force = false
+      if (!handle.stopped) await autoMatchLibraryScripts(library.id, inventory)
       libraryEvents.emit('media-changed', { libraryId: library.id })
       hideAppFolders(library.rootPath)
     } catch (e) {
@@ -271,6 +291,8 @@ function runSync(handle: LibraryHandle): Promise<void> {
       if (isIndexCorruption(e)) recoverIndex(handle.library.id)
       else notifySyncFailed(handle.library, e)
     } finally {
+      try { handle.db.scanCache.flush() }
+      catch (error) { console.warn(`[library] scan cache could not be saved:`, error) }
       handle.syncPending -= 1
     }
   })
@@ -281,9 +303,14 @@ function startWatcher(handle: LibraryHandle): void {
   const root = handle.library.rootPath
   // Mirror folders outside the library are watched too, whole.
   const outside = handle.store.mirrors().filter((dir) => !isWithin(root, dir) && existsSync(dir))
-  const watcher = chokidar.watch([root, ...outside], {
+  const scriptFolders = handle.state.scriptFolders
+  const watcher = chokidar.watch([root, ...outside, ...scriptFolders], {
     ignored: (path: string) =>
-      outside.some((dir) => isWithin(dir, path)) ? path.endsWith('.tmp') : watchIgnoredFor(root)(path),
+      outside.some((dir) => isWithin(dir, path)) ? path.endsWith('.tmp')
+        : scriptFolders.some((dir) => isWithin(dir, path))
+          ? basename(path).startsWith('.') || basename(path) === LIBRARY_CACHE_DIR
+          : watchIgnoredFor(root)(path),
+    followSymlinks: false,
     persistent: true,
     // The startup sync already covered the initial state.
     ignoreInitial: true,
@@ -292,7 +319,11 @@ function startWatcher(handle: LibraryHandle): void {
       pollInterval: 100
     }
   })
-  watcher.on('all', () => scheduleResync(handle))
+  watcher.on('all', (event, path) => {
+    handle.db.scanCache.invalidateDirectory(dirname(path))
+    if (event === 'addDir' || event === 'unlinkDir') handle.db.scanCache.invalidateDirectory(path)
+    scheduleResync(handle)
+  })
   watcher.on('error', (err) => console.error(`[watcher] ${handle.library.rootPath}:`, err))
   handle.watcher = watcher
 }
@@ -305,24 +336,31 @@ function startWatcher(handle: LibraryHandle): void {
  * A library that was registered before locations existed has its sidecars
  * beside the media, and is left that way.
  */
-export async function startLibrary(library: RegisteredLibrary, added = false): Promise<void> {
+export async function startLibrary(library: RegisteredLibrary, added = false, deferSync = false): Promise<void> {
   if (handles.has(library.id)) return
   let handle: LibraryHandle
   try {
+    await assertLibraryAvailable(library.rootPath)
     const state = await LibraryStateFile.load(library.rootPath)
     if (added && state.metadata === undefined) {
       const location = (await getSettings()).library.newLibraryMetaLocation
       await state.setMetadata({ location, customDir: '', leftoverDirs: [] })
     }
-    const store = new SidecarStore(library.rootPath, state)
+    // Another startup/rescan may have finished opening this library while
+    // its state was being read. Do not leak a second SQLite handle.
+    if (handles.has(library.id)) return
+    const db = LibraryIndexDb.open(library.rootPath)
+    const store = new SidecarStore(library.rootPath, state, db)
     handle = {
       library,
-      db: LibraryIndexDb.open(library.rootPath),
+      db,
       ignored: new IgnoreList(state),
+      state,
       store,
       watcher: null,
       syncTail: Promise.resolve(),
       syncPending: 0,
+      fullSyncRequested: false,
       resyncTimer: null,
       stopped: false,
       indexRebuilds: 0
@@ -334,6 +372,8 @@ export async function startLibrary(library: RegisteredLibrary, added = false): P
   }
   handles.set(library.id, handle)
   registerSidecarStore(handle.store)
+  libraryEvents.emit('media-changed', { libraryId: library.id })
+  if (deferSync) return
   try {
     await runSync(handle)
   } finally {
@@ -365,6 +405,11 @@ let markReady = (): void => {}
 const ready = new Promise<void>((resolve) => {
   markReady = resolve
 })
+let markIndexesReady = (): void => {}
+const indexesReady = new Promise<void>((resolve) => { markIndexesReady = resolve })
+
+/** Existing rows can be displayed before the directory reconciliation finishes. */
+export function libraryIndexesReady(): Promise<void> { return indexesReady }
 
 export function librariesReady(): Promise<void> {
   return ready
@@ -375,16 +420,23 @@ export function markLibrariesReady(): void {
 }
 
 export async function startAllLibraries(libraries: RegisteredLibrary[]): Promise<void> {
-  // Sequential on purpose: parallel first-time scans would thrash the disk.
   try {
+    // Open all existing indexes before any long traversal. A large first
+    // library must not hide the cached contents of every library after it.
+    await Promise.all(libraries.map(async (library) => {
+      try { await startLibrary(library, false, true) }
+      catch (error) { console.error(`[library] failed to open ${library.rootPath}:`, error) }
+    }))
+    markIndexesReady()
+    // Full reconciliations remain sequential to avoid competing disk walks.
     for (const library of libraries) {
-      try {
-        await startLibrary(library)
-      } catch (e) {
-        console.error(`[library] failed to start ${library.rootPath}:`, e)
-      }
+      const handle = handles.get(library.id)
+      if (!handle || handle.stopped) continue
+      await runSync(handle)
+      if (!handle.stopped) startWatcher(handle)
     }
   } finally {
+    markIndexesReady()
     markLibrariesReady()
   }
 }
@@ -402,8 +454,24 @@ function requireHandle(libraryId: string): LibraryHandle {
 }
 
 /** Manual full re-sync (IPC `library:sync`). */
-export async function requestSync(libraryId: string): Promise<void> {
-  await runSync(requireHandle(libraryId))
+export async function requestSync(libraryId: string, force = true): Promise<void> {
+  const handle = handles.get(libraryId)
+  if (!handle) {
+    // A library that was unplugged at launch has no open handle. Reconnecting
+    // and choosing Rescan must open it without removing and adding it again.
+    const library = (await listLibraries()).find((item) => item.id === libraryId)
+    if (!library) throw new AppError('library_not_found')
+    await startLibrary(library, false, true)
+    const reopened = requireHandle(libraryId)
+    try { await runSync(reopened, force) }
+    finally { if (!reopened.stopped && !reopened.watcher) startWatcher(reopened) }
+    return
+  }
+  if (handle.resyncTimer) {
+    clearTimeout(handle.resyncTimer)
+    handle.resyncTimer = null
+  }
+  await runSync(handle, force)
 }
 
 export function metaStatus(libraryId: string): MetaStatus {
@@ -513,7 +581,24 @@ async function restartWatcher(handle: LibraryHandle): Promise<void> {
  * touch the user's files — but they act on the same handle, and there must go
  * on being exactly one of it per library.
  */
-export type InternalLibraryHandle = Pick<LibraryHandle, 'library' | 'db' | 'ignored' | 'store'>
+export type InternalLibraryHandle = Pick<LibraryHandle, 'library' | 'db' | 'ignored' | 'store' | 'state'>
+
+/** Batch matching shares the scan queue so neither can overwrite the other's sidecars. */
+export function runLibraryTask<T>(libraryId: string, task: () => Promise<T>): Promise<T> {
+  const handle = requireHandle(libraryId)
+  const run = handle.syncTail.then(() => {
+    if (handle.stopped) throw new AppError('library_not_found')
+    return task()
+  })
+  handle.syncTail = run.then(() => undefined, () => undefined)
+  return run
+}
+
+export async function refreshLibraryWatcher(libraryId: string): Promise<void> {
+  const handle = requireHandle(libraryId)
+  await restartWatcher(handle)
+  libraryEvents.emit('media-changed', { libraryId })
+}
 
 export function internalHandle(libraryId: string): InternalLibraryHandle {
   return requireHandle(libraryId)
@@ -1677,7 +1762,8 @@ export function listMedia(opts: {
 }): MediaListPage {
   const { libraryId, offset, limit, ...query } = opts
   if (libraryId) {
-    return requireHandle(libraryId).db.listMedia(libraryId, { offset, limit, ...query })
+    const handle = requireHandle(libraryId)
+    return readIndex(handle, () => handle.db.listMedia(libraryId, { offset, limit, ...query }))
   }
   // A playlist reaches across libraries, so the merge below has to be able to
   // compare rows from different indexes — which it can only do if each one
@@ -1686,11 +1772,11 @@ export function listMedia(opts: {
   let total = 0
   const merged: MediaListPage['items'] = []
   for (const handle of handles.values()) {
-    const page = handle.db.listMedia(handle.library.id, {
+    const page = readIndex(handle, () => handle.db.listMedia(handle.library.id, {
       offset: 0,
       limit: offset + limit,
       ...query
-    })
+    }))
     total += page.total
     merged.push(...page.items)
   }
@@ -1724,7 +1810,7 @@ export function mediaByIds(targets: { libraryId: string; mediaId: string }[]): M
     // longer than it.
     for (let i = 0; i < ids.length; i += ID_CHUNK) {
       const chunk = ids.slice(i, i + ID_CHUNK)
-      out.push(...handle.db.listMedia(libraryId, { offset: 0, limit: chunk.length, ids: chunk }).items)
+      out.push(...readIndex(handle, () => handle.db.listMedia(libraryId, { offset: 0, limit: chunk.length, ids: chunk })).items)
     }
   }
   return out
@@ -1788,7 +1874,7 @@ export function matchingTargets(opts: {
   const targets: { libraryId: string; mediaId: string }[] = []
   for (const handle of handles.values()) {
     if (opts.libraryId && handle.library.id !== opts.libraryId) continue
-    for (const mediaId of handle.db.matchingIds(handle.library.id, opts)) {
+    for (const mediaId of readIndex(handle, () => handle.db.matchingIds(handle.library.id, opts))) {
       targets.push({ libraryId: handle.library.id, mediaId })
     }
   }
@@ -1821,7 +1907,7 @@ export function viewTargets(opts: {
 export function nameCounts(): Record<NameField, Record<string, number>> {
   const merged = {} as Record<NameField, Record<string, number>>
   for (const handle of handles.values()) {
-    for (const [field, counts] of Object.entries(handle.db.nameCounts())) {
+    for (const [field, counts] of Object.entries(readIndex(handle, () => handle.db.nameCounts()))) {
       const bucket = (merged[field as NameField] ??= {})
       for (const [name, n] of Object.entries(counts)) bucket[name] = (bucket[name] ?? 0) + n
     }
@@ -2139,7 +2225,8 @@ export async function findWantedMatches(
 
   const dismissed = new Set(target.meta.wanted.dismissed)
   return handle.db
-    .findByBaseNames(wantedBaseNames(target.meta, target.mediaAbs), mediaId)
+    .findByBaseNames(wantedBaseNames(target.meta, target.mediaAbs), mediaId,
+      (await getSettings()).library.companionMatch)
     .filter((m) => !dismissed.has(m.id))
     .map((m) => ({
       mediaId: m.id,
@@ -2355,6 +2442,21 @@ async function buildMerge(
   })?.meta.title
   const title = target.meta.title || carriedTitle
 
+  // A placeholder may already have ratings or notes. Fill unset preferences
+  // without changing an existing video preference; retain every distinct note.
+  // Last-used version ids cannot travel because imported versions get new ids.
+  const carriedUserMeta: MediaMeta['userMeta'] = {}
+  for (const source of sources) {
+    for (const [key, value] of Object.entries(source.meta.userMeta)) {
+      if (key !== 'lastUsedScriptVersionId' && carriedUserMeta[key] === undefined) {
+        carriedUserMeta[key] = value
+      }
+    }
+  }
+  const notes = [...new Set([target.meta.userMeta.notes, ...sources.map((s) => s.meta.userMeta.notes)]
+    .filter((note): note is string => Boolean(note?.trim())))].join('\n\n')
+  const userMeta = { ...carriedUserMeta, ...target.meta.userMeta, ...(notes ? { notes } : {}) }
+
   const meta: MediaMeta = {
     ...target.meta,
     // An existing title is the user's; only fill a blank one.
@@ -2364,6 +2466,7 @@ async function buildMerge(
     sources: sourceLinks,
     postLinks,
     subtitles,
+    userMeta,
     scriptVersions: combineAxes([...target.meta.scriptVersions, ...moved]),
     updatedAt: new Date().toISOString()
   }

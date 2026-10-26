@@ -79,7 +79,9 @@ export const LibraryStateSchema = z.object({
   schemaVersion: z.literal(1),
   ignored: z.array(IgnoredEntrySchema).default([]),
   /** Absent in files written before sidecars could live anywhere but beside the media. */
-  metadata: MetaStateSchema.optional()
+  metadata: MetaStateSchema.optional(),
+  /** Extra read-only script sources. Matching imports library-owned copies. */
+  scriptFolders: z.array(z.string()).default([])
 })
 
 export type IgnoredEntry = z.infer<typeof IgnoredEntrySchema>

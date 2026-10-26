@@ -4,6 +4,7 @@ import { getSettings, listLibraries } from '../config/config-service'
 import {
   libraryEvents,
   librariesReady,
+  libraryIndexesReady,
   markLibrariesReady,
   startAllLibraries
 } from '../library/library-manager'
@@ -161,12 +162,14 @@ export async function runStartup(settings: Settings | null): Promise<void> {
     return [] as RegisteredLibrary[]
   })
   const stopFollowing = followLibraries(libraries)
-  const sync = startAllLibraries(libraries).catch((e) => {
+  void startAllLibraries(libraries).catch((e) => {
     console.error('[library] startup sync failed:', e)
     // Whoever is waiting for the libraries waits forever otherwise.
     markLibrariesReady()
   })
-  await withDeadline(sync, LIBRARY_DEADLINE_MS)
+  // Existing index rows are enough to open the window; directory checks keep
+  // running behind it. First-time imports still report progress in the app.
+  await withDeadline(libraryIndexesReady(), LIBRARY_DEADLINE_MS)
   stopFollowing()
 
   // Whatever is left of the window's own loading; usually nothing by now.

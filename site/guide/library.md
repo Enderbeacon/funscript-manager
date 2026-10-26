@@ -2,7 +2,7 @@
 
 ## How files are matched
 
-Scripts and subtitles are matched to a video by file name, within the same folder.
+Scripts and subtitles are matched to a video by file name in the same folder. A script named exactly like a single video in another folder of the library is linked to it as well.
 
 | File | Becomes |
 | --- | --- |
@@ -15,6 +15,10 @@ Scripts and subtitles are matched to a video by file name, within the same folde
 The recognised axes are `roll`, `pitch`, `surge`, `sway` and `twist`.
 
 How strict the name match is can be set under **Settings → General → Library → Script matching**, from **Exact** to **Loosest**. The looser levels also match names with extra prefixes such as an author tag, but can occasionally pick the wrong video.
+
+Scripts that are not matched on their own can be linked under **Match scripts** on the **Libraries** page. It lists scripts whose names are close to a video's, or fit more than one video. Choose a video for each and link them; a multi-axis set is linked as one.
+
+Scripts kept outside the library can be added there with **Add script folder**, subfolders included. They are never linked automatically. Linking one copies it into the library's `.fsmgr/scripts` folder and leaves the original where it is, so the copy keeps working when that drive is unplugged. Later changes to the original are not copied over. **Stop searching** takes a folder off the list and keeps the scripts already copied from it.
 
 ## Script versions
 
@@ -40,6 +44,12 @@ When a post's scripts are available but the video has to come from somewhere els
 
 - **Remove from library** leaves the files on disk and stops showing them. They can be put back from the Libraries page.
 - **Delete files** moves the video, its scripts, subtitles and metadata to the Recycle Bin.
+
+## Scanning
+
+A library opens with the entries it had last time while its folders are checked in the background. If a change made outside the app does not show up, use **Rescan** on the library's card on the **Libraries** page.
+
+If a library's drive is unplugged or one of its folders can't be read, the scan stops and the library keeps its entries. Reconnect the drive and choose **Rescan**.
 
 ## Where the information is kept
 

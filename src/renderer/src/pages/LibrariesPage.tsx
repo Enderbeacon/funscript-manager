@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { RegisteredLibrary } from '@shared/schemas/app-config'
 import type { IgnoredEntry, MetaLocation, MetaStatus } from '@shared/schemas/library-state'
 import Select from '../components/Select'
+import ScriptMatchingPanel from '../components/ScriptMatchingPanel'
 import { askConfirm } from '../dialogs'
 import { ipcInvoke, ipcOn } from '../ipc'
 import { useErrorMessage } from '../useErrorMessage'
@@ -89,9 +90,11 @@ function LibraryCard({
   onRemove: () => void
 }): React.JSX.Element {
   const { t } = useTranslation()
-  const [panel, setPanel] = useState<'folders' | 'ignored' | null>(null)
+  const toMessage = useErrorMessage()
+  const [scanning, setScanning] = useState(false)
+  const [panel, setPanel] = useState<'folders' | 'ignored' | 'scripts' | null>(null)
   const ignored = useIgnored(library.id)
-  const toggle = (next: 'folders' | 'ignored'): void => setPanel((cur) => (cur === next ? null : next))
+  const toggle = (next: 'folders' | 'ignored' | 'scripts'): void => setPanel((cur) => (cur === next ? null : next))
 
   return (
     <div className="card" data-tour="library-row">
@@ -113,6 +116,15 @@ function LibraryCard({
         <section className="lib-section">
           <h3 className="lib-section-title">{t('libraries.entries')}</h3>
           <div className="lib-actions">
+            <button className="ghost sm" disabled={scanning} onClick={() => {
+              setScanning(true)
+              void ipcInvoke('library:sync', { id: library.id })
+                .catch((error) => showToast({ message: toMessage(error) }))
+                .finally(() => setScanning(false))
+            }}>{t('media.sync')}</button>
+            <button className="ghost sm" aria-expanded={panel === 'scripts'} onClick={() => toggle('scripts')}>
+              {t('libraries.scripts.toggle')}
+            </button>
             <button
               className="ghost sm"
               aria-expanded={panel === 'folders'}
@@ -134,6 +146,7 @@ function LibraryCard({
       </div>
 
       {panel === 'folders' && <FolderRemover libraryId={library.id} />}
+      {panel === 'scripts' && <ScriptMatchingPanel libraryId={library.id} />}
       {panel === 'ignored' && ignored.entries.length > 0 && (
         <IgnoredList libraryId={library.id} entries={ignored.entries} refresh={ignored.refresh} />
       )}

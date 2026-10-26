@@ -4774,6 +4774,19 @@ button.lk-check:hover { color: var(--text-primary); border-color: var(--accent);
 .lib-actions button[aria-expanded='true'] { background: var(--border-tertiary); }
 .lib-panel { margin-top: 0.75rem; display: flex; flex-direction: column; align-items: flex-start; gap: 0.4rem; }
 .lib-panel > .box { align-self: stretch; }
+.script-matching-panel > .error-banner { align-self: stretch; }
+.script-source-folders { display: flex; flex-direction: column; gap: 0.5rem; }
+.script-source-folders .lib-path { overflow-wrap: anywhere; }
+.script-match-rows { max-height: 32rem; overflow-y: auto; }
+.script-match-row { display: flex; gap: 1rem; align-items: center; padding: 0.7rem; border-bottom: 1px solid var(--border-tertiary); }
+.script-match-row:last-child { border-bottom: 0; }
+.script-match-source { flex: 1; min-width: 0; }
+.script-match-source .lib-path { overflow-wrap: anywhere; }
+.script-match-source summary { cursor: pointer; }
+.script-match-target { flex: 1; min-width: 12rem; }
+@media (max-width: 700px) {
+  .script-match-row { flex-direction: column; align-items: stretch; }
+}
 .meta-custom { display: flex; flex-direction: column; gap: 0.4rem; }
 .meta-custom .lib-path { white-space: normal; overflow-wrap: anywhere; }
 .meta-unreachable { display: flex; flex-direction: column; gap: 0.4rem; }

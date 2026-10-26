@@ -42,6 +42,9 @@ import {
   PostMatchResultSchema
 } from '../schemas/post-match'
 import {
+  ScriptMatchPreviewSchema, ScriptMatchChoiceSchema, ScriptMatchApplyResultSchema
+} from '../schemas/script-match'
+import {
   scriptPlayerIpcContract,
   scriptPlayerIpcEvents
 } from '../../script-player/interface/ipc/contract'
@@ -227,6 +230,18 @@ export const ipcContract = {
     /** Manual re-sync; progress arrives via `event:sync-progress`. */
     input: z.object({ id: z.uuid() }),
     output: z.void()
+  },
+  'library:scriptMatches': {
+    input: z.object({ libraryId: z.uuid() }),
+    output: ScriptMatchPreviewSchema
+  },
+  'library:setScriptFolders': {
+    input: z.object({ libraryId: z.uuid(), folders: z.array(z.string().min(1)).max(32) }),
+    output: z.void()
+  },
+  'library:applyScriptMatches': {
+    input: z.object({ libraryId: z.uuid(), choices: z.array(ScriptMatchChoiceSchema).max(10000) }),
+    output: ScriptMatchApplyResultSchema
   },
   'library:addWanted': {
     /**
