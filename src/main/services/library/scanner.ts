@@ -313,7 +313,19 @@ export async function syncLibrary(
       continue
     }
 
-    if (!unchanged || (row!.missing && mediaExists)) {
+    const axesChanged = !mediaExists && await store.discoverScriptAxes(join(root, relPath), read.meta)
+    if (axesChanged) {
+      try {
+        const written = await store.write(join(root, relPath), read.meta)
+        tree.sidecars.set(relPath, written)
+        mtime = Math.floor((await stat(written)).mtimeMs)
+      } catch (e) {
+        summary.failedFiles += 1
+        console.error(`[library] could not update script axes for ${relPath}:`, e)
+        continue
+      }
+    }
+    if (!unchanged || axesChanged || (row!.missing && mediaExists)) {
       db.upsertFromSidecar(read.meta, relPath, mtime, await entryFileTimes(root, relPath, read.meta))
       if (row) summary.updated += 1
       else summary.added += 1
@@ -322,7 +334,7 @@ export async function syncLibrary(
     if (!mediaExists) {
       // Orphan: candidate for move re-association in step 4, else missing.
       const key = `${read.meta.fileFingerprint.size}:${read.meta.fileFingerprint.blake3Head}`
-      orphansByFingerprint.set(key, { meta: read.meta, sidecarAbs, relPath })
+      orphansByFingerprint.set(key, { meta: read.meta, sidecarAbs: tree.sidecars.get(relPath) ?? sidecarAbs, relPath })
       if (!row?.missing) db.setMissing(read.meta.id, true)
     }
   }
@@ -350,6 +362,7 @@ export async function syncLibrary(
       // replaced; the sidecar records the new one.
       const read = sidecarReads.get(sidecarAbs) ?? await store.readAt(sidecarAbs, sidecarStats.get(sidecarAbs))
       if (!read.ok) return
+      const axesChanged = await store.discoverScriptAxes(abs, read.meta)
       let size: number
       try {
         size = (await stat(abs)).size
@@ -378,6 +391,7 @@ export async function syncLibrary(
       if (
         !replaced &&
         !withCompanions &&
+        !axesChanged &&
         !arrived &&
         authors === null &&
         read.meta.mediaInfo !== undefined

@@ -88,7 +88,8 @@ const FUNSCRIPT_AXIS_TOKENS: Readonly<Record<string, FunscriptAxis>> = {
 }
 
 export function funscriptAxisFromToken(token: string): FunscriptAxis | null {
-  return FUNSCRIPT_AXIS_TOKENS[token.trim().toLowerCase()] ?? null
+  const key = token.trim().toLowerCase()
+  return Object.hasOwn(FUNSCRIPT_AXIS_TOKENS, key) ? FUNSCRIPT_AXIS_TOKENS[key]! : null
 }
 
 /**

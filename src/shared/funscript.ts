@@ -1,3 +1,5 @@
+import { funscriptAxisFromToken, type FunscriptAxis } from './constants'
+
 /**
  * Funscript parsing: pure, dependency-free (usable from renderer, main and
  * worker threads). Hand-rolled validation instead of zod — action arrays can
@@ -25,11 +27,48 @@ export interface ParsedFunscript {
 export function parseFunscript(text: string): ParsedFunscript | null {
   let raw: unknown
   try {
-    raw = JSON.parse(text)
+    raw = JSON.parse(text.replace(/^\uFEFF/, ''))
   } catch {
     return null
   }
-  return normalizeFunscript(raw)
+  return normalizeFunscript(raw) ?? normalizeFunscriptAxes(raw).main ?? null
+}
+
+export type ParsedFunscriptAxes = Partial<Record<FunscriptAxis, ParsedFunscript>>
+
+/** Read merged axes (1.1 axes[] or 2.0 channels{}), including the primary track. */
+export function parseFunscriptAxes(text: string): ParsedFunscriptAxes {
+  try {
+    return normalizeFunscriptAxes(JSON.parse(text.replace(/^\uFEFF/, '')))
+  } catch {
+    return {}
+  }
+}
+
+export function normalizeFunscriptAxes(raw: unknown): ParsedFunscriptAxes {
+  if (typeof raw !== 'object' || raw === null) return {}
+  const root = raw as Record<string, unknown>
+  const axes: ParsedFunscriptAxes = {}
+  const primary = normalizeFunscript(root)
+  if (primary) axes.main = primary
+  const add = (token: unknown, value: unknown): void => {
+    if (typeof token !== 'string') return
+    const axis = funscriptAxisFromToken(token)
+    if (!axis) return
+    const track = Array.isArray(value) ? { actions: value } : value
+    if (!track || typeof track !== 'object') return
+    const parsed = normalizeFunscript({ inverted: root.inverted, ...track })
+    if (parsed) axes[axis] = parsed
+  }
+  if (Array.isArray(root.axes)) {
+    for (const entry of root.axes) {
+      if (entry && typeof entry === 'object') add(entry.id ?? entry.name, entry)
+    }
+  }
+  if (root.channels && typeof root.channels === 'object' && !Array.isArray(root.channels)) {
+    for (const [token, track] of Object.entries(root.channels)) add(token, track)
+  }
+  return axes
 }
 
 /** Normalize an already-parsed funscript object. */

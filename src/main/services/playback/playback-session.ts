@@ -1,7 +1,8 @@
-import { copyFile, mkdir, readdir, rm } from 'node:fs/promises'
+import { copyFile, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { LIBRARY_CACHE_DIR } from '@shared/constants'
 import type { ScriptVersion } from '@shared/schemas/media-meta'
+import { parseFunscriptAxes, type ParsedFunscriptAxes } from '@shared/funscript'
 import { mediaBasename } from '../library/companion-grouping'
 
 /**
@@ -21,21 +22,24 @@ export function playbackSessionDir(libraryRoot: string): string {
 /**
  * Reset the session dir and stage the version's scripts for a media file.
  * Passing no version just clears the dir (video without scripts).
- * Returns the staged file paths.
+ * Returns destination axis → staged file path. Embedded tracks are written as
+ * ordinary single-axis scripts so both filename matching and the plugin load
+ * exactly the selected track.
  */
 export async function prepareSession(
   libraryRoot: string,
   mediaAbsPath: string,
   version: ScriptVersion | null
-): Promise<string[]> {
+): Promise<Record<string, string>> {
   const dir = playbackSessionDir(libraryRoot)
   await rm(dir, { recursive: true, force: true })
   await mkdir(dir, { recursive: true })
-  if (!version) return []
+  if (!version) return {}
 
   const base = mediaBasename(basename(mediaAbsPath))
   const mediaDir = dirname(mediaAbsPath)
-  const staged: string[] = []
+  const staged: Record<string, string> = {}
+  const documents = new Map<string, ParsedFunscriptAxes>()
   for (const [axis, rel] of Object.entries(version.files)) {
     if (!rel) continue
     // Script paths are sidecar-relative; reject anything escaping the library.
@@ -43,8 +47,20 @@ export async function prepareSession(
     const relToRoot = relative(libraryRoot, src)
     if (relToRoot.startsWith('..') || isAbsolute(relToRoot)) continue
     const target = join(dir, axis === 'main' ? `${base}.funscript` : `${base}.${axis}.funscript`)
-    await copyFile(src, target)
-    staged.push(target)
+    const sourceAxis = version.fileAxes?.[axis as keyof ScriptVersion['files']]
+    if (sourceAxis) {
+      let axes = documents.get(src)
+      if (!axes) {
+        axes = parseFunscriptAxes(await readFile(src, 'utf8'))
+        documents.set(src, axes)
+      }
+      const script = axes[sourceAxis]
+      if (!script) continue
+      await writeFile(target, JSON.stringify({ version: '1.0', inverted: false, actions: script.actions }))
+    } else {
+      await copyFile(src, target)
+    }
+    staged[axis] = target
   }
   return staged
 }

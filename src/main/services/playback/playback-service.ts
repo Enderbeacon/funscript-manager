@@ -6,7 +6,7 @@ import type { ScriptRoute } from '@shared/schemas/app-config'
 import { getSettings } from '../config/config-service'
 import { findByAbsPath } from '../library/library-manager'
 import { readMediaSidecar, writeMediaSidecar } from '../library/sidecar-store'
-import { effectiveScriptFiles } from '../library/script-axes'
+import { effectiveScriptVersion } from '../library/script-axes'
 import { ensureMfp, type MfpStatus } from './mfp'
 import { pluginApply } from './mfp-bridge'
 import { prepareSession } from './playback-session'
@@ -258,13 +258,14 @@ async function followActive(): Promise<void> {
   currentScriptVersionId = version?.id ?? null
   const route = (await getSettings()).playback.scriptRoute
   if (version && sidecar.ok && route === 'internal') {
-    const files = { ...version, files: effectiveScriptFiles(sidecar.meta, version) }
+    const files = effectiveScriptVersion(sidecar.meta, version)
     await loadScriptPlayer(
       found.mediaId,
       version.id,
       resolveVersionScripts(found.libraryRoot, mediaAbs, files) as Partial<
         Record<ScriptPlayerAxis, string>
-      >
+      >,
+      files.fileAxes
     )
   } else {
     clearScriptPlayer()
@@ -299,7 +300,7 @@ export async function play(opts: {
   // A single-axis version may borrow the other axes from the default
   // multi-axis version; the staged session directory and the MFP plugin both
   // get the same effective map.
-  const version = picked && { ...picked, files: effectiveScriptFiles(sidecar.meta, picked) }
+  const version = picked && effectiveScriptVersion(sidecar.meta, picked)
 
   const settings = await getSettings()
   const route = settings.playback.scriptRoute
@@ -307,7 +308,7 @@ export async function play(opts: {
   // Staging copies the scripts under the video's basename so MFP's own
   // filename matching finds them. Nobody else reads that directory, so on the
   // internal route it is pure file copying for an audience of none.
-  if (route === 'mfp') await prepareSession(opts.libraryRoot, mediaAbs, version)
+  const staged = route === 'mfp' ? await prepareSession(opts.libraryRoot, mediaAbs, version) : null
 
   const target = await requireOpenTarget()
 
@@ -333,12 +334,13 @@ export async function play(opts: {
   currentMediaId = opts.mediaId
   currentLibraryId = opts.libraryId ?? null
   currentScriptVersionId = version?.id ?? null
-  const scripts = version ? resolveVersionScripts(opts.libraryRoot, mediaAbs, version) : {}
+  const scripts = staged ?? (version ? resolveVersionScripts(opts.libraryRoot, mediaAbs, version) : {})
   if (version && route === 'internal') {
     await loadScriptPlayer(
       opts.mediaId,
       version.id,
-      scripts as Partial<Record<ScriptPlayerAxis, string>>
+      scripts as Partial<Record<ScriptPlayerAxis, string>>,
+      version.fileAxes
     )
   } else {
     clearScriptPlayer()

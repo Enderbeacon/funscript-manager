@@ -723,7 +723,7 @@ function toDetail(
       isDefault: v.isDefault ?? false,
       isMultiAxis: isMultiAxis(v),
       axes: SCRIPT_AXIS_KEYS.filter((a) => v.files[a] !== undefined),
-      files: SCRIPT_AXIS_KEYS.map((a) => v.files[a]).filter((f): f is string => f !== undefined),
+      files: [...new Set(SCRIPT_AXIS_KEYS.map((a) => v.files[a]).filter((f): f is string => f !== undefined))],
       axisFiles: Object.fromEntries(
         SCRIPT_AXIS_KEYS.flatMap((axis) => (v.files[axis] ? [[axis, v.files[axis]]] : []))
       ),
@@ -960,6 +960,17 @@ function remapScriptFiles(
   return next as ScriptVersion['files']
 }
 
+function remapFileAxes(
+  version: ScriptVersion,
+  assignments: Partial<Record<ScriptAxis, ScriptAxis>>
+): ScriptVersion['fileAxes'] {
+  if (!version.fileAxes) return undefined
+  return Object.fromEntries(SCRIPT_AXIS_KEYS.flatMap((axis) => {
+    const source = version.fileAxes?.[axis]
+    return source && version.files[axis] ? [[assignments[axis] ?? axis, source]] : []
+  }))
+}
+
 /**
  * Detail-page action: rename a version and edit its author / source URL /
  * notes. An omitted key keeps its current value; null or
@@ -994,6 +1005,7 @@ export async function updateScriptVersion(
     }
     if (edit.axisAssignments) {
       next.files = remapScriptFiles(version.files, edit.axisAssignments, true)
+      next.fileAxes = remapFileAxes(version, edit.axisAssignments)
       // A corrected multi-axis version is complete in itself.
       if (isMultiAxis(next)) delete next.inheritAxes
     }
@@ -1050,6 +1062,7 @@ export async function mergeScriptVersions(
     ...(!target.sourceUrl && source.sourceUrl ? { sourceUrl: source.sourceUrl } : {}),
     ...(!target.notes && source.notes ? { notes: source.notes } : {}),
     files: files as ScriptVersion['files'],
+    fileAxes: { ...target.fileAxes, ...remapFileAxes(source, axisAssignments) },
     ...(target.isDefault || source.isDefault ? { isDefault: true } : {})
   }
   delete merged.inheritAxes
@@ -2369,15 +2382,17 @@ async function buildMerge(
     const sourceDir = dirname(source.mediaAbs)
     for (const version of source.meta.scriptVersions) {
       const files: Record<string, string> = {}
+      const versionPaths = new Set<string>()
       for (const [axis, file] of Object.entries(version.files)) {
         if (!file) continue
         const abs = resolve(sourceDir, file)
         // Two posts can ship the identical script; it is one file either way.
         if (held.has(abs.toLowerCase())) continue
-        held.add(abs.toLowerCase())
+        versionPaths.add(abs.toLowerCase())
         files[axis] = relative(targetDir, abs).split(PATH_SEP).join('/')
       }
       if (files.main === undefined) continue
+      for (const path of versionPaths) held.add(path)
       moved.push({ ...version, id: randomUUID(), files: files as ScriptVersion['files'] })
     }
     for (const subtitle of source.meta.subtitles) {

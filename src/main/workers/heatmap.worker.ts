@@ -1,6 +1,7 @@
 import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
-import { parseFunscript } from '@shared/funscript'
+import { parseFunscript, parseFunscriptAxes } from '@shared/funscript'
+import type { FunscriptAxis } from '@shared/constants'
 import { renderHeatmapRgba } from '../services/heatmap/render'
 import { encodePngRgba } from '../services/heatmap/png'
 import { servePool } from '../util/worker-pool'
@@ -12,6 +13,7 @@ import { servePool } from '../util/worker-pool'
 
 export interface HeatmapTask {
   scriptPath: string
+  scriptAxis?: FunscriptAxis
   outPath: string
   width: number
   height: number
@@ -31,7 +33,7 @@ servePool<HeatmapTask, HeatmapResult>(async (task) => {
   } catch {
     return { rendered: false }
   }
-  const script = parseFunscript(text)
+  const script = task.scriptAxis ? parseFunscriptAxes(text)[task.scriptAxis] : parseFunscript(text)
   const pixels = script && renderHeatmapRgba(script.actions, task.width, task.height, task.durationMs)
   if (!pixels) return { rendered: false }
 

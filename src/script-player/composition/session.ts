@@ -22,9 +22,10 @@ export function configureScriptPlayer(
 export async function loadScriptPlayer(
   mediaId: string,
   scriptVersionId: string,
-  files: Partial<Record<ScriptPlayerAxis, string>>
+  files: Partial<Record<ScriptPlayerAxis, string>>,
+  fileAxes?: Partial<Record<ScriptPlayerAxis, ScriptPlayerAxis>>
 ): Promise<void> {
-  const scripts = await loadScriptFiles(files)
+  const scripts = await loadScriptFiles(files, fileAxes)
   scriptPlayerSession.load(mediaId, scriptVersionId, scripts)
 }
 

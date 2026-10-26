@@ -428,8 +428,13 @@ function buildRenamePlan(
 /** Every companion path a sidecar names, relative to the media's own folder. */
 function companionFiles(meta: MediaMeta): { kind: 'script' | 'subtitle'; rel: string }[] {
   const out: { kind: 'script' | 'subtitle'; rel: string }[] = []
+  const seen = new Set<string>()
   for (const version of meta.scriptVersions) {
-    for (const file of Object.values(version.files)) if (file) out.push({ kind: 'script', rel: file })
+    for (const file of Object.values(version.files)) {
+      if (!file || seen.has(file.toLowerCase())) continue
+      seen.add(file.toLowerCase())
+      out.push({ kind: 'script', rel: file })
+    }
   }
   for (const sub of meta.subtitles) out.push({ kind: 'subtitle', rel: sub.path })
   return out

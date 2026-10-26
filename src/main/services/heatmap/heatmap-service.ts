@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { readFile, stat } from 'node:fs/promises'
 import { cpus } from 'node:os'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
-import { LIBRARY_CACHE_DIR } from '@shared/constants'
+import { LIBRARY_CACHE_DIR, type FunscriptAxis } from '@shared/constants'
 import type { MediaMeta, ScriptVersion } from '@shared/schemas/media-meta'
 import { WorkerPool } from '../../util/worker-pool'
 import { readMediaSidecar } from '../library/sidecar-store'
@@ -66,9 +66,10 @@ export async function getHeatmapDataUrl(opts: {
   }
   const durationMs = opts.durationMs ?? sidecar.meta.mediaInfo?.durationMs
   const timelineMs = durationMs && durationMs > 0 ? durationMs : undefined
+  const scriptAxis = version.fileAxes?.main
   const key = createHash('sha256').update(JSON.stringify([
     RENDER_REVISION, relToRoot, scriptStat.size, scriptStat.mtimeMs, scriptStat.ctimeMs,
-    timelineMs ?? null, HEATMAP_WIDTH, HEATMAP_HEIGHT
+    timelineMs ?? null, HEATMAP_WIDTH, HEATMAP_HEIGHT, scriptAxis ?? null
   ])).digest('hex')
 
   const cachePath = join(
@@ -81,12 +82,12 @@ export async function getHeatmapDataUrl(opts: {
 
   const running = inflight.get(cachePath)
   if (running) return running
-  const task = produce(scriptPath, cachePath, timelineMs).finally(() => inflight.delete(cachePath))
+  const task = produce(scriptPath, cachePath, timelineMs, scriptAxis).finally(() => inflight.delete(cachePath))
   inflight.set(cachePath, task)
   return task
 }
 
-async function produce(scriptPath: string, cachePath: string, durationMs?: number): Promise<string | null> {
+async function produce(scriptPath: string, cachePath: string, durationMs?: number, scriptAxis?: FunscriptAxis): Promise<string | null> {
   try {
     return toDataUrl(await readFile(cachePath))
   } catch {
@@ -97,6 +98,7 @@ async function produce(scriptPath: string, cachePath: string, durationMs?: numbe
   try {
     const result = await pool.run({
       scriptPath,
+      scriptAxis,
       outPath: cachePath,
       width: HEATMAP_WIDTH,
       height: HEATMAP_HEIGHT,

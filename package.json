@@ -17,6 +17,7 @@
     "check:data-compat": "node scripts/check-data-compat.mjs",
     "check:script-matching": "node scripts/check-script-matching.mjs",
     "check:library-sync": "node scripts/check-script-matching.mjs scripts/library-sync-check.ts",
+    "check:merged-scripts": "node scripts/check-script-matching.mjs scripts/merged-script-check.ts",
     "check:players": "node scripts/check-players.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.node.json --composite false && tsc --noEmit -p tsconfig.web.json --composite false",
     "postinstall": "electron-builder install-app-deps",

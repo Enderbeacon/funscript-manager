@@ -48,6 +48,18 @@ export function effectiveScriptFiles(
   return files as ScriptVersion['files']
 }
 
+/** Keep an embedded track's source when borrowing it from another version. */
+export function effectiveScriptVersion(meta: MediaMeta, version: ScriptVersion): ScriptVersion {
+  const files = effectiveScriptFiles(meta, version)
+  if (files === version.files) return version
+  const donor = axisDonor(meta, version)
+  const fileAxes = { ...version.fileAxes }
+  for (const axis of SCRIPT_AXIS_KEYS) {
+    if (version.files[axis] === undefined && donor?.fileAxes?.[axis]) fileAxes[axis] = donor.fileAxes[axis]
+  }
+  return { ...version, files, fileAxes }
+}
+
 /** Axes borrowed from the donor (for the detail page's hint), in canonical order. */
 export function borrowedAxes(meta: MediaMeta, version: ScriptVersion): string[] {
   if (!inheritsAxes(meta, version)) return []
@@ -91,6 +103,7 @@ export function combineAxes(versions: ScriptVersion[]): ScriptVersion[] {
       continue
     }
     Object.assign(host.files, version.files)
+    if (version.fileAxes) host.fileAxes = { ...host.fileAxes, ...version.fileAxes }
     if (!host.author && version.author) host.author = version.author
     if (!host.sourceUrl && version.sourceUrl) host.sourceUrl = version.sourceUrl
     if (!host.notes && version.notes) host.notes = version.notes

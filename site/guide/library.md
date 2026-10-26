@@ -12,7 +12,7 @@ Scripts and subtitles are matched to a video by file name in the same folder. A 
 | `Clip (Soft).funscript`, `Clip_authorA.funscript` | another version |
 | `Clip.en.srt`, `Clip.ja.srt` | subtitles, with their language |
 
-The recognised axes are `roll`, `pitch`, `surge`, `sway` and `twist`.
+The recognised axes are `roll`, `pitch`, `surge`, `sway` and `twist`. A single `.funscript` file that holds several axes is read as a multi-axis version too.
 
 How strict the name match is can be set under **Settings → General → Library → Script matching**, from **Exact** to **Loosest**. The looser levels also match names with extra prefixes such as an author tag, but can occasionally pick the wrong video.
 

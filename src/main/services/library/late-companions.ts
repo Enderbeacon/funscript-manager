@@ -80,17 +80,21 @@ export function mergeLateCompanions(
     // Same main script, extra axes: a multi-axis set whose other axes arrived
     // later belongs to the version that is already there.
     const files: Record<string, string> = { ...existing.files }
+    const fileAxes = { ...existing.fileAxes }
     let filled = false
     for (const axis of FUNSCRIPT_AXES) {
       const file = version.files[axis]
-      if (!file || files[axis] || referenced.has(abs(file))) continue
+      const embedded = fileAxes[axis] === axis && files[axis] === existing.files.main
+      if (!file || (files[axis] && !embedded) || referenced.has(abs(file))) continue
       files[axis] = file
+      delete fileAxes[axis]
       filled = true
     }
     if (!filled) continue
     scriptVersions[scriptVersions.indexOf(existing)] = {
       ...existing,
-      files: files as ScriptVersion['files']
+      files: files as ScriptVersion['files'],
+      ...(existing.fileAxes ? { fileAxes } : {})
     }
     changed = true
   }

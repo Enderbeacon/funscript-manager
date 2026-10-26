@@ -9,6 +9,7 @@ import { libraryDataDir, type LibraryStateFile } from './library-state-file'
 import { besideSidecarPath, readSidecar, writeSidecar, type SidecarReadResult } from './sidecar'
 import type { LibraryIndexDb } from '../db/index-db'
 import { sidecarStamp } from '../db/scan-cache'
+import { MergedScriptDiscovery } from './merged-scripts'
 
 /**
  * Where one library's sidecars are, and where they go.
@@ -39,6 +40,7 @@ export function isWithin(dir: string, path: string): boolean {
 }
 
 export class SidecarStore {
+  private readonly mergedScripts: MergedScriptDiscovery
   /**
    * Bumped whenever the location changes. A batch of moves started under an
    * older one stops, rather than carrying files the way the user just turned
@@ -52,7 +54,9 @@ export class SidecarStore {
     readonly libraryRoot: string,
     private readonly stateFile: LibraryStateFile,
     private readonly index?: LibraryIndexDb
-  ) {}
+  ) {
+    this.mergedScripts = new MergedScriptDiscovery(libraryRoot, index?.scanCache)
+  }
 
   get state(): MetaState {
     return this.stateFile.metadata ?? DEFAULT_META_STATE
@@ -188,8 +192,17 @@ export class SidecarStore {
     return this.candidates(mediaAbs).some((p) => existsSync(p))
   }
 
-  read(mediaAbs: string): Promise<SidecarReadResult> {
-    return this.readAt(this.locate(mediaAbs))
+  async read(mediaAbs: string): Promise<SidecarReadResult> {
+    const read = await this.readAt(this.locate(mediaAbs))
+    // Work on a copy: discovering during a read must not alter the scan snapshot.
+    if (!read.ok) return read
+    const meta = { ...read.meta }
+    await this.discoverScriptAxes(mediaAbs, meta)
+    return { ok: true, meta }
+  }
+
+  discoverScriptAxes(mediaAbs: string, meta: MediaMeta): Promise<boolean> {
+    return this.mergedScripts.discover(mediaAbs, meta)
   }
 
   async readAt(sidecarAbs: string, known?: { mtimeMs: number; ctimeMs: number; size: number }): Promise<SidecarReadResult> {
@@ -214,6 +227,8 @@ export class SidecarStore {
    */
   async write(mediaAbs: string, meta: MediaMeta): Promise<string> {
     const target = this.target(mediaAbs)
+    // The same enriched object is subsequently passed to the derived index.
+    await this.discoverScriptAxes(mediaAbs, meta)
     await writeSidecar(target, meta)
     if (this.index) {
       const info = await stat(target)

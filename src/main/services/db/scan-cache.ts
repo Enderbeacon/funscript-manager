@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3'
+import { funscriptAxisFromToken, type FunscriptAxis } from '@shared/constants'
 import { MediaMetaSchema, type MediaMeta } from '@shared/schemas/media-meta'
 
 /** Additive, disposable scan snapshots; older builds can ignore these tables. */
@@ -8,6 +9,9 @@ CREATE TABLE IF NOT EXISTS scan_directory (
 );
 CREATE TABLE IF NOT EXISTS scan_sidecar (
   path TEXT PRIMARY KEY, stamp TEXT NOT NULL, meta TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS scan_script_axes (
+  path TEXT PRIMARY KEY, stamp TEXT NOT NULL, axes TEXT NOT NULL
 );`
 
 export interface DirectoryEntry {
@@ -30,6 +34,7 @@ export class LibraryScanCache {
   private sidecars = new Map<string, { stamp: string; meta: MediaMeta }>()
   private loadedSidecars = new Map<string, { stamp: string; meta: MediaMeta }>()
   private invalidDirectories = new Set<string>()
+  private scripts = new Map<string, { stamp: string; axes: FunscriptAxis[] }>()
   force = false
   counters = { directoriesRead: 0, directoriesReused: 0, sidecarsRead: 0, sidecarsReused: 0 }
 
@@ -90,11 +95,29 @@ export class LibraryScanCache {
     this.loadedSidecars.set(path, { stamp, meta })
   }
 
+  scriptAxes(path: string, stamp: string): FunscriptAxis[] | null {
+    const pending = this.scripts.get(path)
+    if (pending?.stamp === stamp) return pending.axes
+    if (this.force) return null
+    const row = this.db.prepare('SELECT stamp, axes FROM scan_script_axes WHERE path = ?').get(path) as
+      { stamp: string; axes: string } | undefined
+    if (!row || row.stamp !== stamp) return null
+    try {
+      const axes: unknown = JSON.parse(row.axes)
+      if (!Array.isArray(axes) || axes.some((axis) => typeof axis !== 'string' || funscriptAxisFromToken(axis) !== axis)) return null
+      return axes as FunscriptAxis[]
+    } catch { return null }
+  }
+
+  setScriptAxes(path: string, stamp: string, axes: FunscriptAxis[]): void {
+    this.scripts.set(path, { stamp, axes })
+  }
+
   /** One transaction rather than one external-drive fsync per directory or JSON file. */
   flush(): void {
     this.force = false
     this.loadedSidecars.clear()
-    if (!this.directories.size && !this.sidecars.size && !this.invalidDirectories.size) return
+    if (!this.directories.size && !this.sidecars.size && !this.invalidDirectories.size && !this.scripts.size) return
     this.db.transaction(() => {
       const drop = this.db.prepare('DELETE FROM scan_directory WHERE path = ?')
       for (const path of this.invalidDirectories) drop.run(path)
@@ -102,9 +125,12 @@ export class LibraryScanCache {
       for (const [path, row] of this.directories) dir.run(path, row.stamp, row.observedAt, JSON.stringify(row.entries))
       const sidecar = this.db.prepare('INSERT OR REPLACE INTO scan_sidecar VALUES (?, ?, ?)')
       for (const [path, row] of this.sidecars) sidecar.run(path, row.stamp, JSON.stringify(row.meta))
+      const script = this.db.prepare('INSERT OR REPLACE INTO scan_script_axes VALUES (?, ?, ?)')
+      for (const [path, row] of this.scripts) script.run(path, row.stamp, JSON.stringify(row.axes))
     })()
     this.directories.clear()
     this.sidecars.clear()
+    this.scripts.clear()
     this.invalidDirectories.clear()
   }
 }

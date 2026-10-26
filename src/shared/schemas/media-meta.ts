@@ -47,6 +47,8 @@ export const ScriptVersionSchema = z.looseObject({
    */
   inheritAxes: z.boolean().optional(),
   files: ScriptFilesSchema,
+  /** Destination axis → track inside a merged file. Absent = top-level actions. */
+  fileAxes: z.partialRecord(z.enum(SCRIPT_AXIS_KEYS), z.enum(SCRIPT_AXIS_KEYS)).optional(),
   /** Original axis paths for imported copies, used to avoid importing twice. */
   importedFrom: z.partialRecord(z.enum(SCRIPT_AXIS_KEYS), z.string()).optional()
 })

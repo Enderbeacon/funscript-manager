@@ -80,7 +80,7 @@ export function registerScriptPlayerHandlers(): void {
     return { path: result.canceled ? null : (result.filePaths[0] ?? null) }
   })
   handle('script-player:axisLoad', async ({ axis, path }) => {
-    const file = await loadScriptFile(path)
+    const file = await loadScriptFile(path, axis, true)
     if (!file) throw new AppError('script_unreadable')
     scriptPlayerSession.loadAxisScript(axis, file)
     return scriptPlayerSession.status()

@@ -1,4 +1,5 @@
 import type { ParsedFunscript } from '@shared/funscript'
+import type { ScriptPlayerAxis } from '../../shared/config'
 
 /** A script as the player holds it: what it plays, and where it came from. */
 export interface ScriptFile {
@@ -11,5 +12,5 @@ export interface ScriptFile {
 
 export interface ScriptFilesPort {
   /** Null when the file cannot be read or is not a usable funscript. */
-  read(path: string): Promise<ScriptFile | null>
+  read(path: string, axis?: ScriptPlayerAxis): Promise<ScriptFile | null>
 }

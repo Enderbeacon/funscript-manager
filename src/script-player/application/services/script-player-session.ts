@@ -319,7 +319,7 @@ export class ScriptPlayerSession extends EventEmitter {
       this.engine.setLoopingScript(axis, null)
       return
     }
-    void this.scriptFiles.read(path).then((file) => {
+    void this.scriptFiles.read(path, axis).then((file) => {
       if (this.loopingScriptPaths.get(axis) !== path) return
       this.engine.setLoopingScript(axis, file?.script ?? null)
     })
