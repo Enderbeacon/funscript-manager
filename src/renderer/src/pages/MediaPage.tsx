@@ -1259,6 +1259,8 @@ export default function MediaPage({
                 onBack={() => setDetail(null)}
                 picked={sidebar.names}
                 onPickName={onPickName}
+                onQueue={(mode) => void enqueue([detail], mode)}
+                onAddToPlaylist={(name) => void addToPlaylist([detail], name)}
               />
             )
           }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight, DownloadCloud, ExternalLink, Glasses, Heart, X } from 'lucide-react'
+import { ChevronRight, DownloadCloud, ExternalLink, Glasses, Heart, ListPlus, X } from 'lucide-react'
 import { funscriptAxisFromToken } from '@shared/constants'
 import type { MediaDetail, ScriptVersionInfo } from '@shared/schemas/media-index'
 import { SCRIPT_AXIS_KEYS, type NameField } from '@shared/schemas/media-meta'
@@ -8,6 +8,7 @@ import { VR_LAYOUTS, VR_PROJECTIONS, type VrFormat } from '@shared/schemas/vr-vi
 import { DEFAULT_VR_FORMAT, FLAT_VR_FORMAT, isVrFormat } from '@shared/vr-video'
 import type { MediaSelection } from '../App'
 import WantedPanel from '../components/WantedPanel'
+import ContextMenu, { type MenuItem } from '../components/ContextMenu'
 import HosterBadge from '../components/HosterBadge'
 import DeleteMediaDialog from '../components/DeleteMediaDialog'
 import RenameMediaDialog from '../components/RenameMediaDialog'
@@ -16,6 +17,7 @@ import PostMatchFinder from '../components/PostMatchFinder'
 import PreviewVideo from '../components/PreviewVideo'
 import { NAME_FIELDS_UI, type NameFilter, type NamePick } from '../filters'
 import Select from '../components/Select'
+import { askName } from '../dialogs'
 import { ipcInvoke, ipcOn } from '../ipc'
 import { isPreviewable, mediaPreviewUrl } from '../mediaUrl'
 import { showToast } from '../toasts'
@@ -101,7 +103,9 @@ export default function MediaDetailPage({
   selection,
   onBack,
   picked,
-  onPickName
+  onPickName,
+  onQueue,
+  onAddToPlaylist
 }: {
   selection: MediaSelection
   onBack: () => void
@@ -109,10 +113,15 @@ export default function MediaDetailPage({
   picked: Record<NameField, NameFilter>
   /** Clicking a name here picks it the way its sidebar row would. */
   onPickName: (field: NameField, name: string, pick: NamePick) => void
+  /** The same queue and playlist actions as the card's context menu. */
+  onQueue: (mode: 'next' | 'end') => void
+  onAddToPlaylist: (name: string) => void
 }): React.JSX.Element {
   const { t } = useTranslation()
   const toMessage = useErrorMessage()
   const [detail, setDetail] = useState<MediaDetail | null>(null)
+  /** Where the playlist picker opened, under its button in the head row. */
+  const [listMenu, setListMenu] = useState<{ x: number; y: number } | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [thumb, setThumb] = useState<string | null>(null)
   const [previewFailed, setPreviewFailed] = useState(false)
@@ -650,22 +659,58 @@ export default function MediaDetailPage({
   // has picked a different version than the one driving it.
   const canSwitch = playing && selectedId !== null && selectedId !== playingVersionId
 
+  const playlistItems: MenuItem[] = [
+    {
+      key: 'new',
+      label: t('media.menu.newPlaylist'),
+      onPick: () =>
+        void askName({
+          title: t('playlist.createPrompt'),
+          confirmLabel: t('playlist.create')
+        }).then((name) => {
+          if (name) onAddToPlaylist(name)
+        })
+    },
+    ...(taxonomy?.entities.playlists ?? []).map((list) => ({
+      key: `list:${list.name}`,
+      label: list.name,
+      hint: String(list.countWithDescendants),
+      onPick: () => onAddToPlaylist(list.name)
+    }))
+  ]
+
   return (
     <div className="panel">
       {head(
         detail.title ?? detail.fileName,
-        /* Beside the title, because it is a judgement about this one media —
-           the same place the rating lives, one level up. */
-        <button
-          className={`panel-star${detail.favorite ? ' on' : ''}`}
-          disabled={busy}
-          onClick={() => void saveFavorite(!detail.favorite)}
-          title={t(detail.favorite ? 'media.batch.favoriteOff' : 'media.batch.favoriteOn')}
-          aria-label={t(detail.favorite ? 'media.batch.favoriteOff' : 'media.batch.favoriteOn')}
-          aria-pressed={detail.favorite}
-        >
-          <Heart size={16} fill={detail.favorite ? 'currentColor' : 'none'} />
-        </button>
+        <>
+          {/* Beside the title, because it is a judgement about this one media —
+              the same place the rating lives, one level up. */}
+          <button
+            className={`panel-star${detail.favorite ? ' on' : ''}`}
+            disabled={busy}
+            onClick={() => void saveFavorite(!detail.favorite)}
+            title={t(detail.favorite ? 'media.batch.favoriteOff' : 'media.batch.favoriteOn')}
+            aria-label={t(detail.favorite ? 'media.batch.favoriteOff' : 'media.batch.favoriteOn')}
+            aria-pressed={detail.favorite}
+          >
+            <Heart size={16} fill={detail.favorite ? 'currentColor' : 'none'} />
+          </button>
+          <button
+            className="panel-icon"
+            disabled={busy}
+            onClick={(e) => {
+              const box = e.currentTarget.getBoundingClientRect()
+              setListMenu({ x: box.left, y: box.bottom + 4 })
+            }}
+            title={t('playlist.addTo')}
+            aria-label={t('playlist.addTo')}
+            aria-haspopup="menu"
+            aria-expanded={listMenu !== null}
+          >
+            <ListPlus size={16} />
+          </button>
+        </>
       )}
 
       {/* Tabs stay put: the overview is the working surface, and losing the way
@@ -1006,39 +1051,51 @@ export default function MediaDetailPage({
           in it — including the bottom of a long version list. */}
       {canPlay && (
         <div className="panel-foot detail-actions">
-          <button
-            className="primary detail-play-btn grow"
-            disabled={busy || (!hasPlayer && !playing)}
-            title={!hasPlayer && !playing ? t('detail.noPlayer') : undefined}
-            onClick={() => (playing ? void togglePause() : void playVersion(selectedId, false))}
-          >
-            {!playing
-              ? `▶ ${t('media.play')}`
-              : paused
-                ? `▶ ${t('detail.resume')}`
-                : `⏸ ${t('detail.pause')}`}
-          </button>
-          {canSwitch && (
+          <div className="detail-play-row">
             <button
-              className="ghost detail-switch-btn"
-              disabled={busy}
-              onClick={() => void playVersion(selectedId, true)}
-            >
-              {t('detail.switchScript')}
-            </button>
-          )}
-          {detail.scriptVersions.length > 0 && (
-            <button
-              className="ghost detail-play-video-btn"
+              className="primary detail-play-btn"
               disabled={busy || (!hasPlayer && !playing)}
-              title={!hasPlayer && !playing ? t('detail.noPlayer') : t('detail.playVideoOnlyHint')}
-              // Available mid-playback too: dropping the script keeps the
-              // current position, it just stops driving the device.
-              onClick={() => void playVersion(null, playing, true)}
+              title={!hasPlayer && !playing ? t('detail.noPlayer') : undefined}
+              onClick={() => (playing ? void togglePause() : void playVersion(selectedId, false))}
             >
-              {t('detail.playVideoOnly')}
+              {!playing
+                ? `▶ ${t('media.play')}`
+                : paused
+                  ? `▶ ${t('detail.resume')}`
+                  : `⏸ ${t('detail.pause')}`}
             </button>
-          )}
+            {canSwitch && (
+              <button
+                className="ghost detail-switch-btn"
+                disabled={busy}
+                onClick={() => void playVersion(selectedId, true)}
+              >
+                {t('detail.switchScript')}
+              </button>
+            )}
+            {detail.scriptVersions.length > 0 && (
+              <button
+                className="ghost detail-play-video-btn"
+                disabled={busy || (!hasPlayer && !playing)}
+                title={!hasPlayer && !playing ? t('detail.noPlayer') : t('detail.playVideoOnlyHint')}
+                // Available mid-playback too: dropping the script keeps the
+                // current position, it just stops driving the device.
+                onClick={() => void playVersion(null, playing, true)}
+              >
+                {t('detail.playVideoOnly')}
+              </button>
+            )}
+          </div>
+          {/* Lining it up behind what plays now, without finding its card in
+              the list first. The queue needs no player to be added to. */}
+          <div className="detail-queue-row">
+            <button className="ghost detail-queue-btn" disabled={busy} onClick={() => onQueue('next')}>
+              {t('media.menu.playNext')}
+            </button>
+            <button className="ghost detail-queue-btn" disabled={busy} onClick={() => onQueue('end')}>
+              {t('media.menu.addToQueue')}
+            </button>
+          </div>
           {!hasPlayer && <span className="detail-play-note">{t('detail.noPlayer')}</span>}
         </div>
       )}
@@ -1066,6 +1123,16 @@ export default function MediaDetailPage({
             setRenaming(false)
             void loadDetail()
           }}
+        />
+      )}
+
+      {listMenu && (
+        <ContextMenu
+          x={listMenu.x}
+          y={listMenu.y}
+          items={playlistItems}
+          searchable
+          onClose={() => setListMenu(null)}
         />
       )}
     </div>

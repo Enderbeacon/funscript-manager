@@ -1538,16 +1538,20 @@ textarea:disabled { opacity: 0.55; cursor: default; }
   overflow-wrap: anywhere;
 }
 
-/* Play takes the full first line; the qualifiers share the one under it. */
-.detail-actions .grow { flex: 1 1 100%; }
+/* Play leads its line at twice the width of each qualifier beside it, and
+   takes the whole line when it is alone. */
+.detail-play-row {
+  flex: 1 1 100%;
+  display: flex;
+  gap: 0.4rem;
+}
+.detail-play-btn { flex: 2 1 0; min-width: 0; }
 
 /* Secondary actions sit side by side above the main play/pause button. */
 .detail-actions-row {
   display: flex;
   gap: 6px;
 }
-
-.detail-play-btn { width: 100%; }
 
 /* Why the play button is doing nothing, next to the button rather than only
    in its tooltip — a disabled control that explains itself on hover explains
@@ -1558,6 +1562,14 @@ textarea:disabled { opacity: 0.55; cursor: default; }
   color: var(--text-tertiary);
 }
 
+/* Queue actions share the line under the play row. */
+.detail-queue-row {
+  flex: 1 1 100%;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.detail-queue-btn,
 .detail-switch-btn,
 .detail-play-video-btn {
   flex: 1;
@@ -3929,7 +3941,8 @@ button.lk-check:hover { color: var(--text-primary); border-color: var(--accent);
 
 /* Beside the title, where the judgement about this one media belongs.
    Unset it is an outline, set it is filled — no second reading. */
-.panel-star {
+.panel-star,
+.panel-icon {
   width: 28px;
   height: 28px;
   flex: none;
@@ -3952,6 +3965,12 @@ button.lk-check:hover { color: var(--text-primary); border-color: var(--accent);
   color: var(--danger);
   background: color-mix(in srgb, var(--danger) 14%, transparent);
   border-color: color-mix(in srgb, var(--danger) 30%, transparent);
+}
+/* The same round button for an action that leaves the media itself alone. */
+.panel-icon:hover:not(:disabled),
+.panel-icon[aria-expanded='true'] {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 /* Three states in a row, so "leave it alone" is visibly one of the choices. */

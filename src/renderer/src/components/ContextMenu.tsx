@@ -40,12 +40,15 @@ export default function ContextMenu({
   y,
   items,
   onClose,
+  searchable = false,
   container
 }: {
   x: number
   y: number
   items: MenuItem[]
   onClose: () => void
+  /** A filter box on the first page as well, for a menu that is one long list. */
+  searchable?: boolean
   /**
    * Where to draw it. The body is right for everything on a page, and wrong
    * for the one thing that is not on a page: a full-screen element is all the
@@ -116,7 +119,7 @@ export default function ContextMenu({
             <span className="grow">{page.label}</span>
           </button>
         )}
-        {(page?.searchable ?? false) && (
+        {(page ? (page.searchable ?? false) : searchable) && (
           <div className="ctx-find">
             <Search size={12} />
             <input
