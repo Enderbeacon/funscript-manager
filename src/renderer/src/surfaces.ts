@@ -19,7 +19,7 @@ import { useCallback, useEffect, useSyncExternalStore } from 'react'
  * A panel that jumped 12px sideways when you clicked it would read as a bug.
  */
 
-/** Above the nav rail (30), below the top bar (50). */
+/** Above the collapsed nav rail (30), below the top bar (50). */
 const BASE_Z = 40
 
 /** Open panels, back to front. */

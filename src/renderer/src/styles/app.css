@@ -121,6 +121,9 @@ body::before {
  */
 .sidebar:hover,
 .sidebar:has(:focus-visible) {
+  /* Expanded navigation sits above floating content and playback panels,
+   * while modal scrims (80) and their controls remain above navigation. */
+  z-index: 70;
   width: var(--nav-panel-w);
   box-shadow: 14px 0 38px color-mix(in srgb, #000000 24%, transparent);
   transition-delay: 0s;
