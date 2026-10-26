@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import type { MediaListItem } from '@shared/schemas/media-index'
 import { ipcInvoke } from '../ipc'
 import { useErrorMessage } from '../useErrorMessage'
-import { useEscape } from '../useEscape'
+import { useDialogEscape } from './ConfirmDialog'
 
 /**
  * Fold placeholder entries into the one that survives.
@@ -66,7 +67,9 @@ export default function MergeWantedDialog({
     forced?.mediaId ?? rows?.[0]?.mediaId ?? null
   )
 
-  useEscape(onClose, !busy)
+  useDialogEscape(() => {
+    if (!busy) onClose()
+  })
 
   // Same library only: script paths in a sidecar are relative to its own root.
   useEffect(() => {
@@ -131,8 +134,16 @@ export default function MergeWantedDialog({
     }
   }
 
-  return (
-    <div className="modal-scrim">
+  // A glass panel establishes a containing block for fixed descendants and
+  // clips its contents. Mount on the body so the dialog covers the window.
+  return createPortal(
+    <div
+      className="modal-scrim"
+      // Portal events still bubble through the panel's React ancestors; keep
+      // dialog interactions out of their raise and background-dismiss handlers.
+      onPointerDown={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
       <div className="modal merge-modal">
         <div className="modal-head">
           <span className="grow">{t('media.merge.title')}</span>
@@ -257,6 +268,7 @@ export default function MergeWantedDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
