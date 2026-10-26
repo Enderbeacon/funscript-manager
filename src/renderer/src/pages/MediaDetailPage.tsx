@@ -20,6 +20,7 @@ import { ipcInvoke, ipcOn } from '../ipc'
 import { isPreviewable, mediaPreviewUrl } from '../mediaUrl'
 import { showToast } from '../toasts'
 import { useErrorMessage } from '../useErrorMessage'
+import { useHeatmap } from '../useHeatmap'
 
 /**
  * Single-media detail: preview + a heatmap
@@ -115,7 +116,6 @@ export default function MediaDetailPage({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [thumb, setThumb] = useState<string | null>(null)
   const [previewFailed, setPreviewFailed] = useState(false)
-  const [heatmap, setHeatmap] = useState<string | null>(null)
   const [playing, setPlaying] = useState(false)
   const [paused, setPaused] = useState(false)
   /** Version the playback is actually driving (null = video only / stopped). */
@@ -149,6 +149,9 @@ export default function MediaDetailPage({
   selectedRef.current = selectedId
 
   const { libraryId, mediaId } = selection
+  const heatmap = useHeatmap({
+    libraryId, mediaId, scriptVersionId: selectedId, durationMs: detail?.durationMs
+  })
 
   const loadDetail = useCallback(async () => {
     try {
@@ -238,21 +241,6 @@ export default function MediaDetailPage({
       clearInterval(timer)
     }
   }, [playing, mediaId])
-
-  // Heatmap follows the selected version.
-  useEffect(() => {
-    if (!selectedId) {
-      setHeatmap(null)
-      return
-    }
-    let alive = true
-    ipcInvoke('media:getHeatmap', { libraryId, mediaId, scriptVersionId: selectedId })
-      .then(({ dataUrl }) => alive && setHeatmap(dataUrl))
-      .catch(() => alive && setHeatmap(null))
-    return () => {
-      alive = false
-    }
-  }, [libraryId, mediaId, selectedId])
 
   // The vocabulary the chip pickers offer; reloaded when it changes anywhere.
   useEffect(() => {

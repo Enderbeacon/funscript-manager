@@ -549,7 +549,8 @@ export function getMediaLocation(
 export function getHeatmap(
   libraryId: string,
   mediaId: string,
-  scriptVersionId?: string
+  scriptVersionId?: string,
+  durationMs?: number
 ): Promise<string | null> {
   const handle = requireHandle(libraryId)
   const relPath = handle.db.getMediaRelPath(mediaId)
@@ -558,7 +559,8 @@ export function getHeatmap(
     libraryRoot: handle.library.rootPath,
     mediaId,
     mediaRelPath: relPath,
-    scriptVersionId
+    scriptVersionId,
+    durationMs
   })
 }
 

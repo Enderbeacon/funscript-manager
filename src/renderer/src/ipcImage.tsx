@@ -57,9 +57,12 @@ export default function CachedIpcImage({
     let alive = true
     ipcInvoke(channel, { libraryId, mediaId })
       .then(({ dataUrl }) => {
+        // A change/unmount invalidated this request; it must not repopulate
+        // the session cache with an image from the previous inputs.
+        if (!alive) return
         if (cache.size > LIMIT) cache.clear()
         cache.set(key, dataUrl)
-        if (alive) setSrc(dataUrl)
+        setSrc(dataUrl)
       })
       .catch(() => {}) // decorative; a row without an image is fine
     return () => {

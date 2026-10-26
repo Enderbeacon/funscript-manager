@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { readFile, stat } from 'node:fs/promises'
 import { cpus } from 'node:os'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
@@ -9,15 +10,16 @@ import type { HeatmapTask, HeatmapResult } from '../../workers/heatmap.worker'
 import heatmapWorkerPath from '../../workers/heatmap.worker?modulePath'
 
 /**
- * Heatmap cache service: `<root>/.fsmgr-cache/cache/heatmaps/<mediaId>.<versionId>.png`
- * (disposable, rebuilt on demand). Freshness is
- * mtime-based: a cached PNG is valid while it is newer than its script file.
+ * Disposable PNGs keyed by media/version, rendering revision, script path,
+ * file stat and timeline duration. Changing an axis or the algorithm cannot
+ * reuse an image generated from different inputs, even for an older script.
  * Rendering runs in the heatmap worker pool; concurrent requests for the
  * same PNG are coalesced.
  */
 
 const HEATMAP_WIDTH = 600
 const HEATMAP_HEIGHT = 56
+const RENDER_REVISION = 2
 const POOL_SIZE = Math.min(2, Math.max(1, cpus().length - 1))
 
 let pool: WorkerPool<HeatmapTask, HeatmapResult> | null = null
@@ -40,6 +42,8 @@ export async function getHeatmapDataUrl(opts: {
   /** Media path relative to the library root (index.db `file_path`). */
   mediaRelPath: string
   scriptVersionId?: string
+  /** The player's measured duration can precede the saved media probe. */
+  durationMs?: number
 }): Promise<string | null> {
   const mediaAbs = join(opts.libraryRoot, opts.mediaRelPath)
   const sidecar = await readMediaSidecar(mediaAbs)
@@ -53,32 +57,38 @@ export async function getHeatmapDataUrl(opts: {
   const relToRoot = relative(opts.libraryRoot, scriptPath)
   if (relToRoot.startsWith('..') || isAbsolute(relToRoot)) return null
 
+  let scriptStat
+  try {
+    scriptStat = await stat(scriptPath)
+    if (!scriptStat.isFile()) return null
+  } catch {
+    return null
+  }
+  const durationMs = opts.durationMs ?? sidecar.meta.mediaInfo?.durationMs
+  const timelineMs = durationMs && durationMs > 0 ? durationMs : undefined
+  const key = createHash('sha256').update(JSON.stringify([
+    RENDER_REVISION, relToRoot, scriptStat.size, scriptStat.mtimeMs, scriptStat.ctimeMs,
+    timelineMs ?? null, HEATMAP_WIDTH, HEATMAP_HEIGHT
+  ])).digest('hex')
+
   const cachePath = join(
     opts.libraryRoot,
     LIBRARY_CACHE_DIR,
     'cache',
     'heatmaps',
-    `${opts.mediaId}.${version.id}.png`
+    `${opts.mediaId}.${version.id}.${key}.png`
   )
 
   const running = inflight.get(cachePath)
   if (running) return running
-  const task = produce(scriptPath, cachePath).finally(() => inflight.delete(cachePath))
+  const task = produce(scriptPath, cachePath, timelineMs).finally(() => inflight.delete(cachePath))
   inflight.set(cachePath, task)
   return task
 }
 
-async function produce(scriptPath: string, cachePath: string): Promise<string | null> {
-  let scriptStat
+async function produce(scriptPath: string, cachePath: string, durationMs?: number): Promise<string | null> {
   try {
-    scriptStat = await stat(scriptPath)
-  } catch {
-    return null // script file missing
-  }
-
-  try {
-    const cached = await stat(cachePath)
-    if (cached.mtimeMs >= scriptStat.mtimeMs) return toDataUrl(await readFile(cachePath))
+    return toDataUrl(await readFile(cachePath))
   } catch {
     // cache miss — render below
   }
@@ -89,7 +99,8 @@ async function produce(scriptPath: string, cachePath: string): Promise<string | 
       scriptPath,
       outPath: cachePath,
       width: HEATMAP_WIDTH,
-      height: HEATMAP_HEIGHT
+      height: HEATMAP_HEIGHT,
+      durationMs
     })
     if (!result.rendered) return null
     return toDataUrl(await readFile(cachePath))

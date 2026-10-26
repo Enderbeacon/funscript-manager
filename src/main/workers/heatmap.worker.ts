@@ -15,6 +15,8 @@ export interface HeatmapTask {
   outPath: string
   width: number
   height: number
+  /** Media duration; absent until known, then the last action is the end. */
+  durationMs?: number
 }
 
 export interface HeatmapResult {
@@ -30,7 +32,7 @@ servePool<HeatmapTask, HeatmapResult>(async (task) => {
     return { rendered: false }
   }
   const script = parseFunscript(text)
-  const pixels = script && renderHeatmapRgba(script.actions, task.width, task.height)
+  const pixels = script && renderHeatmapRgba(script.actions, task.width, task.height, task.durationMs)
   if (!pixels) return { rendered: false }
 
   const png = encodePngRgba(pixels, task.width, task.height)

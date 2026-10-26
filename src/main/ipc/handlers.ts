@@ -640,7 +640,7 @@ export function registerIpcHandlers(): void {
   handle('media:getHeatmap', async (input) => {
     try {
       return {
-        dataUrl: await libraryManager.getHeatmap(input.libraryId, input.mediaId, input.scriptVersionId)
+        dataUrl: await libraryManager.getHeatmap(input.libraryId, input.mediaId, input.scriptVersionId, input.durationMs)
       }
     } catch (e) {
       // Same startup race as media:list — no heatmap yet is a valid answer.

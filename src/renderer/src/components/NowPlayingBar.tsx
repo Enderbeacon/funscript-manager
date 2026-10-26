@@ -18,6 +18,7 @@ import type { QueueState } from '@shared/schemas/queue'
 import type { IpcOutput } from '@shared/ipc/contract'
 import { ipcInvoke, ipcOn } from '../ipc'
 import { describeQueueSource } from '../queueSource'
+import { useHeatmap } from '../useHeatmap'
 
 type PlaybackStatus = IpcOutput<'playback:status'>
 
@@ -85,10 +86,9 @@ export default function NowPlayingBar({
    * queue, which meant it went blank — no title, no artwork — whenever the two
    * disagreed for a moment, which is every time anything starts.
    */
-  const [playing, setPlaying] = useState<MediaSelection | null>(null)
+  const [playing, setPlaying] = useState<(MediaSelection & { scriptVersionId: string | null }) | null>(null)
   const [row, setRow] = useState<MediaDetail | null>(null)
   const [thumb, setThumb] = useState<string | null>(null)
-  const [heatmap, setHeatmap] = useState<string | null>(null)
   const [queue, setQueue] = useState<QueueState | null>(null)
   const [position, setPosition] = useState<{
     ms: number | null
@@ -98,6 +98,10 @@ export default function NowPlayingBar({
     /** What the player being followed can do; null when none is. */
     can: PlaybackStatus['capabilities']
   }>({ ms: null, total: null, paused: null, volume: null, can: null })
+  const heatmap = useHeatmap(playing && {
+    ...playing,
+    durationMs: position.total ?? (row?.id === playing.mediaId ? row.durationMs : null)
+  })
   /**
    * The volume being dragged, before the player has confirmed it. Without this
    * the slider snaps back to the last polled value between frames and fights
@@ -119,8 +123,13 @@ export default function NowPlayingBar({
   const readStatus = useCallback((): void => {
     ipcInvoke('playback:status')
       .then((s) => {
-        setPlaying(
-          s.mediaId && s.libraryId ? { libraryId: s.libraryId, mediaId: s.mediaId } : null
+        setPlaying((current) =>
+          s.mediaId && s.libraryId
+            ? current?.mediaId === s.mediaId && current.libraryId === s.libraryId &&
+              current.scriptVersionId === s.scriptVersionId
+              ? current
+              : { libraryId: s.libraryId, mediaId: s.mediaId, scriptVersionId: s.scriptVersionId }
+            : null
         )
         setPosition({
           ms: s.positionMs,
@@ -161,12 +170,11 @@ export default function NowPlayingBar({
     return () => clearInterval(timer)
   }, [playing, readStatus])
 
-  // The title, the artwork and the heatmap of what is playing.
+  // The title and artwork of what is playing; script selection is independent.
   useEffect(() => {
     if (playing === null) {
       setRow(null)
       setThumb(null)
-      setHeatmap(null)
       return
     }
     let alive = true
@@ -175,9 +183,6 @@ export default function NowPlayingBar({
       .catch(() => {})
     ipcInvoke('media:getThumbnail', playing)
       .then(({ dataUrl }) => alive && setThumb(dataUrl))
-      .catch(() => {})
-    ipcInvoke('media:getHeatmap', playing)
-      .then(({ dataUrl }) => alive && setHeatmap(dataUrl))
       .catch(() => {})
     return () => {
       alive = false

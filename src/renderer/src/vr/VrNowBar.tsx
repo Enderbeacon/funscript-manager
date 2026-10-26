@@ -17,6 +17,7 @@ import type { QueueState } from '@shared/schemas/queue'
 import CachedIpcImage, { thumbCache } from '../ipcImage'
 import { ipcInvoke, ipcOn } from '../ipc'
 import { clockDuration, displayTitle } from './format'
+import { useHeatmap } from '../useHeatmap'
 
 /**
  * How often the player is read while something plays. Often enough for the
@@ -61,14 +62,19 @@ export default function VrNowBar({
   onError: (e: unknown) => void
 }): React.JSX.Element {
   const { t } = useTranslation()
-  const [playing, setPlaying] = useState<{ libraryId: string; mediaId: string } | null>(null)
+  const [playing, setPlaying] = useState<{
+    libraryId: string; mediaId: string; scriptVersionId: string | null
+  } | null>(null)
   const [paused, setPaused] = useState<boolean | null>(null)
   const [position, setPosition] = useState<{ ms: number | null; total: number | null }>({
     ms: null,
     total: null
   })
   const [row, setRow] = useState<MediaListItem | null>(null)
-  const [heatmap, setHeatmap] = useState<string | null>(null)
+  const heatmap = useHeatmap(playing && {
+    ...playing,
+    durationMs: position.total ?? (row?.id === playing.mediaId ? row.durationMs : null)
+  })
   const [queue, setQueue] = useState<QueueState | null>(null)
   /**
    * Where the laser put the playhead, shown until the player reports having
@@ -87,9 +93,10 @@ export default function VrNowBar({
       .then((s) => {
         setPlaying((current) =>
           s.mediaId && s.libraryId
-            ? current?.mediaId === s.mediaId
+            ? current?.mediaId === s.mediaId && current.libraryId === s.libraryId &&
+              current.scriptVersionId === s.scriptVersionId
               ? current
-              : { libraryId: s.libraryId, mediaId: s.mediaId }
+              : { libraryId: s.libraryId, mediaId: s.mediaId, scriptVersionId: s.scriptVersionId }
             : null
         )
         setPaused(s.paused)
@@ -127,20 +134,16 @@ export default function VrNowBar({
   useEffect(() => {
     if (!playing) {
       setRow(null)
-      setHeatmap(null)
       return
     }
     let alive = true
     ipcInvoke('media:listByIds', { targets: [playing] })
       .then(({ items }) => alive && setRow(items[0] ?? null))
       .catch(() => {})
-    ipcInvoke('media:getHeatmap', playing)
-      .then(({ dataUrl }) => alive && setHeatmap(dataUrl))
-      .catch(() => {})
     return () => {
       alive = false
     }
-  }, [playing])
+  }, [playing?.libraryId, playing?.mediaId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const step = (action: 'next' | 'previous' | 'resume'): void => {
     ipcInvoke('vr:queue', { action }).catch(onError)

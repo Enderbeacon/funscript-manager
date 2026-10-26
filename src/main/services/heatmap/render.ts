@@ -7,7 +7,8 @@ import type { FunscriptAction } from '@shared/funscript'
  * vertical bar spanning the position range covered in that time slice,
  * colored by the average stroke speed (position units per second) — the
  * community-conventional blue→green→yellow→red→purple speed gradient.
- * Columns with no actions stay fully transparent.
+ * Time starts at zero and spans the media duration when known. Columns with
+ * no movement stay fully transparent, including holds and unscripted time.
  */
 
 /** Gradient stops: [speed in pos-units/second, r, g, b]. */
@@ -43,21 +44,26 @@ function speedColor(speed: number): [number, number, number] {
 /**
  * Render actions to an RGBA buffer (width*height*4, row-major, transparent
  * background). Returns null when there is nothing meaningful to draw
- * (fewer than two actions or zero time span).
+ * (fewer than two actions or an invalid canvas/time span).
  */
 export function renderHeatmapRgba(
   actions: FunscriptAction[],
   width: number,
-  height: number
+  height: number,
+  durationMs?: number
 ): Uint8Array | null {
   if (actions.length < 2) return null
-  const t0 = actions[0]!.at
-  const span = actions[actions.length - 1]!.at - t0
-  if (span <= 0) return null
+  const span = durationMs ?? actions[actions.length - 1]!.at
+  if (
+    !Number.isFinite(span) || span <= 0 || !Number.isInteger(width) || width <= 0 ||
+    !Number.isInteger(height) || height <= 0
+  ) {
+    return null
+  }
+  const columnMs = span / width
 
   // Per-column aggregation: duration-weighted speed + covered position range.
   const speedSum = new Float64Array(width)
-  const weightSum = new Float64Array(width)
   const posMin = new Float64Array(width).fill(Infinity)
   const posMax = new Float64Array(width).fill(-Infinity)
 
@@ -65,16 +71,25 @@ export function renderHeatmapRgba(
     const a = actions[i - 1]!
     const b = actions[i]!
     const dt = b.at - a.at
-    if (dt <= 0) continue
-    const speed = (Math.abs(b.pos - a.pos) / dt) * 1000
-    const x0 = Math.min(width - 1, Math.max(0, Math.floor(((a.at - t0) / span) * width)))
-    const x1 = Math.min(width - 1, Math.max(0, Math.floor(((b.at - t0) / span) * width)))
-    const lo = Math.min(a.pos, b.pos)
-    const hi = Math.max(a.pos, b.pos)
-    const w = dt / (x1 - x0 + 1)
+    const delta = b.pos - a.pos
+    if (dt <= 0 || delta === 0) continue
+    const start = Math.max(0, a.at)
+    const end = Math.min(span, b.at)
+    if (end <= start) continue
+    const speed = (Math.abs(delta) / dt) * 1000
+    // Half-open slices: a segment ending at a column boundary contributes
+    // nothing to the next column. Each weight is the actual overlap in ms.
+    const x0 = Math.max(0, Math.floor(start / columnMs))
+    const x1 = Math.min(width - 1, Math.ceil(end / columnMs) - 1)
     for (let x = x0; x <= x1; x++) {
-      speedSum[x]! += speed * w
-      weightSum[x]! += w
+      const left = Math.max(start, x * columnMs)
+      const right = Math.min(end, (x + 1) * columnMs)
+      if (right <= left) continue
+      const p0 = a.pos + delta * ((left - a.at) / dt)
+      const p1 = a.pos + delta * ((right - a.at) / dt)
+      const lo = Math.min(p0, p1)
+      const hi = Math.max(p0, p1)
+      speedSum[x]! += speed * (right - left)
       if (lo < posMin[x]!) posMin[x] = lo
       if (hi > posMax[x]!) posMax[x] = hi
     }
@@ -82,9 +97,11 @@ export function renderHeatmapRgba(
 
   const pixels = new Uint8Array(width * height * 4)
   for (let x = 0; x < width; x++) {
-    if (weightSum[x]! <= 0) continue
-    const [r, g, b] = speedColor(speedSum[x]! / weightSum[x]!)
-    // pos 100 at the top; guarantee a visible bar even for holds (lo == hi).
+    if (speedSum[x]! <= 0) continue
+    // Average over the whole slice: holds and unscripted portions have zero
+    // speed. Short bursts should not color an entire slice at peak speed.
+    const [r, g, b] = speedColor(speedSum[x]! / columnMs)
+    // pos 100 at the top; keep small movements visible at this resolution.
     let yTop = Math.round(((100 - posMax[x]!) / 100) * (height - 1))
     let yBot = Math.round(((100 - posMin[x]!) / 100) * (height - 1))
     if (yBot - yTop + 1 < MIN_BAR_PX) {

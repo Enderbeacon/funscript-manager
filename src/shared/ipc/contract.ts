@@ -734,7 +734,9 @@ export const ipcContract = {
     input: z.object({
       libraryId: z.uuid(),
       mediaId: z.uuid(),
-      scriptVersionId: z.uuid().optional()
+      scriptVersionId: z.uuid().optional(),
+      /** Align the strip with the player's measured media timeline. */
+      durationMs: z.number().positive().optional()
     }),
     output: z.object({ dataUrl: z.string().nullable() })
   },
