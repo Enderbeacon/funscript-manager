@@ -198,6 +198,7 @@ export class HereSphereSource extends BaseMediaSource implements MediaSourceAdap
       positionMs: this.clock.positionMs(),
       durationMs: this.clock.durationMs(),
       paused: this.clock.paused,
+      playbackRate: this.clock.playbackRate,
       volume: null
     }
   }

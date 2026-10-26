@@ -78,6 +78,7 @@ export interface PlaybackStatus {
   /** How long the file is; null until the player has read it. */
   durationMs: number | null
   paused: boolean | null
+  playbackRate: number
   /** The player's own volume, 0–100, or null when it has none. */
   volume: number | null
   /**
@@ -445,6 +446,7 @@ export function status(): PlaybackStatus {
     positionMs: reading.positionMs,
     durationMs: reading.durationMs,
     paused: reading.paused,
+    playbackRate: reading.playbackRate ?? 1,
     volume: reading.volume,
     capabilities: active?.adapter.capabilities ?? null,
     path: reading.path

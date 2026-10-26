@@ -57,6 +57,64 @@ async function checkClock(): Promise<void> {
   check('a seek clears the baseline', clock.positionMs() === null)
 }
 
+function checkReportTiming(): void {
+  console.log('clock report timing')
+  const original = globalThis.performance
+  let now = 0
+  const origin = 1_000_000
+  Object.defineProperty(globalThis, 'performance', {
+    configurable: true, value: { now: () => now, timeOrigin: origin }
+  })
+  try {
+    const clock = new MediaClock()
+    clock.setPaused(false)
+    clock.setPosition(0)
+    now = 255
+    clock.correctPosition(250, origin + 250)
+    check('IPC time is included in the reported position', clock.positionMs() === 255)
+    now = 620
+    clock.correctPosition(500, origin + 500)
+    check('a longer IPC delay does not rewind the clock', clock.positionMs() === 620)
+
+    clock.correctPosition(500)
+    check('small backward errors do not step the clock', clock.positionMs() === 620)
+    let previous = clock.positionMs()!
+    let monotonic = true
+    for (now = 621; now <= 900; now++) {
+      const position = clock.positionMs()!
+      if (position < previous) monotonic = false
+      previous = position
+    }
+    check('correction stays monotonic until converged', monotonic && near(previous, 780, 1))
+
+    clock.setSpeed(0.25)
+    const before = clock.positionMs()!
+    clock.correctPosition(before - 200)
+    previous = clock.positionMs()!
+    monotonic = true
+    const start = now
+    for (; now < start + 1700; now++) {
+      const position = clock.positionMs()!
+      if (position < previous) monotonic = false
+      previous = position
+    }
+    check('backward correction cannot reverse slow playback', monotonic)
+
+    clock.setPaused(true)
+    clock.correctPosition(1200, origin + now - 120)
+    const frozen = clock.positionMs()
+    now += 500
+    check('paused reports are not extrapolated through IPC delay', frozen === 1200 && clock.positionMs() === frozen)
+    clock.setPaused(false)
+    clock.correctPosition(1150, origin + now, true)
+    check('a small explicit backward seek applies immediately', clock.positionMs() === 1150)
+    clock.correctPosition(8000)
+    check('a large discontinuity applies immediately', clock.positionMs() === 8000)
+  } finally {
+    Object.defineProperty(globalThis, 'performance', { configurable: true, value: original })
+  }
+}
+
 /* ----------------------------------------------------------------- MPC-HC */
 
 interface MpcState {
@@ -288,6 +346,7 @@ async function checkHereSphere(): Promise<void> {
 
 async function main(): Promise<void> {
   await checkClock()
+  checkReportTiming()
   await checkMpc()
   await checkHereSphere()
   console.log(failures === 0 ? '\nall checks passed' : `\n${failures} check(s) failed`)

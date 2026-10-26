@@ -842,4 +842,49 @@ assert.equal(patternValue('square', 3), 0)
   await session.dispose()
 }
 
+// A late main-loop tick is normal playback progress, even at another rate.
+// A real jump remains a discontinuity and must restart the sync ease-in.
+{
+  const original = globalThis.performance
+  let now = 3
+  Object.defineProperty(globalThis, 'performance', { configurable: true, value: { now: () => now } })
+  try {
+    for (const scenario of [
+      { name: '300ms tick delay', rate: 1, elapsed: 300, advance: 300, seek: false },
+      { name: '2x playback with a delayed tick', rate: 2, elapsed: 300, advance: 600, seek: false },
+      { name: 'slow playback with a delayed tick', rate: 0.25, elapsed: 1200, advance: 300, seek: false },
+      { name: 'forward seek', rate: 1, elapsed: 3, advance: 503, seek: true },
+      { name: 'backward seek', rate: 1, elapsed: 3, advance: -497, seek: true }
+    ]) {
+      now = 3
+      let positionMs = 1000
+      const session = new ScriptPlayerSession(() => new FakeTransport())
+      const internals = session as unknown as { timer: NodeJS.Timeout | null; tick: () => number }
+      try {
+        session.setClock({ sample: () => ({
+          mediaId: MEDIA_ID, scriptVersionId: VERSION_ID, positionMs, paused: false,
+          playbackRate: scenario.rate
+        }) })
+        session.configure({ ...settings, syncDurationMs: 0, outputs: [] })
+        session.load(MEDIA_ID, VERSION_ID, {
+          main: scriptFile([{ at: 0, pos: 0 }, { at: 10000, pos: 100 }])
+        })
+        if (internals.timer) clearTimeout(internals.timer)
+        internals.timer = null
+        internals.tick()
+        session.configure({ ...settings, syncDurationMs: 2500, outputs: [] })
+        assert.equal(session.status().syncing, false)
+        now += scenario.elapsed
+        positionMs += scenario.advance
+        internals.tick()
+        assert.equal(session.status().syncing, scenario.seek, scenario.name)
+      } finally {
+        await session.dispose()
+      }
+    }
+  } finally {
+    Object.defineProperty(globalThis, 'performance', { configurable: true, value: original })
+  }
+}
+
 console.log('script-player protocol checks passed')

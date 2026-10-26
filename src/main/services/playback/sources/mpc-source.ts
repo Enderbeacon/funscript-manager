@@ -220,6 +220,7 @@ export class MpcSource extends BaseMediaSource implements MediaSourceAdapter {
       positionMs: this.clock.positionMs(),
       durationMs: this.clock.durationMs(),
       paused: this.clock.paused,
+      playbackRate: this.clock.playbackRate,
       volume: this.clock.volumePercent()
     }
   }

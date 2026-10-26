@@ -261,6 +261,10 @@ export default function VideoPlayerStage({
       void ipcInvoke('video:report', {
         path,
         positionMs: el && Number.isFinite(el.currentTime) ? el.currentTime * 1000 : null,
+        sampledAtMs: performance.timeOrigin + performance.now(),
+        seekToken: seenSeek.current,
+        playbackRate: el?.playbackRate ?? 1,
+        buffering: !el || el.seeking || el.readyState < HTMLMediaElement.HAVE_FUTURE_DATA,
         durationMs: el && Number.isFinite(el.duration) ? el.duration * 1000 : null,
         paused: el ? el.paused : true,
         volume: el ? Math.round(el.volume * 100) : 100,
@@ -413,16 +417,20 @@ export default function VideoPlayerStage({
     const timer = setInterval(() => report({}), REPORT_MS)
     const el = video.current
     const onEnded = (): void => report({ ended: true })
+    const onState = (): void => report({})
     const onError = (): void => {
       // An element with nothing loaded has nothing to fail at.
       if (loaded.current) fallBack.current()
     }
     el?.addEventListener('ended', onEnded)
     el?.addEventListener('error', onError)
+    const stateEvents = ['pause', 'playing', 'waiting', 'seeking', 'seeked', 'ratechange']
+    for (const name of stateEvents) el?.addEventListener(name, onState)
     return () => {
       clearInterval(timer)
       el?.removeEventListener('ended', onEnded)
       el?.removeEventListener('error', onError)
+      for (const name of stateEvents) el?.removeEventListener(name, onState)
     }
   }, [report])
 

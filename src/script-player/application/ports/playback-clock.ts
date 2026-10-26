@@ -3,6 +3,7 @@ export interface PlaybackSample {
   scriptVersionId: string | null
   positionMs: number | null
   paused: boolean | null
+  playbackRate?: number
 }
 
 export interface PlaybackClockPort {

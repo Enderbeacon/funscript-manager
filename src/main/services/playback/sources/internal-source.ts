@@ -7,6 +7,7 @@ import {
   resetVideoIntent,
   setVideoIntent,
   videoSurfaceEvents,
+  videoIntent,
   waitForVideoSurface
 } from '../internal/surface'
 import { BaseMediaSource } from './base'
@@ -48,12 +49,19 @@ export class InternalSource extends BaseMediaSource implements MediaSourceAdapte
   private loadedPath: string | null = null
   /** So one finished file is reported once, however many reports repeat it. */
   private endedFor: string | null = null
+  private lastReportAt: number | null = null
+  private lastReportSeekToken: number | null = null
 
   private readonly onReport = (report: InternalPlayerReport): void => {
     if (!this.connected) return
     // A report about a file we have already moved on from is in flight from
     // before the switch; acting on it would rewind the bar to the old video.
     if (report.path !== this.loadedPath) return
+    if (report.seekToken !== undefined && report.seekToken !== videoIntent().seekToken) return
+    if (report.sampledAtMs !== undefined) {
+      if (this.lastReportAt !== null && report.sampledAtMs < this.lastReportAt) return
+      this.lastReportAt = report.sampledAtMs
+    }
     // A file the picture cannot decode: it says so on screen itself, and
     // there is nothing here to report a position for.
     if (report.error) {
@@ -61,8 +69,11 @@ export class InternalSource extends BaseMediaSource implements MediaSourceAdapte
       return
     }
     this.clock.setDuration(report.durationMs)
-    this.clock.setPaused(report.paused)
-    this.clock.setPosition(report.positionMs)
+    this.clock.setSpeed(report.playbackRate ?? 1)
+    this.clock.setPaused(report.paused || report.buffering === true || report.ended)
+    const seeked = report.seekToken !== undefined && report.seekToken !== this.lastReportSeekToken
+    this.clock.correctPosition(report.positionMs, report.sampledAtMs, seeked || report.ended)
+    if (report.seekToken !== undefined) this.lastReportSeekToken = report.seekToken
     this.clock.setVolume(report.volume)
     if (report.ended && this.loadedPath !== null && this.endedFor !== this.loadedPath) {
       this.endedFor = this.loadedPath
@@ -113,6 +124,7 @@ export class InternalSource extends BaseMediaSource implements MediaSourceAdapte
       positionMs: this.clock.positionMs(),
       durationMs: this.clock.durationMs(),
       paused: this.clock.paused,
+      playbackRate: this.clock.playbackRate,
       volume: this.clock.volumePercent()
     }
   }
@@ -127,6 +139,8 @@ export class InternalSource extends BaseMediaSource implements MediaSourceAdapte
     if (!this.connected) throw new AppError('player_unreachable')
     this.loadedPath = path
     this.endedFor = null
+    this.lastReportAt = null
+    this.lastReportSeekToken = null
     this.clock.reset()
     this.clock.setPath(path)
     setVideoIntent({
@@ -157,6 +171,8 @@ export class InternalSource extends BaseMediaSource implements MediaSourceAdapte
     // the bar is redrawn from it many times a second, and a dragged scrubber
     // that snapped back for a frame would read as the seek having failed.
     this.clock.setPosition(positionMs)
+    // Reports sampled before this request must not undo the immediate seek.
+    this.lastReportAt = performance.timeOrigin + performance.now()
     requestVideoSeek(positionMs)
   }
 

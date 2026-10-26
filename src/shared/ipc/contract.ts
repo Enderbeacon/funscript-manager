@@ -952,6 +952,7 @@ export const ipcContract = {
       positionMs: z.number().nullable(),
       durationMs: z.number().nullable(),
       paused: z.boolean().nullable(),
+      playbackRate: z.number().positive().default(1),
       /** The player's own volume, 0–100; null when it has none to report. */
       volume: z.number().nullable(),
       /**

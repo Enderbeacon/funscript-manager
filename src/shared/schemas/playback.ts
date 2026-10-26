@@ -139,6 +139,13 @@ export const InternalPlayerReportSchema = z.object({
   /** Which file this is about; a report about another one arrived late. */
   path: z.string().nullable(),
   positionMs: z.number().nullable(),
+  /** performance.timeOrigin + performance.now() at position sampling time. */
+  sampledAtMs: z.number().nonnegative().optional(),
+  /** Last seek request applied by the surface; rejects pre-seek reports. */
+  seekToken: z.number().int().nonnegative().optional(),
+  playbackRate: z.number().positive().optional(),
+  /** The media element is seeking or waiting for enough data to advance. */
+  buffering: z.boolean().optional(),
   durationMs: z.number().nullable(),
   paused: z.boolean(),
   volume: z.number().min(0).max(100),

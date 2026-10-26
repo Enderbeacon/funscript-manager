@@ -19,6 +19,8 @@ export interface MediaSourceReading {
   positionMs: number | null
   durationMs: number | null
   paused: boolean | null
+  /** Used to distinguish ordinary progress from a seek after a delayed tick. */
+  playbackRate?: number
   /** 0–100, or null when the player has no volume of its own to report. */
   volume: number | null
 }

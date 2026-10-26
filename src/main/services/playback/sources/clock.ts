@@ -16,7 +16,13 @@ interface Sample {
   atMs: number
   speed: number
   paused: boolean
+  /** Small report errors are removed gradually rather than stepping time. */
+  correctionMs?: number
+  correctionDurationMs?: number
 }
+
+const CORRECTION_MS = 250
+const DISCONTINUITY_MS = 250
 
 export class MediaClock {
   private sample: Sample | null = null
@@ -40,7 +46,42 @@ export class MediaClock {
     }
   }
 
+  /**
+   * Correct a periodic report while preserving continuous forward playback.
+   * The renderer's epoch-based monotonic timestamp includes time spent in IPC.
+   * Explicit seeks and large discontinuities still take effect immediately.
+   */
+  correctPosition(positionMs: number | null, sampledAtMs?: number, discontinuity = false): void {
+    if (positionMs === null || !Number.isFinite(positionMs)) {
+      this.setPosition(null)
+      return
+    }
+    const now = performance.now()
+    const paused = this.pausedFlag ?? false
+    const delay = sampledAtMs !== undefined && Number.isFinite(sampledAtMs)
+      ? Math.max(0, performance.timeOrigin + now - sampledAtMs)
+      : 0
+    const target = positionMs + (paused ? 0 : delay * this.speed)
+    const current = this.positionMs()
+    if (current === null || paused || discontinuity || Math.abs(target - current) > DISCONTINUITY_MS) {
+      this.setPosition(target)
+      return
+    }
+    const error = target - current
+    this.sample = {
+      positionMs: current,
+      atMs: now,
+      speed: this.speed,
+      paused: false,
+      correctionMs: error,
+      // A backward correction can slow the clock by at most half its rate;
+      // it cannot reverse motion, including at reduced playback speeds.
+      correctionDurationMs: Math.max(CORRECTION_MS, Math.abs(error) / (this.speed * 0.5))
+    }
+  }
+
   setPaused(paused: boolean): void {
+    if (paused === this.pausedFlag) return
     // Freeze (or unfreeze) where the extrapolation has got to, so a pause does
     // not rewind the bar to the last thing the player happened to report.
     const at = this.positionMs()
@@ -49,7 +90,7 @@ export class MediaClock {
   }
 
   setSpeed(speed: number): void {
-    if (!Number.isFinite(speed) || speed <= 0) return
+    if (!Number.isFinite(speed) || speed <= 0 || speed === this.speed) return
     const at = this.positionMs()
     this.speed = speed
     if (at !== null) {
@@ -89,7 +130,14 @@ export class MediaClock {
   positionMs(): number | null {
     if (!this.sample) return null
     if (this.sample.paused) return this.sample.positionMs
-    return this.sample.positionMs + (performance.now() - this.sample.atMs) * this.sample.speed
+    const elapsed = Math.max(0, performance.now() - this.sample.atMs)
+    const correction = (this.sample.correctionMs ?? 0) *
+      Math.min(1, elapsed / (this.sample.correctionDurationMs ?? 1))
+    return this.sample.positionMs + elapsed * this.sample.speed + correction
+  }
+
+  get playbackRate(): number {
+    return this.speed
   }
 
   durationMs(): number | null {

@@ -1,5 +1,6 @@
 import { EventEmitter } from 'node:events'
 import type { WebContents } from 'electron'
+import type { InternalPlayerReport } from '../src/shared/schemas/playback'
 import {
   BUILT_IN_SOURCE_ID,
   DEFAULT_MPV_SOURCE_ID,
@@ -158,7 +159,7 @@ async function playing(): Promise<void> {
       volume: 80,
       ended,
       error: null
-    })
+    }, window)
 
   report('F:/Video/Scene-03.mp4', 91_000)
   check('the position comes back', Math.abs((source.read().positionMs ?? 0) - 91_000) < 60)
@@ -257,11 +258,71 @@ async function handover(): Promise<void> {
   await source.disconnect()
 }
 
+async function reportTiming(): Promise<void> {
+  console.log('internal report timing')
+  const original = globalThis.performance
+  let now = 0
+  const origin = 1_000_000
+  Object.defineProperty(globalThis, 'performance', {
+    configurable: true, value: { now: () => now, timeOrigin: origin }
+  })
+  const source = new InternalSource()
+  const window = fakeWindow()
+  try {
+    claimVideoSurface(window)
+    await source.connect({ launch: true })
+    await source.open('F:/Video/Timing.mp4', null)
+    const report = (positionMs: number, sampledAt: number, extra: Partial<InternalPlayerReport> = {}): void => {
+      reportVideoState({
+        path: 'F:/Video/Timing.mp4', positionMs, sampledAtMs: origin + sampledAt,
+        seekToken: videoIntent().seekToken, playbackRate: 1, buffering: false,
+        durationMs: 60000, paused: false, volume: 80, ended: false, error: null, ...extra
+      }, window)
+    }
+    report(1000, 0)
+    now = 620
+    report(1500, 500)
+    check('internal reports compensate IPC delay', source.read().positionMs === 1620)
+    now = 625
+    report(1290, 290)
+    check('out-of-order reports are ignored', source.read().positionMs === 1625)
+    report(1625, now, { paused: true })
+    now = 700
+    check('pause freezes the internal clock', source.read().positionMs === 1625)
+    report(1625, now)
+    now = 800
+    report(1725, now, { buffering: true })
+    now = 900
+    check('buffering freezes the internal clock', source.read().positionMs === 1725 && source.read().paused === true)
+    report(1725, now)
+    now = 920
+    const oldToken = videoIntent().seekToken
+    await source.seek(1700)
+    report(1740, now - 10)
+    check('a pre-seek sample cannot overwrite an immediate seek', source.read().positionMs === 1700)
+    now = 930
+    report(1740, now, { seekToken: oldToken })
+    check('an old seek token cannot overwrite the new position', source.read().positionMs === 1710)
+    report(1700, 920)
+    check('the matching seek acknowledgement keeps the requested timeline', source.read().positionMs === 1710)
+    now = 940
+    report(1600, now)
+    check('a small periodic error does not step the output clock', source.read().positionMs === 1720)
+    now = 1000
+    check('the corrected output clock continues forward', (source.read().positionMs ?? 0) > 1720)
+  } finally {
+    await source.disconnect()
+    releaseVideoSurface(window)
+    Object.defineProperty(globalThis, 'performance', { configurable: true, value: original })
+  }
+}
+
 await settings()
 await connecting()
 await playing()
 await atRest()
 await handover()
+await reportTiming()
 
 videoSurfaceEvents.removeAllListeners()
 

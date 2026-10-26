@@ -652,8 +652,11 @@ export class ScriptPlayerSession extends EventEmitter {
 
     // Every way the device can end up somewhere the script did not put it earns
     // a fresh ease-in: a seek, a pause or a resume, and losing or finding media.
+    // A delayed main loop also advances video time. Only the residual after
+    // ordinary progress is a seek; elapsed time alone must not restart sync.
+    const expectedAdvance = playing && this.lastPlaying ? deltaMs * (sample.playbackRate ?? 1) : 0
     const seeked = position !== null && this.lastPosition !== null &&
-      Math.abs(position - this.lastPosition) > 250
+      Math.abs(position - this.lastPosition - expectedAdvance) > 250
     if (seeked) this.engine.invalidateCursors()
     if (seeked || playing !== this.lastPlaying || matched !== this.lastMatched) {
       this.engine.resetSync(this.settings.syncDurationMs)
